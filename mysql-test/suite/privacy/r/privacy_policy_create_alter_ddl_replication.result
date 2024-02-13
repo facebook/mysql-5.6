@@ -27,12 +27,8 @@ t1	CREATE TABLE `t1` (
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
 t1	stats_auto_recalc=1 privacy_policy="policy_original"
-set @original_rocksdb_disable_instant_ddl_primary=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
 ## Connecting to replica
 include/sync_slave_sql_with_master.inc
-set @original_rocksdb_disable_instant_ddl_replica=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -190,9 +186,7 @@ t1	CREATE TABLE `t1` (
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
 TABLE_NAME	CREATE_OPTIONS
 t1	stats_auto_recalc=1
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_replica;
 ## Connecting to primary
 drop table t1;
 drop table t1_rocks;
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_primary;
 include/rpl_end.inc

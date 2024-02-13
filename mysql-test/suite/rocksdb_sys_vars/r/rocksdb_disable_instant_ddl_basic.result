@@ -9,7 +9,7 @@ INSERT INTO invalid_values VALUES('\'bbb\'');
 SET @start_global_value = @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 SELECT @start_global_value;
 @start_global_value
-1
+0
 '# Setting to valid values in global scope#'
 "Trying to set variable @@global.ROCKSDB_DISABLE_INSTANT_DDL to 1"
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = 1;
@@ -20,7 +20,7 @@ SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL = DEFAULT;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 "Trying to set variable @@global.ROCKSDB_DISABLE_INSTANT_DDL to 0"
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = 0;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
@@ -30,7 +30,7 @@ SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL = DEFAULT;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 "Trying to set variable @@global.ROCKSDB_DISABLE_INSTANT_DDL to on"
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = on;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
@@ -40,7 +40,7 @@ SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL = DEFAULT;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 "Trying to set variable @@global.ROCKSDB_DISABLE_INSTANT_DDL to off"
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = off;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
@@ -50,7 +50,7 @@ SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL = DEFAULT;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 "Trying to set variable @@session.ROCKSDB_DISABLE_INSTANT_DDL to 444. It should fail because it is not session."
 SET @@session.ROCKSDB_DISABLE_INSTANT_DDL   = 444;
 ERROR HY000: Variable 'rocksdb_disable_instant_ddl' is a GLOBAL variable and should be set with SET GLOBAL
@@ -60,16 +60,16 @@ SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = 'aaa';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 "Trying to set variable @@global.ROCKSDB_DISABLE_INSTANT_DDL to 'bbb'"
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL   = 'bbb';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 SET @@global.ROCKSDB_DISABLE_INSTANT_DDL = @start_global_value;
 SELECT @@global.ROCKSDB_DISABLE_INSTANT_DDL;
 @@global.ROCKSDB_DISABLE_INSTANT_DDL
-1
+0
 DROP TABLE valid_values;
 DROP TABLE invalid_values;

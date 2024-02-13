@@ -24,14 +24,10 @@ eval CREATE TABLE t1_rocks (
 
 SHOW CREATE TABLE t1;
 SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1';
-set @original_rocksdb_disable_instant_ddl_primary=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
 
 --echo ## Connecting to replica
 --source include/sync_slave_sql_with_master.inc
 --connection slave
-set @original_rocksdb_disable_instant_ddl_replica=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
 
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
 
@@ -117,11 +113,9 @@ SELECT TABLE_NAME, CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAM
 
 # Cleanup
 
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_replica;
 --echo ## Connecting to primary
 --connection master
 drop table t1;
 drop table t1_rocks;
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl_primary;
 
 --source include/rpl_end.inc

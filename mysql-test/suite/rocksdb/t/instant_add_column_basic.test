@@ -1,8 +1,8 @@
 # copy test scenarios from innodb instant DDL test 
 # mysql-test/suite/innodb/include/instant_add_column_basic.inc
 #
-set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
+set @saved_rocksd_instant_ddl=@@global.rocksdb_enable_instant_ddl_for_append_column;
+set global rocksdb_enable_instant_ddl_for_append_column = true;
 
 --echo #
 --echo # Scenario 1:
@@ -1635,4 +1635,4 @@ SELECT a,b FROM t1 FORCE INDEX(primary);
 DROP table t1;
 
 # cleanup
-set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;
+set global rocksdb_enable_instant_ddl_for_append_column = @saved_rocksd_instant_ddl;

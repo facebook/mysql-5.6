@@ -1,5 +1,5 @@
-set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
+set @saved_rocksd_instant_ddl=@@global.rocksdb_enable_instant_ddl_for_append_column;
+set global rocksdb_enable_instant_ddl_for_append_column = true;
 #
 # Scenario 1:
 # Create a small table, and add all kinds of new columns and verify
@@ -361,4 +361,4 @@ t1	CREATE TABLE `t1` (
   `b` int NOT NULL DEFAULT '100'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 DROP TABLE t1;
-set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;
+set global rocksdb_enable_instant_ddl_for_append_column = @saved_rocksd_instant_ddl;

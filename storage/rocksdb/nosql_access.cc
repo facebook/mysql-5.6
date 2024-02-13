@@ -2253,8 +2253,7 @@ select_exec_result INLINE_ATTR select_exec::run() {
   // Query on table with instant cols require dd::Table
   dd::cache::Dictionary_client *dd_client = m_thd->dd_client();
   dd::cache::Dictionary_client::Auto_releaser releaser(dd_client);
-  if (!rocksdb_disable_instant_ddl &&
-      dd_client->acquire(m_table_share->db.str, m_table_share->table_name.str,
+  if (dd_client->acquire(m_table_share->db.str, m_table_share->table_name.str,
                          &m_dd_table)) {
     m_handler->print_error(HA_ERR_ROCKSDB_INVALID_TABLE, 0);
     return FAIL;

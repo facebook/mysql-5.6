@@ -507,7 +507,7 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
   bool is_instant_table = false;
   // num of cols before first instant cols append
   uint instant_cols = 0;
-  if (!rocksdb_disable_instant_ddl && dd_table != nullptr) {
+  if (dd_table != nullptr) {
     // check whether table contain instant col
     is_instant_table = dd_table_has_instant_cols(*dd_table);
     if (is_instant_table) {

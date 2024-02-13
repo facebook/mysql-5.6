@@ -981,6 +981,8 @@ static bool rocksdb_alter_table_comment_inplace = false;
 static bool rocksdb_partial_index_blind_delete = true;
 bool rocksdb_partial_index_ignore_killed = true;
 bool rocksdb_disable_instant_ddl = false;
+bool rocksdb_enable_instant_ddl = false;
+bool rocksdb_enable_instant_ddl_for_append_column = false;
 bool rocksdb_enable_instant_ddl_for_column_default_changes = false;
 bool rocksdb_enable_instant_ddl_for_table_comment_changes = false;
 bool rocksdb_enable_instant_ddl_for_drop_index_changes = false;
@@ -2983,11 +2985,22 @@ static MYSQL_SYSVAR_BOOL(
     "problem.",
     nullptr, nullptr, true);
 
-static MYSQL_SYSVAR_BOOL(disable_instant_ddl, rocksdb_disable_instant_ddl,
-                         PLUGIN_VAR_RQCMDARG,
-                         "Disable instant ddl during alter table", nullptr,
-                         nullptr, true);
+static MYSQL_SYSVAR_BOOL(
+    disable_instant_ddl, rocksdb_disable_instant_ddl, PLUGIN_VAR_RQCMDARG,
+    "Disable instant ddl during alter table, This variable is deprecated",
+    nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(enable_instant_ddl, rocksdb_enable_instant_ddl,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Enable instant ddl during alter table if possible. "
+                         "If false, no DDL can be executed as instant",
+                         nullptr, nullptr, true);
+
+static MYSQL_SYSVAR_BOOL(
+    enable_instant_ddl_for_append_column,
+    rocksdb_enable_instant_ddl_for_append_column, PLUGIN_VAR_RQCMDARG,
+    "Enable instant ddl for append column during alter table", nullptr, nullptr,
+    false);
 static MYSQL_SYSVAR_BOOL(
     enable_instant_ddl_for_column_default_changes,
     rocksdb_enable_instant_ddl_for_column_default_changes, PLUGIN_VAR_RQCMDARG,
@@ -3303,6 +3316,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(partial_index_blind_delete),
     MYSQL_SYSVAR(partial_index_ignore_killed),
     MYSQL_SYSVAR(disable_instant_ddl),
+    MYSQL_SYSVAR(enable_instant_ddl),
+    MYSQL_SYSVAR(enable_instant_ddl_for_append_column),
     MYSQL_SYSVAR(enable_instant_ddl_for_column_default_changes),
     MYSQL_SYSVAR(enable_instant_ddl_for_table_comment_changes),
     MYSQL_SYSVAR(enable_instant_ddl_for_drop_index_changes),
@@ -13674,8 +13689,7 @@ int ha_rocksdb::index_init(uint idx, bool sorted MY_ATTRIBUTE((__unused__))) {
     const dd::Table *dd_table = nullptr;
     dd::cache::Dictionary_client *dd_client = thd->dd_client();
     dd::cache::Dictionary_client::Auto_releaser releaser(dd_client);
-    if (!rocksdb_disable_instant_ddl &&
-        dd_client->acquire(table->s->db.str, table->s->table_name.str,
+    if (dd_client->acquire(table->s->db.str, table->s->table_name.str,
                            &dd_table)) {
       DBUG_RETURN(HA_ERR_ROCKSDB_INVALID_TABLE);
     }
@@ -14228,8 +14242,7 @@ void ha_rocksdb::change_table_ptr(TABLE *table_arg, TABLE_SHARE *share) {
 #ifndef DBUG_OFF
     dd::cache::Dictionary_client *dd_client = ha_thd()->dd_client();
     dd::cache::Dictionary_client::Auto_releaser releaser(dd_client);
-    if (!rocksdb_disable_instant_ddl &&
-        dd_client->acquire(table_arg->s->db.str, table_arg->s->table_name.str,
+    if (dd_client->acquire(table_arg->s->db.str, table_arg->s->table_name.str,
                            &dd_table)) {
     }
     assert(dd_table == nullptr);
@@ -16139,7 +16152,7 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
     my_core::Alter_inplace_info *const ha_alter_info MY_ATTRIBUTE((unused)),
     const TABLE *old_table MY_ATTRIBUTE((unused)),
     const TABLE *altered_table MY_ATTRIBUTE((unused))) const {
-  if (rocksdb_disable_instant_ddl) {
+  if (!rocksdb_enable_instant_ddl) {
     return Instant_Type::INSTANT_IMPOSSIBLE;
   }
 
@@ -16197,7 +16210,8 @@ ha_rocksdb::Instant_Type ha_rocksdb::rocksdb_support_instant(
   }
 
   /* If it's an ADD COLUMN without changing existing column orders */
-  if (alter_inplace_flags == Alter_inplace_info::ADD_STORED_BASE_COLUMN) {
+  if (rocksdb_enable_instant_ddl_for_append_column &&
+      alter_inplace_flags == Alter_inplace_info::ADD_STORED_BASE_COLUMN) {
     /*
       LIMITATION: Don't do instant add If new add columns will cause
                   null bits length change.
@@ -17034,7 +17048,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
     } else {
       assert(0);  // not supported yet
     }
-  } else if (!rocksdb_disable_instant_ddl) {
+  } else {
     dd_copy_private(*new_dd_tab, *old_dd_tab);
     dd_copy_table_columns(*new_dd_tab, *old_dd_tab);
   }

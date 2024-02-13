@@ -2177,8 +2177,8 @@ The following options may be given as the first argument:
  --rocksdb-disable-file-deletions 
  Prevent file deletions
  --rocksdb-disable-instant-ddl 
- Disable instant ddl during alter table
- (Defaults to on; use --skip-rocksdb-disable-instant-ddl to disable.)
+ Disable instant ddl during alter table, This variable is
+ deprecated
  --rocksdb-enable-bulk-load-api 
  Enables using SstFileWriter for bulk loading
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
@@ -2189,6 +2189,12 @@ The following options may be given as the first argument:
  from a failed insertion attempt in INSERT ON DUPLICATE
  KEY UPDATE
  (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
+ --rocksdb-enable-instant-ddl 
+ Enable instant ddl during alter table if possible. If
+ false, no DDL can be executed as instant
+ (Defaults to on; use --skip-rocksdb-enable-instant-ddl to disable.)
+ --rocksdb-enable-instant-ddl-for-append-column 
+ Enable instant ddl for append column during alter table
  --rocksdb-enable-instant-ddl-for-column-default-changes 
  Enable instant ddl for column default during alter table
  --rocksdb-enable-instant-ddl-for-drop-index-changes 
@@ -3878,10 +3884,12 @@ rocksdb-delayed-write-rate 0
 rocksdb-delete-cf 
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disable-file-deletions FALSE
-rocksdb-disable-instant-ddl TRUE
+rocksdb-disable-instant-ddl FALSE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-delete-range-for-drop-index FALSE
 rocksdb-enable-insert-with-update-caching TRUE
+rocksdb-enable-instant-ddl TRUE
+rocksdb-enable-instant-ddl-for-append-column FALSE
 rocksdb-enable-instant-ddl-for-column-default-changes FALSE
 rocksdb-enable-instant-ddl-for-drop-index-changes FALSE
 rocksdb-enable-instant-ddl-for-table-comment-changes FALSE

@@ -2,8 +2,8 @@ if($allow_debug_commands) {
     SET SESSION debug= '+d,skip_dd_table_access_check';
 }
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
-set @original_rocksdb_disable_instant_ddl=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
+set @saved_rocksdb_instant_ddl=@@global.rocksdb_enable_instant_ddl_for_append_column;
+set global rocksdb_enable_instant_ddl_for_append_column = true;
 --echo ########################################################################
 --echo === Creating table with PRIVACY_POLICY!
 --echo ########################################################################
@@ -76,6 +76,7 @@ if($allow_debug_commands) {
 --echo ########################################################################
 --echo === INSTANT Altering table for PRIVACY_POLICY!
 --echo ########################################################################
+
 eval ALTER TABLE t1_inno PRIVACY_POLICY='$privacy_policy_1', ALGORITHM=INSTANT;
 ALTER TABLE t1_inno ADD COLUMN c1 INT NOT NULL, ALGORITHM=INSTANT;
 SHOW CREATE TABLE t1_inno;
@@ -213,4 +214,4 @@ drop table nopolicy;
 if($allow_debug_commands) {
     SET SESSION debug= '-d,skip_dd_table_access_check';
 }
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl;
+set global rocksdb_enable_instant_ddl_for_append_column = @saved_rocksdb_instant_ddl;

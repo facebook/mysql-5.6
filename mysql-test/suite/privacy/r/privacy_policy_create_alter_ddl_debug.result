@@ -1,7 +1,7 @@
 SET SESSION debug= '+d,skip_dd_table_access_check';
 SET @@session.show_create_table_contain_privacy_policy = TRUE;
-set @original_rocksdb_disable_instant_ddl=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
+set @saved_rocksdb_instant_ddl=@@global.rocksdb_enable_instant_ddl_for_append_column;
+set global rocksdb_enable_instant_ddl_for_append_column = true;
 ########################################################################
 === Creating table with PRIVACY_POLICY!
 ########################################################################
@@ -318,4 +318,4 @@ drop table t1_rocks;
 drop table longPolicy;
 drop table nopolicy;
 SET SESSION debug= '-d,skip_dd_table_access_check';
-set global rocksdb_disable_instant_ddl = @original_rocksdb_disable_instant_ddl;
+set global rocksdb_enable_instant_ddl_for_append_column = @saved_rocksdb_instant_ddl;

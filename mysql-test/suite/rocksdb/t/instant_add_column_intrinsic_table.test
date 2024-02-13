@@ -1,7 +1,7 @@
 --source suite/rocksdb/include/have_write_committed.inc
 
-set @saved_rocksdb_instant_ddl=@@global.rocksdb_disable_instant_ddl;
-set global rocksdb_disable_instant_ddl = false;
+set @saved_rocksdb_instant_ddl=@@global.rocksdb_enable_instant_ddl_for_append_column;
+set global rocksdb_enable_instant_ddl_for_append_column = false;
 
 --echo #
 --echo # query use intrinsic table
@@ -70,5 +70,5 @@ SET @@session.tmp_table_size=default;
 SET @@session.internal_tmp_mem_storage_engine=default;
 DROP TABLE t1;
 
-set global rocksdb_disable_instant_ddl = @saved_rocksdb_instant_ddl;
+set global rocksdb_enable_instant_ddl_for_append_column = @saved_rocksdb_instant_ddl;
 
