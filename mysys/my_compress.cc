@@ -103,6 +103,7 @@ void mysql_compress_context_init(mysql_compress_context *cmp_ctx,
       cmp_ctx->u.lz4f_ctx.dctx = nullptr;
       cmp_ctx->u.lz4f_ctx.compress_buf = nullptr;
       cmp_ctx->u.lz4f_ctx.compress_buf_len = 0;
+      break;
 
     default:
       break;
