@@ -67,7 +67,7 @@ enable_result_log;
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 
-# At this point, there should be 4 entries in the P_S.SQL_PLANS table
+# At this point, there should be 3 entries in the P_S.SQL_PLANS table
 # 2 entries for the sql_plans for tables t1 and t2
 # 1 entry for the P_S.SQL_PLANS tables (should have 2 COUNT_OCCUR
 #   *after* this statement)
@@ -84,6 +84,10 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
+--echo
+--echo -> total_stmts count will be 4 to account for the SELECT COUNT(*) above
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 # Next, check that turning the sql_plans_control OFF at this stage clears up 
 # the P_S.SQL_PLANS table
@@ -98,6 +102,8 @@ SELECT COUNT(*) FROM performance_schema.sql_plans;
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 # Next, test that 5 different statement leads to as many plans getting captured
 
@@ -129,6 +135,9 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> total_stmts count will be 6 to account for the last SELECT above
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 # Next, test that the same 5 statements as in the previous section do not
 # add more entries to the P_S.SQL_PLANS table
@@ -162,6 +171,9 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+# the count below should be 12 (5 + 1 + 5 + 1) that includes the sql_plans SELECTs
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo
 --echo  .*************************************************.
@@ -187,6 +199,8 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 # Don't RESET state for this next test
 
@@ -219,6 +233,9 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> total_stmts* count will stay same as the previous time
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 # Don't RESET state for this next test
 
@@ -252,6 +269,9 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -281,6 +301,9 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> 4 new counts for last 3 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -312,6 +335,9 @@ enable_result_log;
 
 --echo There should be only two plans for the above 4 SELECT statements
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> 5 new counts for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -349,6 +375,10 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> Because of sampling_rate=2, every second seen statement gets sampled
+--echo The last sql_plans SELECT adds an extra count to total_stmts_seen
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -388,6 +418,10 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> Because sql_plans_max_buffer was exceeded after the 1st SELECT, only
+--echo 1 statement plan gets captured, and only 1 count added below
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -425,6 +459,10 @@ enable_result_log;
 --echo
 
 SELECT PLAN_ROW, PLAN_ID, COUNT_OCCUR FROM performance_schema.sql_plans;
+--echo -> Because sql_plans_max_buffer was exceeded after the 2nd SELECT, only
+--echo 2 statement plans gets captured, and only 2 counts get added below
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -501,6 +539,10 @@ enable_result_log;
 # Note that the non table SELECTs also don't have entries 
 
 SELECT * FROM performance_schema.sql_plans;
+--echo Because of sql_plans_skip_builtin_db=ON, plans don't get captured, and
+--echo the counts below also don't increment
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo
 --echo -> Now turn `sql_plans_skip_builtin_db` back OFF
@@ -531,6 +573,11 @@ enable_result_log;
 # Using COUNT to avoid voluminous output for the sys.host_summary table
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
+--echo Because now sql_plans_skip_builtin_db=OFF, plans for the last 4 SELECTs
+--echo get captured, and counts below go up, including 1 for SELECT COUNT(*)
+--echo the counts below also don't increment
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
 --echo 
 --echo -> Clean up all state changes

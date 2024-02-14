@@ -100,6 +100,14 @@ SELECT COUNT(*) FROM performance_schema.sql_plans;
 COUNT(*)
 3
 
+-> total_stmts count will be 4 to account for the SELECT COUNT(*) above
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	4
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	4
+
 .*************************************************************.
 | Test that OFF_HARD switch cleans up the P_S.SQL_PLANS table |
 `*************************************************************`
@@ -109,6 +117,12 @@ COUNT(*)
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 PLAN_ID	COUNT_OCCUR	PLAN_ROW
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	0
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	0
 
 .**************************************************************.
 | Test basic plan normalization, plan hashing and plan capture |
@@ -151,6 +165,13 @@ bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	1	-> Table scan on t1
 
+-> total_stmts count will be 6 to account for the last SELECT above
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	6
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	6
 
 .*******************************************.
 | Test correct hashing for repeated queries |
@@ -196,6 +217,12 @@ bc85a4885b10aa0987188e1a7ce95b72	2	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	2	-> Table scan on t1
 
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	12
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	12
 
 .*************************************************.
 | Test correct hashing for multistatement queries |
@@ -234,6 +261,12 @@ bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
 
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	15
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	15
 
 .*********************************.
 | Test sql_plans_control=OFF_SOFT |
@@ -276,6 +309,13 @@ bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
 
+-> total_stmts* count will stay same as the previous time
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	15
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	15
 
 .*****************************************.
 | Test sql_plans_control=ON from OFF_SOFT |
@@ -331,6 +371,13 @@ bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
 
 0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
 
+-> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	20
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	20
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;
@@ -353,6 +400,13 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
 16958bdf6935049edca960803ba464c8	3	-> Filter: ((t2.pk_col1 > ?) and (t2.pk_col2 <= ?))
     -> Index range scan on t2 using PRIMARY over (? < pk_col1)
 
+-> 4 new counts for last 3 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	4
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	4
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;
@@ -378,6 +432,13 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
 d46d28003f9055af551576aa1e3033aa	2	-> Filter: (t1.c in (?,?,?,?,?))
     -> Table scan on t1
 
+-> 5 new counts for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	5
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	5
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 
@@ -417,6 +478,14 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
 
 bc85a4885b10aa0987188e1a7ce95b72	1	-> Covering index scan on t2 using c1_c2_idx
 
+-> Because of sampling_rate=2, every second seen statement gets sampled
+The last sql_plans SELECT adds an extra count to total_stmts_seen
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	7
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	3
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_sampling_rate=1;
@@ -450,6 +519,14 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
 04d919553d7cfda90b689560bc18e3a4	1	-> Limit: 1 row(s)
     -> Table scan on t1
 
+-> Because sql_plans_max_buffer was exceeded after the 1st SELECT, only
+1 statement plan gets captured, and only 1 count added below
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	1
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	1
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_max_buffer=10485760;
@@ -484,6 +561,14 @@ PLAN_ROW	PLAN_ID	COUNT_OCCUR
 -> Limit: 1 row(s)
     -> Table scan on t1
 	04d919553d7cfda90b689560bc18e3a4	1
+-> Because sql_plans_max_buffer was exceeded after the 2nd SELECT, only
+2 statement plans gets captured, and only 2 counts get added below
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	2
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	2
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_max_buffer=10485760;
@@ -532,6 +617,14 @@ select * from mysql.db;
 
 SELECT * FROM performance_schema.sql_plans;
 PLAN_ID	COUNT_OCCUR	LAST_RECORDED	PLAN_ROW
+Because of sql_plans_skip_builtin_db=ON, plans don't get captured, and
+the counts below also don't increment
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	0
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	0
 
 -> Now turn `sql_plans_skip_builtin_db` back OFF
 
@@ -551,6 +644,15 @@ select * from mysql.db;
 SELECT COUNT(*) FROM performance_schema.sql_plans;
 COUNT(*)
 4
+Because now sql_plans_skip_builtin_db=OFF, plans for the last 4 SELECTs
+get captured, and counts below go up, including 1 for SELECT COUNT(*)
+the counts below also don't increment
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	5
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	5
 
 -> Clean up all state changes
 

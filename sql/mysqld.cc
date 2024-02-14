@@ -11347,6 +11347,19 @@ static int show_latency_histogram_engine_commit_trx(THD * /*thd*/,
       latency_histogram_engine_commit_trx, &histogram_binlog_engine_commit_trx);
 }
 
+static int show_sql_plans_stmts_seen(THD *, SHOW_VAR *var, char *buf) {
+  var->type = SHOW_LONGLONG;
+  var->value = buf;
+  *((ulonglong *)buf) = sql_plans_total_stmts_seen;
+  return 0;
+}
+
+static int show_sql_plans_stmts_sampled(THD *, SHOW_VAR *var, char *buf) {
+  var->type = SHOW_LONGLONG;
+  var->value = buf;
+  *((ulonglong *)buf) = sql_plans_total_stmts_sampled;
+  return 0;
+}
 
 SHOW_VAR status_vars[] = {
 
@@ -11712,6 +11725,10 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Sort_scan", (char *)offsetof(System_status_var, filesort_scan_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Sql_plans_total_stmts_seen", (char *)&show_sql_plans_stmts_seen,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Sql_plans_total_stmts_sampled", (char *)&show_sql_plans_stmts_sampled,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Ssl_accept_renegotiates",
      (char *)&Ssl_mysql_main_status::show_ssl_ctx_sess_accept_renegotiate,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},

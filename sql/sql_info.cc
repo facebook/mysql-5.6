@@ -631,9 +631,9 @@ std::unordered_map<digest_key, Plan_val> plan_ht;
 ulonglong current_sql_plans_buffer;
 
 // Total stmts that passed all checks and were ready to be sampled
-std::atomic<ulonglong> total_stmts_seen;
+std::atomic<ulonglong> sql_plans_total_stmts_seen;
 // Total stmts that got sampled (due to sampling_rate)
-std::atomic<ulonglong> total_stmts_sampled;
+std::atomic<ulonglong> sql_plans_total_stmts_sampled;
 
 void capture_query_plan(THD *thd) {
   DBUG_TRACE;
@@ -678,10 +678,10 @@ void capture_query_plan(THD *thd) {
   if (plan.empty()) {
     // nothing captured
     // decr counter to make sure sampling logic works;
-    total_stmts_seen--;
+    sql_plans_total_stmts_seen--;
     return;
   }
-  total_stmts_sampled++;
+  sql_plans_total_stmts_sampled++;
 
   // at this point we should have the normalized plan captured
 
@@ -772,8 +772,8 @@ bool plan_capture_check_sampling_rate() {
   // so that the next capture (or increment the counter only after
   // plan capture completed)
 
-  total_stmts_seen++;
-  if (total_stmts_seen % sql_plans_sampling_rate) return true;
+  sql_plans_total_stmts_seen++;
+  if (sql_plans_total_stmts_seen % sql_plans_sampling_rate) return true;
 
   return false;
 }
@@ -804,8 +804,8 @@ void reset_sql_plans() {
   plan_ht.clear();
 
   current_sql_plans_buffer = 0;
-  total_stmts_seen = 0;
-  total_stmts_sampled = 0;
+  sql_plans_total_stmts_seen = 0;
+  sql_plans_total_stmts_sampled = 0;
 
   mysql_mutex_unlock(&LOCK_plan_ht);
 }

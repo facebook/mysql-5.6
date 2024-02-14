@@ -625,6 +625,10 @@ extern bool sql_plans_norm_use_arg_counts;
  * Currently this includes tables in mysql, sys, performance_schema
  * and information_schema databases. */
 extern bool sql_plans_skip_builtin_db;
+/* Total stmts that passed all checks and were ready to be sampled */
+extern std::atomic<ulonglong> sql_plans_total_stmts_seen;
+/* Total stmts that got sampled (due to sampling_rate) */
+extern std::atomic<ulonglong> sql_plans_total_stmts_sampled;
 
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;
