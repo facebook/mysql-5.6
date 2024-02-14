@@ -2090,6 +2090,7 @@ longlong TIME_to_longlong_packed(const MYSQL_TIME &my_time) {
       return TIME_to_longlong_date_packed(my_time);
     case MYSQL_TIMESTAMP_DATETIME_TZ:
       assert(false);  // Should not be this type at this point.
+      [[fallthrough]];
     case MYSQL_TIMESTAMP_DATETIME:
       return TIME_to_longlong_datetime_packed(my_time);
     case MYSQL_TIMESTAMP_TIME:

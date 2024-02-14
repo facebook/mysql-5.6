@@ -1642,6 +1642,7 @@ rec_loop:
       switch (err) {
         case DB_SUCCESS_LOCKED_REC:
           err = DB_SUCCESS;
+          [[fallthrough]];
         case DB_SUCCESS:
           break;
         default:
@@ -1692,6 +1693,7 @@ skip_lock:
     switch (err) {
       case DB_SUCCESS_LOCKED_REC:
         err = DB_SUCCESS;
+        [[fallthrough]];
       case DB_SUCCESS:
         break;
       default:
@@ -4877,12 +4879,14 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
       switch (err) {
         case DB_SUCCESS_LOCKED_REC:
           err = DB_SUCCESS;
+          [[fallthrough]];
         case DB_SUCCESS:
           break;
         case DB_SKIP_LOCKED:
         case DB_LOCK_NOWAIT:
           ut_d(ut_error);
           ut_o(goto next_rec);
+          [[fallthrough]];
         default:
           goto lock_wait_or_error;
       }
@@ -4985,11 +4989,13 @@ rec_loop:
       switch (err) {
         case DB_SUCCESS_LOCKED_REC:
           err = DB_SUCCESS;
+          [[fallthrough]];
         case DB_SUCCESS:
           break;
         case DB_SKIP_LOCKED:
         case DB_LOCK_NOWAIT:
           ut_d(ut_error);
+          [[fallthrough]];
         default:
           goto lock_wait_or_error;
       }
@@ -5108,6 +5114,7 @@ rec_loop:
           case DB_SKIP_LOCKED:
           case DB_LOCK_NOWAIT:
             ut_d(ut_error);
+            [[fallthrough]];
           default:
             goto lock_wait_or_error;
         }
@@ -5142,6 +5149,7 @@ rec_loop:
           case DB_SKIP_LOCKED:
           case DB_LOCK_NOWAIT:
             ut_d(ut_error);
+            [[fallthrough]];
           default:
             goto lock_wait_or_error;
         }

@@ -13582,6 +13582,7 @@ int Write_rows_log_event::write_row(const Relay_log_info *const rli,
             DBUG_PRINT("info", ("ignoring HA_ERR_RECORD_IS_THE_SAME error from"
                                 " ha_update_row()"));
             error = 0;
+            [[fallthrough]];
 
           case 0:
             break;

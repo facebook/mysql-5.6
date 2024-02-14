@@ -600,6 +600,7 @@ inline bool check_database_filters(THD *thd, const char *db,
       case SQLCOM_ALTER_DB:
       case SQLCOM_DROP_DB:
         db_ok = rpl_filter->db_ok_with_wild_table(db);
+        [[fallthrough]];
       default:
         break;
     }

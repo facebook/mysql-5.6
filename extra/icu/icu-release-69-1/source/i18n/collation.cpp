@@ -142,7 +142,7 @@ Collation::unassignedPrimaryFromCodePoint(UChar32 c) {
     // Second byte: 251 values 04..FE excluding the primary compression bytes.
     primary |= (4 + (c % 251)) << 16;
     // One lead byte covers all code points (c < 0x1182B4 = 1*251*254*18).
-    return primary | (UNASSIGNED_IMPLICIT_BYTE << 24);
+    return primary | ((unsigned)UNASSIGNED_IMPLICIT_BYTE << 24);
 }
 
 U_NAMESPACE_END

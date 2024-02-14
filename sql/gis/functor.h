@@ -124,6 +124,7 @@ class not_implemented_exception : public std::exception {
     switch (g.coordinate_system()) {
       default:
         assert(false);  // C++11 woes. /* purecov: inspected */
+        [[fallthrough]];
       case Coordinate_system::kCartesian:
         return not_implemented_exception(kCartesian, g);
       case Coordinate_system::kGeographic:
@@ -136,6 +137,7 @@ class not_implemented_exception : public std::exception {
     switch (g1.coordinate_system()) {
       default:
         assert(false);  // C++11 woes. /* purecov: inspected */
+        [[fallthrough]];
       case Coordinate_system::kCartesian:
         return not_implemented_exception(kCartesian, g1, g2);
       case Coordinate_system::kGeographic:

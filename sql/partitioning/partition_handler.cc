@@ -1491,6 +1491,7 @@ int Partition_helper::ph_rnd_end() {
     case 3:  // Error
       assert(0);
       /* fall through. */
+      [[fallthrough]];
     case 2:  // Error
       break;
     case 1:

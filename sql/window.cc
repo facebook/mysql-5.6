@@ -282,6 +282,7 @@ bool Window::setup_range_expressions(THD *thd) {
             goto ok;
           case STRING_RESULT:
             if (order_expr->is_temporal()) goto ok;
+            [[fallthrough]];
           default:;
         }
         my_error(ER_WINDOW_RANGE_FRAME_ORDER_TYPE, MYF(0), printable_name());

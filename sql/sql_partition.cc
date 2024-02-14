@@ -5378,6 +5378,7 @@ static void set_up_range_analysis_info(partition_info *part_info) {
             get_part_iter_for_interval_cols_via_map;
         goto setup_subparts;
       }
+      [[fallthrough]];
     default:;
   }
 

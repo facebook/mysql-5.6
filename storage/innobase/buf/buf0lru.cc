@@ -2484,6 +2484,7 @@ void buf_LRU_validate_instance(buf_pool_t *buf_pool) {
       case BUF_BLOCK_FILE_PAGE:
         ut_ad(((buf_block_t *)bpage)->in_unzip_LRU_list ==
               buf_page_belongs_to_unzip_LRU(bpage));
+        [[fallthrough]];
       case BUF_BLOCK_ZIP_PAGE:
       case BUF_BLOCK_ZIP_DIRTY:
         break;

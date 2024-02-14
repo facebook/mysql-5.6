@@ -1479,6 +1479,7 @@ void Prepared_statement::trace_parameter_types(THD *thd) {
       case MYSQL_TYPE_DATETIME:
         snprintf(buf, sizeof(buf), "%s decimals=%d", n, (*it)->decimals);
         n = buf;
+        [[fallthrough]];
       default:;
     }
     typ.add_alnum(n);

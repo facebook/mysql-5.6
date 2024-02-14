@@ -100,6 +100,7 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
           *first_gtid_start_pos = first_gtid_start;
         }
       }
+      [[fallthrough]];
       default: {
         break;
       }

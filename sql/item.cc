@@ -6426,6 +6426,7 @@ Field *Item::tmp_table_field_from_field_type(TABLE *table,
       assert(0);
       /* If something goes awfully wrong, it's better to get a string than die
        */
+      [[fallthrough]];
     case MYSQL_TYPE_STRING:
     case MYSQL_TYPE_NULL:
       if (fixed_length && max_length <= CONVERT_IF_BIGGER_TO_BLOB) {
@@ -6639,6 +6640,7 @@ type_conversion_status Item::save_in_field_inner(Field *field,
             break;
           case MYSQL_TYPE_YEAR:
             assert(false);
+            [[fallthrough]];
           default:
             assert(false);
         }

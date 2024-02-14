@@ -5460,6 +5460,7 @@ dberr_t lock_rec_insert_check_and_lock(
       /* Update the page max trx id field */
       page_update_max_trx_id(block, buf_block_get_page_zip(block), trx->id,
                              mtr);
+      [[fallthrough]];
     default:
       /* We only care about the two return values. */
       break;

@@ -400,7 +400,6 @@ void Client::on_client_addr() {
 
     case xpl::Connection_namedpipe:
     case xpl::Connection_unixsocket:
-      [[fallthrough]];
       m_client_host = "localhost";
       return;
 

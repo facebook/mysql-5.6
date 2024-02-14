@@ -1191,6 +1191,7 @@ void _mi_store_blob_length(uchar *pos, uint pack_length, uint length) {
       break;
     case 4:
       int4store(pos, length);
+      break;
     default:
       break;
   }

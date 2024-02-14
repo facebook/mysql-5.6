@@ -171,6 +171,7 @@ bool Strict_error_handler::handle_condition(
     case SQLCOM_SELECT:
       if (m_set_select_behavior == DISABLE_SET_SELECT_STRICT_ERROR_HANDLER)
         return false;
+      [[fallthrough]];
     case SQLCOM_CREATE_TABLE:
     case SQLCOM_CREATE_INDEX:
     case SQLCOM_DROP_INDEX:

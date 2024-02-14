@@ -282,6 +282,7 @@ int Event_parse_data::init_interval(THD *thd) {
       break;
     case INTERVAL_LAST:
       assert(0);
+      [[fallthrough]];
     default:; /* these are the microsec stuff */
   }
   if (interval_tmp.neg || expression == 0 ||

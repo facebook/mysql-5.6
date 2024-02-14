@@ -102,6 +102,7 @@ void handle_gis_exception(const char *funcname) {
     switch (e.srs_type()) {
       default:
         assert(false);  // C++11 woes. /* purecov: inspected */
+        [[fallthrough]];
       case gis::not_implemented_exception::kCartesian:
         er_variant = ER_NOT_IMPLEMENTED_FOR_CARTESIAN_SRS;
         break;

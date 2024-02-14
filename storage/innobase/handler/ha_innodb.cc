@@ -9245,6 +9245,7 @@ int ha_innobase::write_row(uchar *record) /*!< in: a row in MySQL format */
             if (!m_prebuilt->allow_duplicates()) {
               break;
             }
+            [[fallthrough]];
 
           case SQLCOM_REPLACE:
           case SQLCOM_INSERT_SELECT:
@@ -18181,6 +18182,7 @@ static bool innobase_get_tablespace_statistics(
         type = "UNDO LOG";
         break;
       } /* else fall through for TABLESPACE */
+      [[fallthrough]];
     case FIL_TYPE_IMPORT:
       /* 'IMPORTING'is a status. The type is TABLESPACE. */
       break;

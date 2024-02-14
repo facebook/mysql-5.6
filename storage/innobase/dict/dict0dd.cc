@@ -4231,6 +4231,7 @@ dberr_t dd_table_load_fk_from_dd(dict_table_t *m_table,
         */
       case dd::Foreign_key::RULE_SET_DEFAULT:
         foreign->type |= DICT_FOREIGN_ON_DELETE_NO_ACTION;
+        [[fallthrough]];
       case dd::Foreign_key::RULE_RESTRICT:
         break;
       case dd::Foreign_key::RULE_CASCADE:

@@ -390,6 +390,7 @@ bool get_field_numeric_scale(const Create_field *field, uint *scale) {
     case MYSQL_TYPE_INT24:
     case MYSQL_TYPE_LONGLONG:
       assert(field->decimals == 0);
+      [[fallthrough]];
     default:
       return true;
   }

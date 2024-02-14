@@ -1953,6 +1953,7 @@ bool sql_scalar_to_json(Item *arg, const char *calling_function, String *value,
       assert(false); /* purecov: inspected */
 
       // fall-through
+      [[fallthrough]];
     default:
       my_error(ER_INVALID_CAST_TO_JSON, MYF(0));
       return true;

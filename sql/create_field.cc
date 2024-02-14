@@ -616,6 +616,7 @@ void Create_field::init_for_tmp_table(enum_field_types sql_type_arg,
 
     case MYSQL_TYPE_NEWDECIMAL:
       assert(decimals_arg <= DECIMAL_MAX_SCALE);
+      [[fallthrough]];
     case MYSQL_TYPE_DECIMAL:
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DOUBLE:

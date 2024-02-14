@@ -749,6 +749,7 @@ try_again:
           case DB_UNDERFLOW:
           case DB_ZIP_OVERFLOW:
             err = DB_FAIL;
+            [[fallthrough]];
           default:
             break;
         }

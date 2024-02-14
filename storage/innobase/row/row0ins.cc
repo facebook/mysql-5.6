@@ -283,6 +283,7 @@ void ins_node_set_new_row(
       case DB_UNDERFLOW:
       case DB_ZIP_OVERFLOW:
         err = DB_FAIL;
+        [[fallthrough]];
       default:
         break;
     }
@@ -361,6 +362,7 @@ void ins_node_set_new_row(
       case DB_UNDERFLOW:
       case DB_ZIP_OVERFLOW:
         err = DB_FAIL;
+        [[fallthrough]];
       default:
         break;
     }
@@ -1670,6 +1672,7 @@ dberr_t row_ins_check_foreign_constraint(
           } else {
             err = DB_SUCCESS;
           }
+          [[fallthrough]];
         default:
           break;
       }
@@ -2003,6 +2006,7 @@ static bool row_allow_duplicates(que_thr_t *thr) {
     switch (err) {
       case DB_SUCCESS_LOCKED_REC:
         err = DB_SUCCESS;
+        [[fallthrough]];
       case DB_SUCCESS:
         break;
       default:

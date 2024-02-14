@@ -673,6 +673,7 @@ TA_field_type field_type_to_api(enum enum_field_types impl_field_type,
       break;
     case MYSQL_TYPE_JSON:
       result = TA_TYPE_JSON;
+      [[fallthrough]];
     default:
       break;
   };
