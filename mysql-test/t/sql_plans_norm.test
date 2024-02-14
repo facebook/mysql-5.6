@@ -130,11 +130,81 @@ enable_result_log;
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 
+--echo Cleaning up state 
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+--echo
+--echo  .*******************************************.
+--echo  | Test plan capture without EXPR TREE pruning |
+--echo  `*******************************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+
+disable_result_log;
+
+--echo SELECT #1
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 2 AND pk_col2 < 8 GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+--echo SELECT #2
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 1 AND pk_col2 < 9 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 IN ('a', 'b', 'd', 'f') ;
+
+--echo SELECT #3
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 3 AND pk_col2 < 7 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 NOT IN ('a', 'b', 'd', 'f') OR c1 LIKE '%c%';
+
+--echo SELECT #4
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 0 AND pk_col2 < 6 AND c2 IN ('b', 'c', 'f') GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+enable_result_log;
+
+--echo 
+--echo -> There should be four different plans for the above 4 SELECT statements
+--echo    with EXPR TREE pruning turned OFF
+--echo 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+
+--echo Cleaning up state 
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+
+--echo
+--echo  .*******************************************.
+--echo  | Test plan capture with EXPR TREE pruning |
+--echo  `*******************************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_norm_prune_expr_trees=ON;
+
+disable_result_log;
+
+--echo SELECT #1
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 2 AND pk_col2 < 8 GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+--echo SELECT #2
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 1 AND pk_col2 < 9 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 IN ('a', 'b', 'd', 'f') ;
+
+--echo SELECT #3
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 3 AND pk_col2 < 7 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 NOT IN ('a', 'b', 'd', 'f') OR c1 LIKE '%c%';
+
+--echo SELECT #4
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 0 AND pk_col2 < 6 AND c2 IN ('b', 'c', 'f') GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+enable_result_log;
+
+--echo 
+--echo -> There should be only one plan for the above 4 SELECT statements
+--echo    with EXPR TREE pruning turned ON
+--echo 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+
 
 # Clean up all state changes 
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
-set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+set @@GLOBAL.sql_plans_norm_prune_expr_trees=OFF;
 
 drop table t1;
 

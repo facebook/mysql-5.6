@@ -680,6 +680,16 @@ static bool PrintRanges(const QUICK_RANGE *const *ranges, unsigned num_ranges,
                         const std::unique_ptr<Json_array> &range_array,
                         string *ranges_out) {
   string range, shortened_range;
+
+  // Return normalized range output
+  if (current_thd->plan_capture() &&
+      current_thd->is_plan_modifier_set(
+            THD::Plan_format::PRUNE_EXPR_TREES)) {
+    range += "<Range expr>";
+    *ranges_out = range;
+    return false;
+  }
+
   for (unsigned range_idx = 0; range_idx < num_ranges; ++range_idx) {
     if (range_idx == 2 && num_ranges > 3) {
       char str[256];

@@ -150,7 +150,83 @@ PLAN_ID	COUNT_OCCUR	PLAN_ROW
             -> Filter: ((t1.pk_col1 in (...) and (t1.pk_col1 not in (...))
                 -> Covering index scan on t1 using c1_c2_idx
 
+Cleaning up state 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_norm_prune_in_lists=OFF;
+
+.*******************************************.
+| Test plan capture without EXPR TREE pruning |
+`*******************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+SELECT #1
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 2 AND pk_col2 < 8 GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+SELECT #2
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 1 AND pk_col2 < 9 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 IN ('a', 'b', 'd', 'f') ;
+SELECT #3
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 3 AND pk_col2 < 7 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 NOT IN ('a', 'b', 'd', 'f') OR c1 LIKE '%c%';
+SELECT #4
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 0 AND pk_col2 < 6 AND c2 IN ('b', 'c', 'f') GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+-> There should be four different plans for the above 4 SELECT statements
+with EXPR TREE pruning turned OFF
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+16f59194e6a996e0203f2cf21919e05e	1	-> Filter: ((sum < ?) and (t1.c1 not in (?,?,?,?)))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 > ?) and (t1.pk_col2 < ?) and (t1.c2 in (?,?,?)))
+                -> Index range scan on t1 using PRIMARY over (? < pk_col1)
+
+e3ce5c0beb7dcfda08273e77aea09679	1	-> Filter: (((sum < ?) and (sum > ?) and (t1.c1 not in (?,?,?,?))) or (t1.c1 like ?))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 > ?) and (t1.pk_col2 < ?))
+                -> Index range scan on t1 using PRIMARY over (? < pk_col1)
+
+9b86e091673f288d41986df77ca5b382	1	-> Filter: ((sum < ?) and (sum > ?) and (t1.c1 in (?,?,?,?)))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 > ?) and (t1.pk_col2 < ?))
+                -> Index range scan on t1 using PRIMARY over (? < pk_col1)
+
+b7963d9bb9424d6d89ad0b1e51c7baaa	1	-> Filter: ((sum < ?) and (t1.c1 not in (?,?,?,?)))
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: ((t1.pk_col1 > ?) and (t1.pk_col2 < ?))
+                -> Index range scan on t1 using PRIMARY over (? < pk_col1)
+
+Cleaning up state 
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+
+.*******************************************.
+| Test plan capture with EXPR TREE pruning |
+`*******************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_norm_prune_expr_trees=ON;
+SELECT #1
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 2 AND pk_col2 < 8 GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+SELECT #2
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 1 AND pk_col2 < 9 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 IN ('a', 'b', 'd', 'f') ;
+SELECT #3
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 3 AND pk_col2 < 7 GROUP BY pk_col1, c1 HAVING sum < 5 AND sum > 1  AND c1 NOT IN ('a', 'b', 'd', 'f') OR c1 LIKE '%c%';
+SELECT #4
+SELECT pk_col1, c1, SUM(pk_col2) AS sum FROM t1 WHERE pk_col1 > 0 AND pk_col2 < 6 AND c2 IN ('b', 'c', 'f') GROUP BY pk_col1, c1 HAVING sum < 5 AND c1 NOT IN ('a', 'b', 'd', 'f') ;
+
+-> There should be only one plan for the above 4 SELECT statements
+with EXPR TREE pruning turned ON
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+03b4142a53a27f49047f10f418477dc4	4	-> Filter: (<Cond expr>)
+    -> Table scan on <temporary>
+        -> Aggregate using temporary table
+            -> Filter: (<Cond expr>)
+                -> Index range scan on t1 using PRIMARY over <Range expr>
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_prune_expr_trees=OFF;
 drop table t1;
 drop database test_db;

@@ -5901,6 +5901,11 @@ void Item_cond::update_used_tables() {
 void Item_cond::print(const THD *thd, String *str,
                       enum_query_type query_type) const {
   str->append('(');
+  if (thd->plan_capture() &&
+      thd->is_plan_modifier_set(THD::Plan_format::PRUNE_EXPR_TREES)) {
+      str->append(STRING_WITH_LEN("<Cond expr>)"));
+      return;
+  }
   bool first = true;
   for (auto &item : list) {
     if (!first) {
