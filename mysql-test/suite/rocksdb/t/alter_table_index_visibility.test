@@ -1,0 +1,62 @@
+--source include/have_rocksdb.inc
+
+# 
+# Tests for updating index visibility
+#
+
+set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
+set @saved_instant_update_index_visibility=@@global.rocksdb_enable_instant_ddl_for_update_index_visibility;
+set global rocksdb_enable_instant_ddl_for_update_index_visibility = true;
+
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, b INT, c CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
+
+# Add index 
+ALTER TABLE t1 add Index index_1 (a);
+ALTER TABLE t1 add Index index_2 (b);
+
+# Insert values
+INSERT INTO t1 VALUES (1,10,100,'a'),(2,20,200,'b');
+
+# Query should use index_1
+--replace_column 10 # 11 # 12 #
+explain select * from t1 where a=10;
+
+# Update the index to be INVISIBLE
+ALTER TABLE t1 ALTER INDEX index_1 INVISIBLE, ALGORITHM= INPLACE;
+--replace_column 7 #
+SHOW INDEX from t1;
+
+# Query should not use index_1 because it is updated to be invisible
+--replace_column 10 # 11 # 12 #
+explain select * from t1 where a=10;
+
+# Update the visibility of multiple indexes
+ALTER TABLE t1 ALTER INDEX index_1 VISIBLE, ALTER INDEX index_2 INVISIBLE, ALGORITHM= INPLACE;
+--replace_column 7 #
+SHOW INDEX from t1;
+--replace_column 10 # 11 # 12 #
+explain select * from t1 where a=10;
+--replace_column 10 # 11 # 12 #
+explain select * from t1 where b=200;
+
+# Update the index with instant algorithm
+ALTER TABLE t1 ALTER INDEX index_1 INVISIBLE, ALTER INDEX index_2 VISIBLE, ALGORITHM= INSTANT;
+--replace_column 7 #
+SHOW INDEX from t1;
+
+ALTER TABLE t1 ALTER INDEX index_1 VISIBLE, ALGORITHM= INSTANT;
+--replace_column 7 #
+SHOW INDEX from t1;
+
+# Rename index is not an inplace operation
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 RENAME INDEX index_1 TO index_x, ALGORITHM= INPLACE;
+
+--error ER_ALTER_OPERATION_NOT_SUPPORTED
+ALTER TABLE t1 RENAME INDEX index_1 TO index_y, ALTER INDEX index_2 INVISIBLE, ALGORITHM= INPLACE;
+
+# cleanup
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_update_index_visibility = @saved_instant_update_index_visibility;
+set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;

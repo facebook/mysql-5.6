@@ -10,6 +10,8 @@ rocksdb_enable_instant_ddl_for_column_default_changes
 rocksdb_enable_instant_ddl_for_column_default_changes
 rocksdb_enable_instant_ddl_for_table_comment_changes
 rocksdb_enable_instant_ddl_for_table_comment_changes
+rocksdb_enable_instant_ddl_for_update_index_visibility
+rocksdb_enable_instant_ddl_for_update_index_visibility
 select variable_name as `There should be *no* variables listed below:` from t2
 left join t1 on variable_name=test_name where test_name is null ORDER BY variable_name;
 There should be *no* variables listed below:

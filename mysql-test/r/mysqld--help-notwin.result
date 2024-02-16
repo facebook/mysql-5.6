@@ -2151,6 +2151,9 @@ The following options may be given as the first argument:
  --rocksdb-enable-instant-ddl-for-table-comment-changes 
  Enable instant ddl for table comment changes during alter
  table
+ --rocksdb-enable-instant-ddl-for-update-index-visibility 
+ Enable instant ddl for updating index visibility during
+ alter table
  --rocksdb-enable-iterate-bounds 
  Enable rocksdb iterator upper/lower bounds in read
  options.
@@ -3796,6 +3799,7 @@ rocksdb-enable-insert-with-update-caching TRUE
 rocksdb-enable-instant-ddl-for-column-default-changes FALSE
 rocksdb-enable-instant-ddl-for-drop-index-changes FALSE
 rocksdb-enable-instant-ddl-for-table-comment-changes FALSE
+rocksdb-enable-instant-ddl-for-update-index-visibility FALSE
 rocksdb-enable-iterate-bounds TRUE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE
 rocksdb-enable-thread-tracking TRUE

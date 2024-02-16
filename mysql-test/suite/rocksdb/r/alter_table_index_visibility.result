@@ -1,0 +1,59 @@
+set @saved_rocksd_instant_ddl=@@global.rocksdb_disable_instant_ddl;
+set global rocksdb_disable_instant_ddl = false;
+set @saved_instant_update_index_visibility=@@global.rocksdb_enable_instant_ddl_for_update_index_visibility;
+set global rocksdb_enable_instant_ddl_for_update_index_visibility = true;
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, b INT, c CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
+ALTER TABLE t1 add Index index_1 (a);
+ALTER TABLE t1 add Index index_2 (b);
+INSERT INTO t1 VALUES (1,10,100,'a'),(2,20,200,'b');
+explain select * from t1 where a=10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	index_1	index_1	5	const	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`a` = 10)
+ALTER TABLE t1 ALTER INDEX index_1 INVISIBLE, ALGORITHM= INPLACE;
+SHOW INDEX from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	index_1	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			NO	NULL
+t1	1	index_2	1	b	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+explain select * from t1 where a=10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`a` = 10)
+ALTER TABLE t1 ALTER INDEX index_1 VISIBLE, ALTER INDEX index_2 INVISIBLE, ALGORITHM= INPLACE;
+SHOW INDEX from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	index_1	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	index_2	1	b	A	#	NULL	NULL	YES	SE_SPECIFIC			NO	NULL
+explain select * from t1 where a=10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ref	index_1	index_1	5	const	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`a` = 10)
+explain select * from t1 where b=200;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	#
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`b` = 200)
+ALTER TABLE t1 ALTER INDEX index_1 INVISIBLE, ALTER INDEX index_2 VISIBLE, ALGORITHM= INSTANT;
+SHOW INDEX from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	index_1	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			NO	NULL
+t1	1	index_2	1	b	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+ALTER TABLE t1 ALTER INDEX index_1 VISIBLE, ALGORITHM= INSTANT;
+SHOW INDEX from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	index_1	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	index_2	1	b	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+ALTER TABLE t1 RENAME INDEX index_1 TO index_x, ALGORITHM= INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+ALTER TABLE t1 RENAME INDEX index_1 TO index_y, ALTER INDEX index_2 INVISIBLE, ALGORITHM= INPLACE;
+ERROR 0A000: ALGORITHM=INPLACE is not supported for this operation. Try ALGORITHM=COPY.
+DROP TABLE t1;
+set global rocksdb_enable_instant_ddl_for_update_index_visibility = @saved_instant_update_index_visibility;
+set global rocksdb_disable_instant_ddl = @saved_rocksd_instant_ddl;
