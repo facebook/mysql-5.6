@@ -56,7 +56,8 @@ struct THD_event_functions {
 struct Cpu_scheduler_functions {
   bool (*enqueue_task)(tp_routine routine, void *param,
                        tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
-  tp_conn_handle (*create_connection)(THD *thd, const char *db);
+  tp_conn_handle (*create_connection)(THD *thd, const char *db,
+                                      bool acquire_conn_slot);
   void (*destroy_connection)(tp_conn_handle conn_handle);
   void (*attach_connection)(tp_conn_handle conn_handle);
   void (*detach_connection)(tp_conn_handle conn_handle);
@@ -64,6 +65,9 @@ struct Cpu_scheduler_functions {
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
   bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
   int (*get_current_task_wait_stats)(char* buf_stats, size_t buf_len);
+  bool (*is_scheduler_enabled)();
+  tp_conn_handle (*get_current_task_connection)();
+  tp_tenant_id_handle (*get_tenant_id)(const char *db);
 };
 
 /**

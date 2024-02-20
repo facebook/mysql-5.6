@@ -56,7 +56,8 @@ struct tp_cpu_stats {
 extern "C" struct cpu_scheduler_service_st {
   bool (*enqueue_task)(tp_routine routine, void *param,
                        tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
-  tp_conn_handle (*create_connection)(THD *thd, const char *db);
+  tp_conn_handle (*create_connection)(THD *thd, const char *db,
+                                      bool acquire_conn_slot);
   void (*destroy_connection)(tp_conn_handle conn_handle);
   void (*attach_connection)(tp_conn_handle conn_handle);
   void (*detach_connection)(tp_conn_handle conn_handle);
@@ -64,6 +65,9 @@ extern "C" struct cpu_scheduler_service_st {
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
   bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
   int (*get_current_task_wait_stats)(char* buf_stats, size_t buf_len);
+  bool (*is_scheduler_enabled)();
+  tp_conn_handle (*get_current_task_connection)();
+  tp_tenant_id_handle (*get_tenant_id)(const char *db);
 } * cpu_scheduler_service;
 
 /**
@@ -73,8 +77,8 @@ extern "C" struct cpu_scheduler_service_st {
 
 #define tp_enqueue_task(_ROUTINE, _PARAM, _TENANT_ID, _HINT) \
   cpu_scheduler_service->enqueue_task(_ROUTINE, _PARAM, _TENANT_ID, _HINT)
-#define tp_create_connection(_THD, _DB) \
-  cpu_scheduler_service->create_connection(_THD, _DB)
+#define tp_create_connection(_THD, _DB, _ACQUIRE_SLOT) \
+  cpu_scheduler_service->create_connection(_THD, _DB, _ACQUIRE_SLOT)
 #define tp_destroy_connection(_CONN_HANDLE) \
   cpu_scheduler_service->destroy_connection(_CONN_HANDLE)
 #define tp_attach_connection(_CONN_HANDLE) \
@@ -89,6 +93,10 @@ extern "C" struct cpu_scheduler_service_st {
   cpu_scheduler_service->get_current_task_cpu_stats(_CPU_STATS)
 #define tp_get_current_task_wait_stats(_BUF_, _BUF_LEN) \
   cpu_scheduler_service->get_current_task_wait_stats(_BUF_, _BUF_LEN)
+#define tp_is_scheduler_enabled() cpu_scheduler_service->is_scheduler_enabled()
+#define tp_get_current_task_connection() \
+  cpu_scheduler_service->get_current_task_connection()
+#define tp_get_tenant_id(_DB) cpu_scheduler_service->get_tenant_id(_DB)
 
 #else
 
@@ -97,7 +105,8 @@ extern "C" struct cpu_scheduler_service_st {
 
   @param routine Routine to execute.
   @param param Routine parameter.
-  @param tenant_id Tenant id to associate task with.
+  @param tenant_id Tenant id to associate task with. Passing nullptr will
+                   enqueue the task in the system tenant.
   @param hint Scheduler hint to use, and returns new hint that can be used for
               subsequent enqueue to co-locate it together with previous.
   @return true if task was enqueued, false otherwise.
@@ -110,9 +119,11 @@ bool tp_enqueue_task(tp_routine routine, void *param,
 
   @param thd THD to attach to the connection.
   @param db Database name to assign the connection to.
+  @param acquire_conn_slot Account against thread_pool_max_db_connections.
   @return Connection handle, or nullptr on failure.
 */
-tp_conn_handle tp_create_connection(THD *thd, const char *db);
+tp_conn_handle tp_create_connection(THD *thd, const char *db,
+                                    bool acquire_conn_slot);
 
 /**
   Destroy connection object.
@@ -166,5 +177,38 @@ bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats);
   @return expected buffer size.
 */
 int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len);
+
+/**
+  Is CPU scheduler enabled? This helps decide whether to use scheduler APIs or
+  fall back to the regular OS threads. If the scheduler is disabled in the
+  middle of a sequence of API calls the remaining APIs will still succeed.
+
+  @return true if enabled, false otherwise.
+*/
+bool tp_is_scheduler_enabled();
+
+/**
+  Get connection for current task. This connection can be used to obtain its
+  tenant and then enqueue child tasks.
+
+  @return Connection if current thread is running CPU scheduler task,
+          nullptr if current thread is not a CPU scheduler task.
+*/
+tp_conn_handle tp_get_current_task_connection();
+
+/**
+  Get tenant for db name. This allows altering the sequence of enqueueing a
+  task. Instead of creating THD and connection first and getting the tenant
+  from the connection, this API could be used to get the tenant. After
+  enqueueing the task, THD and connection can be created on the task itself.
+
+  @param db Database name of the future connection. Note: this API does not
+            acquire connection slot.
+  @return Tenant id handle or nullptr if tenant for db doesn't exist.
+          Note: tenant is created on demand when a first connection to db is
+          created. So this API will fail until first successful
+          tp_create_connection call for this db name.
+*/
+tp_tenant_id_handle tp_get_tenant_id(const char *db);
 
 #endif

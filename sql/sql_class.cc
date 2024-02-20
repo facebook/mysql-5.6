@@ -4962,9 +4962,10 @@ const std::string &THD::get_query_attr(const std::string &qattr_key) {
 const std::string &THD::get_connection_attr(const std::string &cattr_key) {
   /*
    * pointers (to db name, table names etc) are only valid until
-   * the end of the current query
+   * the end of the current query. However cannot assert that it
+   * is only called by current THD as CPU scheduler calls it for
+   * any THD before it has a worker thread assigned.
    */
-  assert(this == current_thd);
 
   bool found_ignored = false;
   return found_connection_attr(cattr_key, &found_ignored);
