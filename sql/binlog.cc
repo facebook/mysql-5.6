@@ -15699,7 +15699,9 @@ void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all,
                                                   bool run_after_commit) {
   if (thd->get_transaction()->m_flags.commit_low) {
     if (thd->commit_consensus_error ||
-        DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false)) {
+        DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false) ||
+        (enable_raft_plugin && !opt_commit_on_commit_error &&
+         thd->commit_error != THD::CE_NONE)) {
       handle_commit_consensus_error(thd);
     } else if (trx_coordinator::commit_in_engines(thd, all, run_after_commit)) {
       thd->commit_error = THD::CE_COMMIT_ERROR;

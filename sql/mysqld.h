@@ -500,6 +500,10 @@ extern ulong opt_commit_consensus_error_action;
 /* If server should clear log position on rollback */
 extern bool opt_commit_consensus_error_rollback_clear_logpos;
 
+/* Whether to allow commits for a trx if there is a commit_error in
+   ordered commit */
+extern bool opt_commit_on_commit_error;
+
 /* Failure injection related variables */
 extern bool enable_failure_injection;
 extern char *failure_injection_points;
