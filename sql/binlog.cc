@@ -7810,7 +7810,7 @@ void MYSQL_BIN_LOG::purge_apply_logs() {
 
   time_t purge_time = time(0) - apply_log_retention_duration /* mins */ * 60;
   if (purge_time > 0) {
-    ha_flush_logs(NULL);
+    ha_flush_logs();
     purge_logs_before_date(purge_time, /*auto_purge=*/true,
                            /*stop_purge=*/true);
   }
