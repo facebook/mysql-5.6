@@ -63,6 +63,7 @@ extern "C" struct cpu_scheduler_service_st {
   tp_tenant_id_handle (*get_connection_tenant_id)(tp_conn_handle conn_handle);
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
   bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
+  int (*get_current_task_wait_stats)(char* buf_stats, size_t buf_len);
 } * cpu_scheduler_service;
 
 /**
@@ -86,6 +87,8 @@ extern "C" struct cpu_scheduler_service_st {
   cpu_scheduler_service->destroy_tenant_id(_TENANT_ID)
 #define tp_get_current_task_cpu_stats(_CPU_STATS) \
   cpu_scheduler_service->get_current_task_cpu_stats(_CPU_STATS)
+#define tp_get_current_task_wait_stats(_BUF_, _BUF_LEN) \
+  cpu_scheduler_service->get_current_task_wait_stats(_BUF_, _BUF_LEN)
 
 #else
 
@@ -154,5 +157,14 @@ void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id);
           false if current thread doesn't have a CPU scheduler task.
 */
 bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats);
+
+/**
+  Get wait stats for current task.
+
+  @param buf buffer to store the wait stats.
+  @param len buffer len.
+  @return expected buffer size.
+*/
+int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len);
 
 #endif

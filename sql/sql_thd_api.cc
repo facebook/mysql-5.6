@@ -849,3 +849,9 @@ bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats) {
                         get_current_task_cpu_stats, (cpu_stats));
   return false;
 }
+
+int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        get_current_task_wait_stats, (buf_stats, buf_len));
+  return -1;
+}
