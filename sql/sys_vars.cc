@@ -9166,6 +9166,11 @@ static Sys_var_bool Sys_commit_consensus_wait_max_marker(
     GLOBAL_VAR(opt_commit_consensus_wait_max_marker), CMD_LINE(OPT_ARG),
     DEFAULT(true));
 
+static Sys_var_bool Sys_commit_on_commit_error(
+    "commit_on_commit_error",
+    "Whether to allow committing when there is a THD commit error",
+    GLOBAL_VAR(opt_commit_on_commit_error), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 #ifndef __APPLE__
 
 static bool update_session_dscp_on_socket(sys_var *, THD *thd,

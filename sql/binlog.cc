@@ -11027,6 +11027,24 @@ void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
   }
 }
 
+bool MYSQL_BIN_LOG::storage_engine_commit(THD *thd) {
+  assert(thd->get_transaction()->m_flags.commit_low);
+
+  bool all = thd->get_transaction()->m_flags.real_commit;
+  bool error = false;
+  if (thd->commit_consensus_error ||
+      DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false) ||
+      (enable_raft_plugin && !opt_commit_on_commit_error &&
+       thd->commit_error != THD::CE_NONE)) {
+    error = true;
+    handle_commit_consensus_error(thd);
+  } else if (ha_commit_low(thd, all, false)) {
+    error = true;
+    thd->commit_error = THD::CE_COMMIT_ERROR;
+  }
+  return error;
+}
+
 /**
   Commit a sequence of sessions.
 
@@ -11080,24 +11098,10 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     */
     assert(head->commit_error != THD::CE_COMMIT_ERROR);
     Thd_backup_and_restore switch_thd(thd, head);
-    bool all = head->get_transaction()->m_flags.real_commit;
     if (head->get_transaction()->m_flags.commit_low) {
       /* head is parked to have exited append() */
       assert(head->get_transaction()->m_flags.ready_preempt);
-      /*
-        storage engine commit
-       */
-      bool error = false;
-      if (head->commit_consensus_error ||
-          DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false)) {
-        error = true;
-        handle_commit_consensus_error(head);
-      } else if (ha_commit_low(head, all, false)) {
-        error = true;
-        head->commit_error = THD::CE_COMMIT_ERROR;
-      }
-
-      if (!error) {
+      if (!storage_engine_commit(head)) {
         candidate = head;
       }
     }
@@ -11463,14 +11467,8 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
       committing. And at this time, commit_error cannot be COMMIT_ERROR.
     */
     assert(thd->commit_error != THD::CE_COMMIT_ERROR);
-    /*
-      storage engine commit
-    */
-    if (thd->commit_consensus_error ||
-        DBUG_EVALUATE_IF("simulate_commit_consensus_error", true, false))
-      handle_commit_consensus_error(thd);
-    else if (ha_commit_low(thd, all, false))
-      thd->commit_error = THD::CE_COMMIT_ERROR;
+    
+    storage_engine_commit(thd);
 
     /*
       Decrement the prepared XID counter after storage engine commit

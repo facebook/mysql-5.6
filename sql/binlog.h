@@ -1040,6 +1040,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void process_after_commit_stage_queue(THD *thd, THD *first);
 
   /**
+    Commit transaction to storage engine.
+
+    @param[in] thd  Session structure
+    @retval true  error occurred and transaction was not committed
+    @retval false transaction successfully committed
+  */
+  bool storage_engine_commit(THD *thd);
+
+  /**
     Set thread variables used while flushing a transaction.
 
     @param[in] thd  thread whose variables need to be set

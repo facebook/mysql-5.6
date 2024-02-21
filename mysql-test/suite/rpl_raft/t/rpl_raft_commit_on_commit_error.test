@@ -1,0 +1,98 @@
+source ../include/raft_3_node.inc;
+
+# Tests a possible dataloss regression where a transaction can be acked to the client but not be consensus committed.
+# Dataloss can occur when there is a leader change before the new leader receives the earlier transaction.
+# The regression can occur if a prior transaction failed with its size exceeding max_cache_binlog_size.
+# See S390487
+
+connection server_1;
+set @max_binlog_cache_size_save = @@global.max_binlog_cache_size;
+set @binlog_cache_size_save = @@global.binlog_cache_size;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @commit_on_commit_error_save = @@global.commit_on_commit_error;
+
+# Setting cache size needs to be the first statement before any DML query to ensure transaction cache is init'd
+# with the specified size.
+set @@global.max_binlog_cache_size = 4096;
+set @@global.binlog_cache_size = 4096;
+call mtr.add_suppression(".*Error writing file.*");
+set @commit_on_commit_error_save = 0;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector=1;
+
+echo # Create a table and insert a transaction where the size exceeds max_binlog_cache_size. This should fail;
+create table tbl (id int primary key auto_increment, data longtext not null) engine = innodb;
+error ER_TRANS_CACHE_FULL;
+insert into tbl(id, data) values (null, repeat('x', 10000000));
+
+connection server_2;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# Reject appends on server_2 to simulate lag.
+set @@global.rpl_raft_reject_append_entries=1;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector=1;
+
+connection server_3;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# Reject appends on server_3 to simulate lag.
+set @@global.rpl_raft_reject_append_entries=1;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector=1;
+
+connection server_1_1;
+
+# Insert a valid transaction. This transaction should not succeed because previous transaction caused a write_error.
+send insert into tbl(id, data) values (null, 'x');
+
+connection server_2;
+# Move leadership to server_2. New leader should not have any changes replicated to it.
+set @@global.rpl_raft_start_election=1;
+sleep 3;
+
+connection server_2_1;
+echo # Confirm that server_2 is leader;
+show status like 'Rpl_raft_role';
+
+# Turn on appends again.
+set @@global.rpl_raft_reject_append_entries=0;
+
+connection server_3;
+# Turn on appends again.
+set @@global.rpl_raft_reject_append_entries=0;
+
+connection server_1_1;
+echo # Transaction should not succeed because leadership changed and we are no longer leader;
+error 1180;
+reap;
+
+echo # Ensure server_1 is no longer leader;
+show status like 'Rpl_raft_role';
+echo # Ensure we do not have any entries;
+select count(*) from tbl;
+
+connection server_2;
+echo # Ensure server_2 is leader;
+show status like 'Rpl_raft_role';
+echo # Ensure we do not have any entries;
+select count(*) from tbl;
+
+# Clean up
+connection server_1;
+# Flush to rotate logs to clear write error
+flush binary logs;
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+drop table tbl;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.max_binlog_cache_size = @max_binlog_cache_size_save;
+set @@global.binlog_cache_size = @binlog_cache_size_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.commit_on_commit_error = @commit_on_commit_error_save;
+
+connection server_2;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+connection server_3;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+source include/rpl_end.inc;

@@ -1,0 +1,79 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+set @max_binlog_cache_size_save = @@global.max_binlog_cache_size;
+set @binlog_cache_size_save = @@global.binlog_cache_size;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @commit_on_commit_error_save = @@global.commit_on_commit_error;
+set @@global.max_binlog_cache_size = 4096;
+Warnings:
+Warning	1738	Option binlog_cache_size (32768) is greater than max_binlog_cache_size (4096); setting binlog_cache_size equal to max_binlog_cache_size.
+set @@global.binlog_cache_size = 4096;
+call mtr.add_suppression(".*Error writing file.*");
+set @commit_on_commit_error_save = 0;
+set @@global.rpl_raft_disable_failure_detector=1;
+# Create a table and insert a transaction where the size exceeds max_binlog_cache_size. This should fail
+create table tbl (id int primary key auto_increment, data longtext not null) engine = innodb;
+insert into tbl(id, data) values (null, repeat('x', 10000000));
+ERROR HY000: Multi-statement transaction required more than 'max_binlog_cache_size' bytes of storage; increase this mysqld variable and try again
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @@global.rpl_raft_reject_append_entries=1;
+set @@global.rpl_raft_disable_failure_detector=1;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @@global.rpl_raft_reject_append_entries=1;
+set @@global.rpl_raft_disable_failure_detector=1;
+insert into tbl(id, data) values (null, 'x');
+set @@global.rpl_raft_start_election=1;
+# Confirm that server_2 is leader
+show status like 'Rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+set @@global.rpl_raft_reject_append_entries=0;
+set @@global.rpl_raft_reject_append_entries=0;
+# Transaction should not succeed because leadership changed and we are no longer leader
+ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
+# Ensure server_1 is no longer leader
+show status like 'Rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+# Ensure we do not have any entries
+select count(*) from tbl;
+count(*)
+0
+# Ensure server_2 is leader
+show status like 'Rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+# Ensure we do not have any entries
+select count(*) from tbl;
+count(*)
+0
+flush binary logs;
+include/raft_promote_to_leader.inc
+drop table tbl;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.max_binlog_cache_size = @max_binlog_cache_size_save;
+set @@global.binlog_cache_size = @binlog_cache_size_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.commit_on_commit_error = @commit_on_commit_error_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+include/rpl_end.inc
