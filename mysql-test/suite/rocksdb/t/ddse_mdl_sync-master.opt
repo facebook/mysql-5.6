@@ -1,0 +1,4 @@
+--initialize
+--default-dd-system-storage-engine=ROCKSDB
+--information_schema_stats_expiry=0
+--xa_detach_on_prepare=off
