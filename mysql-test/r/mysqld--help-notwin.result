@@ -364,6 +364,9 @@ The following options may be given as the first argument:
  rolling back a transaction when we encounter a consensus
  error
  (Defaults to on; use --skip-commit-consensus-error-rollback-clear-logpos to disable.)
+ --commit-on-commit-error 
+ Whether to allow committing when there is a THD commit
+ error
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
@@ -3300,6 +3303,7 @@ collation-server utf8mb4_0900_ai_ci
 column-stats-control OFF_HARD
 commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
 commit-consensus-error-rollback-clear-logpos TRUE
+commit-on-commit-error FALSE
 completion-type NO_CHAIN
 concurrent-insert AUTO
 connect-timeout 10
