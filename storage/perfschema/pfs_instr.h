@@ -960,7 +960,7 @@ void update_instruments_derived_flags();
  * transactions. */
 void reset_source_file_pointers();
 
-extern LF_HASH filename_hash;
+extern LF_HASH mysql_filename_hash;
 
 /** @} */
 #endif

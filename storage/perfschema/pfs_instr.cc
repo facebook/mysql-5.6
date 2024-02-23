@@ -100,7 +100,7 @@ std::atomic<PFS_memory_shared_stat *> global_instr_class_memory_array{nullptr};
 static PFS_cacheline_atomic_uint64 thread_internal_id_counter;
 
 /** Hash table for instrumented files. */
-LF_HASH filename_hash;
+LF_HASH mysql_filename_hash;
 /** True if filename_hash is initialized. */
 static bool filename_hash_inited = false;
 
@@ -314,7 +314,7 @@ static int filename_hash_cmp_func(const uchar *key1,
 */
 int init_file_hash(const PFS_global_param *param) {
   if ((!filename_hash_inited) && (param->m_file_sizing != 0)) {
-    lf_hash_init3(&filename_hash, sizeof(PFS_file *), LF_HASH_UNIQUE,
+    lf_hash_init3(&mysql_filename_hash, sizeof(PFS_file *), LF_HASH_UNIQUE,
                   filename_hash_get_key, filename_hash_func,
                   filename_hash_cmp_func, nullptr, nullptr, nullptr);
     filename_hash_inited = true;
@@ -325,7 +325,7 @@ int init_file_hash(const PFS_global_param *param) {
 /** Cleanup the file name hash. */
 void cleanup_file_hash(void) {
   if (filename_hash_inited) {
-    lf_hash_destroy(&filename_hash);
+    lf_hash_destroy(&mysql_filename_hash);
     filename_hash_inited = false;
   }
 }
@@ -1016,7 +1016,7 @@ static LF_PINS *get_filename_hash_pins(PFS_thread *thread) {
     if (!filename_hash_inited) {
       return nullptr;
     }
-    thread->m_filename_hash_pins = lf_hash_get_pins(&filename_hash);
+    thread->m_filename_hash_pins = lf_hash_get_pins(&mysql_filename_hash);
   }
   return thread->m_filename_hash_pins;
 }
@@ -1144,8 +1144,9 @@ PFS_file *find_or_create_file(PFS_thread *thread, PFS_file_class *klass,
 
 search:
 
-  entry = reinterpret_cast<PFS_file **>(lf_hash_search(
-      &filename_hash, pins, &normalized_filename, sizeof(normalized_filename)));
+  entry = reinterpret_cast<PFS_file **>(
+      lf_hash_search(&mysql_filename_hash, pins, &normalized_filename,
+                     sizeof(normalized_filename)));
   if (entry && (entry != MY_LF_ERRPTR)) {
     pfs = *entry;
     pfs->m_file_stat.m_open_count++;
@@ -1173,7 +1174,7 @@ search:
 
     int res;
     pfs->m_lock.dirty_to_allocated(&dirty_state);
-    res = lf_hash_insert(&filename_hash, pins, &pfs);
+    res = lf_hash_insert(&mysql_filename_hash, pins, &pfs);
     if (likely(res == 0)) {
       if (klass->is_singleton()) {
         klass->m_singleton = pfs;
@@ -1229,8 +1230,9 @@ PFS_file *start_file_rename(PFS_thread *thread, const char *old_name) {
   }
 
   /* Find the file instrumentation by name. */
-  PFS_file **entry = reinterpret_cast<PFS_file **>(lf_hash_search(
-      &filename_hash, pins, &normalized_filename, sizeof(normalized_filename)));
+  PFS_file **entry = reinterpret_cast<PFS_file **>(
+      lf_hash_search(&mysql_filename_hash, pins, &normalized_filename,
+                     sizeof(normalized_filename)));
 
   PFS_file *pfs = nullptr;
   if (entry && (entry != MY_LF_ERRPTR)) {
@@ -1239,7 +1241,7 @@ PFS_file *start_file_rename(PFS_thread *thread, const char *old_name) {
       Add the new filename after rename() operation completes.
     */
     pfs = *entry;
-    lf_hash_delete(&filename_hash, pins, &pfs->m_file_name,
+    lf_hash_delete(&mysql_filename_hash, pins, &pfs->m_file_name,
                    sizeof(pfs->m_file_name));
   }
 
@@ -1289,7 +1291,7 @@ int end_file_rename(PFS_thread *thread, PFS_file *pfs, const char *new_name,
   }
 
   /* Add the new filename or restore the old filename to the hash. */
-  int res = lf_hash_insert(&filename_hash, pins, &pfs);
+  int res = lf_hash_insert(&mysql_filename_hash, pins, &pfs);
   lf_hash_search_unpin(pins);
 
   if (unlikely(res != 0)) {
@@ -1333,7 +1335,7 @@ void delete_file_name(PFS_thread *thread, PFS_file *pfs) {
   LF_PINS *pins = get_filename_hash_pins(thread);
   assert(pins != nullptr);
 
-  lf_hash_delete(&filename_hash, pins, &pfs->m_file_name,
+  lf_hash_delete(&mysql_filename_hash, pins, &pfs->m_file_name,
                  sizeof(pfs->m_file_name));
 }
 
