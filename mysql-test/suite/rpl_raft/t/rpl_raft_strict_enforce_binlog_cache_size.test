@@ -1,0 +1,70 @@
+source ../include/raft_3_node.inc;
+
+# Tests that we strictly enforce the binlog cache size.
+
+connection server_1;
+set @max_binlog_cache_size_save = @@global.max_binlog_cache_size;
+set @binlog_cache_size_save = @@global.binlog_cache_size;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+set @strict_enforce_binlog_cache_size_save = @@global.strict_enforce_binlog_cache_size;
+set @max_binlog_cache_overhead_size_save = @@global.max_binlog_cache_overhead_size;
+
+set @@global.binlog_cache_size = 8192;
+set @@global.max_binlog_cache_size = 16384;
+set @@global.strict_enforce_binlog_cache_size = 1;
+set @@global.max_binlog_cache_overhead_size = 1000;
+
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_2;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_3;
+set @rpl_raft_disable_failure_detector_save = @@global.rpl_raft_disable_failure_detector;
+# To avoid flakiness, disable failure detector.
+set @@global.rpl_raft_disable_failure_detector = 1;
+
+connection server_1;
+echo # Create a table and insert a transaction where the size exceeds max_binlog_cache_size;
+create table tbl (id int primary key auto_increment, data longtext not null) engine = innodb;
+
+echo # This should fail before entering ordered_commit() with @@global.strict_enforce_binlog_cache_size on;
+error ER_TRANS_CACHE_FULL;
+insert into tbl(id, data) values (null, repeat('x', 20000));
+
+echo # Table should be empty;
+select count(*) from tbl;
+
+echo # Now test a case where we have a transaction that fits under max_binlog_cache_size and proceeds;
+echo # inside ordered_commit() but exceeds cache size when additional GTID and metadata is added (~105 bytes);
+echo # With @global.max_binlog_cache_overhead_size configured, we should not fail.;
+insert into tbl(id, data) values (null, repeat('x', 16198));
+
+echo # Table should have 1 record;
+select count(*) from tbl;
+
+echo # Insert a valid row that fits within cache size should succeed;
+insert into tbl(id, data) values (null, 'x');
+
+echo # Table should have 2 records;
+select count(*) from tbl;
+
+# Clean up
+connection server_1;
+drop table tbl;
+set @@global.max_binlog_cache_size = @max_binlog_cache_size_save;
+set @@global.binlog_cache_size = @binlog_cache_size_save;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+set @@global.strict_enforce_binlog_cache_size = @strict_enforce_binlog_cache_size_save;
+set @@global.max_binlog_cache_overhead_size = @max_binlog_cache_overhead_size_save;
+
+connection server_2;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+connection server_3;
+set @@global.rpl_raft_disable_failure_detector = @rpl_raft_disable_failure_detector_save;
+
+source include/rpl_end.inc;

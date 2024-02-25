@@ -87,6 +87,15 @@ bool IO_CACHE_binlog_cache_storage::write(const unsigned char *buffer,
     }
   }
 
+  // Optionally, check if writing this buffer will exceed max binlog cache size
+  if (opt_strict_enforce_binlog_cache_size) {
+    my_off_t current_size = my_b_tell(&m_io_cache);
+    if (current_size > (m_io_cache.end_of_file - length)) {
+      my_error(ER_TRANS_CACHE_FULL, MYF(MY_WME));
+      return true;
+    }
+  }
+
   return my_b_safe_write(&m_io_cache, buffer, length);
 }
 
