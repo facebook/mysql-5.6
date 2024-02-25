@@ -118,6 +118,7 @@ SET PERSIST master_verify_checksum = @@GLOBAL.master_verify_checksum;
 Warnings:
 Warning	1287	'@@master_verify_checksum' is deprecated and will be removed in a future release. Please use source_verify_checksum instead.
 Warning	1287	'@@master_verify_checksum' is deprecated and will be removed in a future release. Please use source_verify_checksum instead.
+SET PERSIST max_binlog_cache_overhead_size = @@GLOBAL.max_binlog_cache_overhead_size;
 SET PERSIST max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
@@ -278,6 +279,7 @@ SET PERSIST sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 Warnings:
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
+SET PERSIST strict_enforce_binlog_cache_size = @@GLOBAL.strict_enforce_binlog_cache_size;
 SET PERSIST sync_binlog = @@GLOBAL.sync_binlog;
 SET PERSIST sync_master_info = @@GLOBAL.sync_master_info;
 Warnings:
@@ -387,6 +389,7 @@ Warning	3615	Variable log_slow_slave_statements does not exist in persisted conf
 RESET PERSIST IF EXISTS log_statements_unsafe_for_binlog;
 RESET PERSIST IF EXISTS master_info_repository;
 RESET PERSIST IF EXISTS master_verify_checksum;
+RESET PERSIST IF EXISTS max_binlog_cache_overhead_size;
 RESET PERSIST IF EXISTS max_binlog_cache_size;
 RESET PERSIST IF EXISTS max_binlog_size;
 RESET PERSIST IF EXISTS max_binlog_stmt_cache_size;
@@ -537,6 +540,7 @@ RESET PERSIST IF EXISTS sql_replica_skip_counter;
 RESET PERSIST IF EXISTS sql_slave_skip_counter;
 Warnings:
 Warning	3615	Variable sql_slave_skip_counter does not exist in persisted config file
+RESET PERSIST IF EXISTS strict_enforce_binlog_cache_size;
 RESET PERSIST IF EXISTS sync_binlog;
 RESET PERSIST IF EXISTS sync_master_info;
 RESET PERSIST IF EXISTS sync_relay_log;

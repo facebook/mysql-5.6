@@ -139,6 +139,7 @@ SET PERSIST_ONLY master_verify_checksum = @@GLOBAL.master_verify_checksum;
 Warnings:
 Warning	1287	'@@master_verify_checksum' is deprecated and will be removed in a future release. Please use source_verify_checksum instead.
 Warning	1287	'@@master_verify_checksum' is deprecated and will be removed in a future release. Please use source_verify_checksum instead.
+SET PERSIST_ONLY max_binlog_cache_overhead_size = @@GLOBAL.max_binlog_cache_overhead_size;
 SET PERSIST_ONLY max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST_ONLY max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST_ONLY max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
@@ -298,6 +299,7 @@ SET PERSIST_ONLY sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 Warnings:
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
+SET PERSIST_ONLY strict_enforce_binlog_cache_size = @@GLOBAL.strict_enforce_binlog_cache_size;
 SET PERSIST_ONLY sync_binlog = @@GLOBAL.sync_binlog;
 SET PERSIST_ONLY sync_master_info = @@GLOBAL.sync_master_info;
 Warnings:
@@ -381,6 +383,7 @@ RESET PERSIST log_replica_updates;
 RESET PERSIST log_slow_replica_statements;
 RESET PERSIST log_statements_unsafe_for_binlog;
 RESET PERSIST master_info_repository;
+RESET PERSIST max_binlog_cache_overhead_size;
 RESET PERSIST max_binlog_cache_size;
 RESET PERSIST max_binlog_size;
 RESET PERSIST max_binlog_stmt_cache_size;
@@ -457,6 +460,7 @@ RESET PERSIST slave_use_idempotent_for_recovery;
 RESET PERSIST source_verify_checksum;
 RESET PERSIST sql_log_bin_triggers;
 RESET PERSIST sql_replica_skip_counter;
+RESET PERSIST strict_enforce_binlog_cache_size;
 RESET PERSIST sync_binlog;
 RESET PERSIST sync_relay_log;
 RESET PERSIST sync_relay_log_info;

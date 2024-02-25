@@ -1254,7 +1254,9 @@ std::atomic<ulonglong> tmp_table_disk_usage_period_peak{0};
 ulong opt_commit_consensus_error_action = 0;
 bool opt_commit_consensus_error_rollback_clear_logpos = 0;
 bool opt_commit_on_commit_error = 0;
+ulonglong opt_max_binlog_cache_overhead_size = 1000;
 bool opt_set_write_error_on_cache_error = 0;
+bool opt_strict_enforce_binlog_cache_size = 1;
 bool enable_raft_plugin = 0;
 bool disallow_raft = 1;  // raft is not allowed by default
 bool override_enable_raft_check = false;

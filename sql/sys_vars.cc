@@ -9376,11 +9376,24 @@ static Sys_var_bool Sys_commit_on_commit_error(
     "Whether to allow committing when there is a THD commit error",
     GLOBAL_VAR(opt_commit_on_commit_error), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_ulonglong Sys_opt_max_binlog_cache_overhead_size(
+    "max_binlog_cache_overhead_size",
+    "Max additional overhead in bytes needed for extra log events "
+    "(ie. gtid and metadata) added within ordered_commit().",
+    GLOBAL_VAR(opt_max_binlog_cache_overhead_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(1000), BLOCK_SIZE(1));
+
 static Sys_var_bool Sys_set_write_error_on_cache_error(
     "set_write_error_on_cache_error",
     "Whether to mark binlog with a write error when we hit a cache write error",
     GLOBAL_VAR(opt_set_write_error_on_cache_error), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_bool Sys_strict_enforce_binlog_cache_size(
+    "strict_enforce_binlog_cache_size",
+    "Whether to strictly enforce max binlog cache size",
+    GLOBAL_VAR(opt_strict_enforce_binlog_cache_size), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
 
 #ifndef __APPLE__
 

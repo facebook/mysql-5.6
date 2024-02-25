@@ -1000,6 +1000,10 @@ The following options may be given as the first argument:
  instead.
  --max-allowed-packet=# 
  Max packet length to send to or receive from the server
+ --max-binlog-cache-overhead-size[=#] 
+ Max additional overhead in bytes needed for extra log
+ events (ie. gtid and metadata) added within
+ ordered_commit().
  --max-binlog-cache-size=# 
  Sets the total size of the transactional cache
  --max-binlog-dump-events=# 
@@ -2975,6 +2979,9 @@ The following options may be given as the first argument:
  for one connection.
  --stored-program-definition-cache=# 
  The number of cached stored program definitions
+ --strict-enforce-binlog-cache-size 
+ Whether to strictly enforce max binlog cache size
+ (Defaults to on; use --skip-strict-enforce-binlog-cache-size to disable.)
  --super-read-only   Make all non-temporary tables read-only, with the
  exception for replication applier threads.  Users with
  the SUPER privilege are affected, unlike read_only. 
@@ -3490,6 +3497,7 @@ master-info-repository TABLE
 master-retry-count 86400
 master-verify-checksum FALSE
 max-allowed-packet 67108864
+max-binlog-cache-overhead-size 1000
 max-binlog-cache-size 18446744073709547520
 max-binlog-dump-events 0
 max-binlog-size 1073741824
@@ -4052,6 +4060,7 @@ sql-wsenv-tenant
 sql-wsenv-uri-prefix 
 stored-program-cache 256
 stored-program-definition-cache 256
+strict-enforce-binlog-cache-size TRUE
 super-read-only FALSE
 symbolic-links FALSE
 sync-binlog 1

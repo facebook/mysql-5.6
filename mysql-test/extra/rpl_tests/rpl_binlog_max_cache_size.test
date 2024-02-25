@@ -46,11 +46,13 @@ let $old_max_binlog_cache_size= query_get_value(SHOW VARIABLES LIKE "max_binlog_
 let $old_binlog_cache_size= query_get_value(SHOW VARIABLES LIKE "binlog_cache_size", Value, 1);
 let $old_max_binlog_stmt_cache_size= query_get_value(SHOW VARIABLES LIKE "max_binlog_stmt_cache_size", Value, 1);
 let $old_binlog_stmt_cache_size= query_get_value(SHOW VARIABLES LIKE "binlog_stmt_cache_size", Value, 1);
+let $old_strict_enforce_binlog_cache_size= query_get_value(SHOW VARIABLES LIKE "strict_enforce_binlog_cache_size", Value, 1);
 
 SET GLOBAL max_binlog_cache_size = 4096;
 SET GLOBAL binlog_cache_size = 4096;
 SET GLOBAL max_binlog_stmt_cache_size = 4096;
 SET GLOBAL binlog_stmt_cache_size = 4096;
+SET GLOBAL strict_enforce_binlog_cache_size = 0;
 disconnect master;
 connect (master,127.0.0.1,root,,test,$MASTER_MYPORT,);
 
@@ -451,6 +453,9 @@ connection master;
 --eval SET GLOBAL max_binlog_stmt_cache_size= $old_max_binlog_stmt_cache_size
 --replace_result $old_binlog_stmt_cache_size ORIGINAL_VALUE
 --eval SET GLOBAL binlog_stmt_cache_size= $old_binlog_stmt_cache_size
+--replace_result $old_strict_enforce_binlog_cache_size ORIGINAL_VALUE
+--eval SET GLOBAL strict_enforce_binlog_cache_size= $old_strict_enforce_binlog_cache_size
+
 disconnect master;
 connect (master,127.0.0.1,root,,test,$MASTER_MYPORT,);
 
@@ -481,6 +486,8 @@ source include/show_binlog_events.inc;
 --eval SET GLOBAL max_binlog_stmt_cache_size= $old_max_binlog_stmt_cache_size
 --replace_result $old_binlog_stmt_cache_size ORIGINAL_VALUE
 --eval SET GLOBAL binlog_stmt_cache_size= $old_binlog_stmt_cache_size
+--replace_result $old_strict_enforce_binlog_cache_size ORIGINAL_VALUE
+--eval SET GLOBAL strict_enforce_binlog_cache_size= $old_strict_enforce_binlog_cache_size
 
 source include/stop_slave.inc;
 source include/start_slave.inc;

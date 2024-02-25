@@ -144,6 +144,8 @@ mandatory_roles
 mandatory_roles
 master_verify_checksum
 master_verify_checksum
+max_binlog_cache_overhead_size
+max_binlog_cache_overhead_size
 max_length_for_sort_data
 max_length_for_sort_data
 optimizer_max_subgraph_pairs
@@ -248,6 +250,8 @@ sql_require_primary_key
 sql_require_primary_key
 sql_slave_skip_counter
 sql_slave_skip_counter
+strict_enforce_binlog_cache_size
+strict_enforce_binlog_cache_size
 sync_master_info
 sync_master_info
 temptable_max_mmap

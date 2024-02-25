@@ -504,8 +504,15 @@ extern bool opt_commit_consensus_error_rollback_clear_logpos;
    ordered commit */
 extern bool opt_commit_on_commit_error;
 
+/* Max additional overhead in bytes needed for extra log events
+   (ie. gtid and metadata) added within ordered_commit(). */
+extern ulonglong opt_max_binlog_cache_overhead_size;
+
 /* Whether to set write error on cache write errors */
 extern bool opt_set_write_error_on_cache_error;
+
+/* Whether to strictly enforce binlog cache size */
+extern bool opt_strict_enforce_binlog_cache_size;
 
 /* Failure injection related variables */
 extern bool enable_failure_injection;

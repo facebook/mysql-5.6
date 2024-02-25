@@ -2032,7 +2032,11 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     }
     if (unlikely(!raft_trx_cache)) {
       raft_trx_cache = std::make_unique<Binlog_cache_storage>();
-      ret = raft_trx_cache->open(binlog_cache_size, max_binlog_cache_size);
+      // We add a little slack to max size to account for additional
+      // log events (ie. gtid and metadata)
+      ret = raft_trx_cache->open(binlog_cache_size,
+                                 max_binlog_cache_size +
+                                 opt_max_binlog_cache_overhead_size);
       if (ret) {
         raft_trx_cache.reset();
         goto end;
