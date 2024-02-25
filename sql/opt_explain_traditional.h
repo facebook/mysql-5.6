@@ -114,7 +114,7 @@ class Explain_format_tree_plan : public Explain_format_tree {
 
  private:
   void ExplainPrintCosts(const Json_object *obj [[maybe_unused]],
-                         std::string *explain) {
+                         std::string *explain) override {
     // Costs are not needed for the normalized plan
     *explain += "\n";
     return;
