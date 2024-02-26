@@ -29,7 +29,17 @@
   @file include/mysql/thread_type.h
 */
 
-/* Flags for the THD::system_thread variable */
+/**
+  Flags for the THD::system_thread variable
+
+  @note In git dd2303ce072f185b02b50b58d841c70687f41bf9, THD::system_thread was
+  changed from a bool to a "bitmap" (uint) and later to this enum. But it was
+  never used as a bitmap. This appears to have been an oversight in the original
+  commit mentioned above (Dec 2003). It was later extended with more system
+  thread types, but we never assign more than one bit to THD::system_thread at
+  at time (nor would it make sense to). We can probably move these to use plain
+  incrementing numbers and wouldn't have to worry about running out of bits.
+*/
 enum enum_thread_type {
   NON_SYSTEM_THREAD = 0,
   SYSTEM_THREAD_SLAVE_IO = 1,

@@ -486,8 +486,8 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
           MY_RELATIVE_PATH | MY_UNPACK_FILENAME | MY_RETURN_REAL_PATH);
     }
 
-    if ((thd->system_thread &
-         (SYSTEM_THREAD_SLAVE_SQL | SYSTEM_THREAD_SLAVE_WORKER)) != 0) {
+    if (thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
+        thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER) {
       Relay_log_info *rli = thd->rli_slave->get_c_rli();
 
       if (strncmp(rli->slave_patternload_file, name,

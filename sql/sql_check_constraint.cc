@@ -103,8 +103,8 @@ bool Sql_check_constraint_spec::expr_refers_column(const char *column_name) {
 }
 
 bool is_slave_with_master_without_check_constraints_support(THD *thd) {
-  return ((thd->system_thread &
-           (SYSTEM_THREAD_SLAVE_SQL | SYSTEM_THREAD_SLAVE_WORKER)) &&
+  return ((thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
+           thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER) &&
           (thd->variables.original_server_version == UNDEFINED_SERVER_VERSION ||
            thd->variables.original_server_version < 80016));
 }

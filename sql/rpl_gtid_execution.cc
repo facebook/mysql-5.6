@@ -151,8 +151,8 @@ bool set_gtid_next(THD *thd, const Gtid_specification &spec) {
           // If this thread is a slave SQL thread or slave SQL worker
           // thread, we need this additional condition to determine if it
           // has been stopped by STOP SLAVE [SQL_THREAD].
-          if ((thd->system_thread &
-               (SYSTEM_THREAD_SLAVE_SQL | SYSTEM_THREAD_SLAVE_WORKER)) != 0) {
+          if (thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
+              thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER) {
             // TODO: error is *not* reported on cancel
             assert(thd->rli_slave != nullptr);
             Relay_log_info *c_rli = thd->rli_slave->get_c_rli();
@@ -252,8 +252,8 @@ int gtid_acquire_ownership_multiple(THD *thd) {
     // If this thread is a slave SQL thread or slave SQL worker
     // thread, we need this additional condition to determine if it
     // has been stopped by STOP SLAVE [SQL_THREAD].
-    if ((thd->system_thread &
-         (SYSTEM_THREAD_SLAVE_SQL | SYSTEM_THREAD_SLAVE_WORKER)) != 0) {
+    if (thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
+        thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER) {
       assert(thd->rli_slave != nullptr);
       Relay_log_info *c_rli = thd->rli_slave->get_c_rli();
       if (c_rli->abort_slave) return 1;
