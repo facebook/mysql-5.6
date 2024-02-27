@@ -24,6 +24,8 @@
 #include "./rdb_global.h"
 #include "rdb_utils.h"
 #include "sql/item_fb_vector_func.h"
+#include "sql/item_json_func.h"
+#include "sql/sql_class.h"
 
 namespace myrocks {
 
@@ -46,6 +48,7 @@ class Rdb_vector_index_info {
   uint m_min_list_size{0};
   uint m_max_list_size{0};
   uint m_avg_list_size{0};
+  uint m_median_list_size{0};
 };
 
 class Rdb_vector_search_params {
@@ -81,6 +84,12 @@ class Rdb_vector_index {
       THD *thd, std::vector<float> &query_vector,
       Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) = 0;
+
+  /**
+    scans all vectors in index and populate counters
+  */
+  virtual uint analyze(THD *thd, uint64_t max_num_rows_scanned,
+                       std::atomic<THD::killed_state> *killed) = 0;
 
   virtual Rdb_vector_index_info dump_info() = 0;
 

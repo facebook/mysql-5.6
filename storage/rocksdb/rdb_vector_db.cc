@@ -112,26 +112,14 @@ class Rdb_faiss_inverted_list_context {
   THD *m_thd;
   uint m_error = HA_EXIT_SUCCESS;
   std::size_t m_current_list_size = 0;
-  std::size_t m_list_count = 0;
-  std::size_t m_total_list_size = 0;
-  std::optional<std::size_t> m_max_list_size;
-  std::optional<std::size_t> m_min_list_size;
+  // list id to list size pairs
+  std::vector<std::pair<std::size_t, std::size_t>> m_list_size_stats;
 
-  void on_iterator_end() {
+  void on_iterator_end(std::size_t list_id) {
     if (!m_error) {
-      // only update counters when there is no error
-      if (!m_max_list_size.has_value() ||
-          m_current_list_size > m_max_list_size) {
-        m_max_list_size = m_current_list_size;
-      }
-      if (!m_min_list_size.has_value() ||
-          m_current_list_size < m_min_list_size) {
-        m_min_list_size = m_current_list_size;
-      }
-      m_list_count++;
-      m_total_list_size += m_current_list_size;
+      // only record list size when there is no error
+      m_list_size_stats.push_back({list_id, m_current_list_size});
     }
-
     m_current_list_size = 0;
   }
 
@@ -211,7 +199,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
   bool is_available() const override {
     bool available = !m_context->m_error && m_iterator->Valid();
     if (!available) {
-      m_context->on_iterator_end();
+      m_context->on_iterator_end(m_list_id);
     }
     return available;
   }
@@ -780,6 +768,32 @@ class Rdb_vector_index_flat : public Rdb_vector_index_base {
     return HA_EXIT_SUCCESS;
   }
 
+  virtual uint analyze(THD *thd, uint64_t max_num_rows_scanned,
+                       std::atomic<THD::killed_state> *killed) override {
+    Rdb_faiss_inverted_list_context context(thd);
+    Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
+                                    m_index_def.dimension(), LIST_NUMBER_FLAT);
+    uint64_t ntotal = 0;
+    std::string pk;
+    rocksdb::Slice codes;
+    while (vector_iter.is_available()) {
+      uint rtn = vector_iter.get_pk_and_codes(pk, codes);
+      if (rtn) {
+        return rtn;
+      }
+      ntotal++;
+      if (max_num_rows_scanned > 0 && ntotal > max_num_rows_scanned) {
+        return HA_EXIT_SUCCESS;
+      }
+      if (killed && *killed) {
+        return HA_EXIT_FAILURE;
+      }
+      vector_iter.next();
+    }
+    m_ntotal = ntotal;
+    return HA_EXIT_SUCCESS;
+  }
+
   Rdb_vector_index_info dump_info() override {
     return {.m_ntotal = m_ntotal, .m_hit = m_hit};
   }
@@ -850,11 +864,38 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
     }
 
     // update counters
-    if (context.m_list_count > 0) {
-      m_min_list_size = context.m_min_list_size.value_or(0);
-      m_max_list_size = context.m_max_list_size.value_or(0);
-      m_avg_list_size = context.m_total_list_size / context.m_list_count;
-      m_ntotal = context.m_total_list_size;
+    for (auto &list_size_entry : context.m_list_size_stats) {
+      m_list_size_stats[list_size_entry.first] = list_size_entry.second;
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+  virtual uint analyze(THD *thd, uint64_t max_num_rows_scanned,
+                       std::atomic<THD::killed_state> *killed) override {
+    std::string pk;
+    rocksdb::Slice codes;
+    uint64_t ntotal = 0;
+    for (std::size_t i = 0; i < m_list_size_stats.size(); i++) {
+      std::size_t list_size = 0;
+      Rdb_faiss_inverted_list_context context(thd);
+      Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
+                                      m_index_def.dimension(), i);
+      while (vector_iter.is_available()) {
+        uint rtn = vector_iter.get_pk_and_codes(pk, codes);
+        if (rtn) {
+          return rtn;
+        }
+        list_size++;
+        ntotal++;
+        if (max_num_rows_scanned > 0 && ntotal > max_num_rows_scanned) {
+          return HA_EXIT_SUCCESS;
+        }
+        if (killed && *killed) {
+          return HA_EXIT_FAILURE;
+        }
+        vector_iter.next();
+      }
+      m_list_size_stats[i] = list_size;
     }
     return HA_EXIT_SUCCESS;
   }
@@ -901,15 +942,50 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
         m_index_l2->code_size);
     m_index_l2->replace_invlists(m_inverted_list.get());
     m_index_ip->replace_invlists(m_inverted_list.get());
+
+    // initialize the list size stats. does not allow resize here
+    // because atomic is not move insertable
+    m_list_size_stats = std::vector<std::atomic<long>>(ncentroids);
+    for (auto &list_size : m_list_size_stats) {
+      list_size.store(-1);
+    }
     return HA_EXIT_SUCCESS;
   }
 
   Rdb_vector_index_info dump_info() override {
-    return {.m_ntotal = m_ntotal,
+    uint ntotal = 0;
+    std::optional<uint> min_list_size;
+    std::optional<uint> max_list_size;
+    std::vector<uint> list_size_stats;
+    list_size_stats.reserve(m_list_size_stats.size());
+    for (const auto &list_size : m_list_size_stats) {
+      const auto list_size_value = list_size.load();
+      if (list_size_value >= 0) {
+        ntotal += list_size_value;
+        list_size_stats.push_back(list_size_value);
+        if (!min_list_size.has_value() ||
+            list_size_value < min_list_size.value()) {
+          min_list_size = list_size_value;
+        }
+        if (!max_list_size.has_value() ||
+            list_size_value > max_list_size.value()) {
+          max_list_size = list_size_value;
+        }
+      }
+    }
+    uint avg_list_size =
+        list_size_stats.empty() ? 0 : ntotal / list_size_stats.size();
+    // compute median value of list size
+    std::sort(list_size_stats.begin(), list_size_stats.end());
+    uint median_list_size = list_size_stats.empty()
+                                ? 0
+                                : list_size_stats[list_size_stats.size() / 2];
+    return {.m_ntotal = ntotal,
             .m_hit = m_hit,
-            .m_min_list_size = m_min_list_size,
-            .m_max_list_size = m_max_list_size,
-            .m_avg_list_size = m_avg_list_size};
+            .m_min_list_size = min_list_size.value_or(0),
+            .m_max_list_size = max_list_size.value_or(0),
+            .m_avg_list_size = avg_list_size,
+            .m_median_list_size = median_list_size};
   }
 
  protected:
@@ -939,10 +1015,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
   std::unique_ptr<faiss::IndexIVFFlat> m_index_l2;
   std::unique_ptr<faiss::IndexIVFFlat> m_index_ip;
   std::unique_ptr<Rdb_faiss_inverted_list> m_inverted_list;
-  std::atomic<uint> m_ntotal{0};
-  std::atomic<uint> m_min_list_size{0};
-  std::atomic<uint> m_max_list_size{0};
-  std::atomic<uint> m_avg_list_size{0};
+  std::vector<std::atomic<long>> m_list_size_stats;
 };
 
 }  // anonymous namespace

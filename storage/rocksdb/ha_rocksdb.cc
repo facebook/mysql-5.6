@@ -15500,9 +15500,10 @@ static int calculate_stats(
     DBUG_RETURN(ret);
   }
 
+  const uint64_t max_num_rows_scanned =
+      rocksdb_table_stats_max_num_rows_scanned;
   if (scan_type != SCAN_TYPE_NONE) {
     std::unordered_map<GL_INDEX_ID, Rdb_index_stats> card_stats;
-    uint64_t max_num_rows_scanned = rocksdb_table_stats_max_num_rows_scanned;
     ret = calculate_cardinality_table_scan(to_recalc, &card_stats, scan_type,
                                            max_num_rows_scanned, killed);
     if (ret != HA_EXIT_SUCCESS) {
@@ -15516,6 +15517,18 @@ static int calculate_stats(
     merge_stats(to_recalc, &stats, card_stats);
     if (scan_type == SCAN_TYPE_FULL_TABLE && max_num_rows_scanned > 0) {
       adjust_cardinality(&stats, scan_type, max_num_rows_scanned);
+    }
+  }
+
+  if (scan_type == SCAN_TYPE_FULL_TABLE) {
+    for (auto &key : to_recalc) {
+      if (key.second->is_vector_index()) {
+        ret = key.second->get_vector_index()->analyze(
+            thd_get_current_thd(), max_num_rows_scanned, killed);
+        if (ret) {
+          DBUG_RETURN(ret);
+        }
+      }
     }
   }
 
