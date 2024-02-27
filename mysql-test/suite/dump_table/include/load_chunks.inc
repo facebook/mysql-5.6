@@ -1,7 +1,8 @@
-# Load an verify chunks produced by DUMP TABLE
+# Load chunks produced by DUMP TABLE.
+# Retains `t1load` table for verification.
 # Expects:
-# $num_chunks, $chunk_prefix to be defined,
-# and t1 (source table) to exist.
+# - $num_chunks, $chunk_prefix to be defined,
+# - t1 (source table) to exist.
 
 let $dumpdir=`SELECT CONCAT(@@datadir, database())`;
 
@@ -19,13 +20,3 @@ while ($i < $num_chunks)
 # Remove the files created by DUMP TABLE.
 remove_files_wildcard $dumpdir $chunk_prefix.*;
 --enable_query_log
-
-# Verify the row count.
-SELECT COUNT(*) FROM t1load;
-
-# Verify the checksums of both tables match.
-let $expected_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1);
-let $loaded_checksum = query_get_value(CHECKSUM TABLE t1load, Checksum, 1);
-assert($expected_checksum == $loaded_checksum);
-
-DROP TABLE t1load;

@@ -16,6 +16,10 @@
 #ifndef SQL_SNAPSHOT_INCLUDED
 #define SQL_SNAPSHOT_INCLUDED
 
+#include <string>
+
+#include "include/my_inttypes.h"
+
 enum snapshot_operation {
   SNAPSHOT_CREATE,
   SNAPSHOT_ATTACH,

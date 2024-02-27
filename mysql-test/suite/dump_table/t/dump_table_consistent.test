@@ -1,0 +1,114 @@
+# Test DUMP TABLE WITH (CONSISTENT SNAPSHOT)
+# Shared snapshots are only supported on MyRocks for now.
+source include/have_rocksdb.inc;
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+set global debug='d,dump:i';
+
+use test;
+
+CREATE TABLE t1 (
+  a int not null auto_increment,
+  b int not null,
+  c int not null,
+  d varchar(100),
+  e varchar(200),
+  primary key (a, b, c),
+  key c_idx (c)
+);
+
+# Insert some dummy data.
+source suite/dump_table/include/populate_table.inc;
+
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+
+# Default chunk size.
+let $chunk_size_rows=128;
+let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
+
+let $chunk_prefix=t1dump;
+
+# Positive tests.
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( CONSISTENT SNAPSHOT );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( CONSISTENT SNAPSHOT, THREADS = 1 );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( CONSISTENT SNAPSHOT, THREADS = 4 );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $chunk_size_rows=7;
+let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
+let $dump_opts=WITH ( CONSISTENT SNAPSHOT, THREADS = 2, CHUNK_SIZE = $chunk_size_rows ROWS );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+# Show that consistency works by mutating the table after the snapshot was taken
+# Insert fewer rows to make the result more manageable.
+TRUNCATE TABLE t1;
+let $iterations = 5;
+source suite/dump_table/include/populate_table.inc;
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+
+# Establish 2 connections to the server.
+connect (con1, localhost, root);
+connect (con2, localhost, root);
+
+--echo # connection 1
+connection con1;
+# Establish a sync point in the dump loop that waits for a command.
+SET DEBUG_SYNC='dump_snapshot_created SIGNAL snapshot_created WAIT_FOR rows_mutated';
+
+# This will now block right after the dump snapshot is created.
+# Using 'send' to avoid blocking the test client.
+let $chunk_size_rows=7;
+send_eval DUMP TABLE t1 INTO 't1dump' WITH (CONSISTENT SNAPSHOT, THREADS=4, CHUNK_SIZE = $chunk_size_rows ROWS);
+
+--echo # connection 2
+connection con2;
+
+# Wait for the dump loop to start running.
+SET DEBUG_SYNC='now WAIT_FOR snapshot_created';
+
+# Mutate some rows.
+UPDATE t1 SET e = 'eee' WHERE a BETWEEN 10 AND 30;
+
+# Signal the sync point to continue.
+SET DEBUG_SYNC='now SIGNAL rows_mutated';
+
+# Wait for the DUMP TABLE to finish and retrieve the output.
+--echo # connection 1
+connection con1;
+reap;
+
+--echo # connection default
+connection default;
+# Expect the table to be mutated.
+SELECT * FROM t1;
+
+# Load in the dump and verify it matches.
+let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
+source suite/dump_table/include/load_chunks.inc;
+
+# Expect the loaded table to not exhibit any mutations.
+SELECT * FROM t1load;
+DROP TABLE t1load;
+
+# Cleanup
+disconnect con1;
+disconnect con2;
+SET DEBUG_SYNC= "RESET";
+
+DROP TABLE t1;
+
+set global debug=default;

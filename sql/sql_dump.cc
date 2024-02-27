@@ -32,6 +32,7 @@
 #include "sql/mysqld_thd_manager.h"
 #include "sql/protocol_classic.h"
 #include "sql/query_result.h"
+#include "sql/snapshot.h"
 #include "sql/sql_base.h"
 #include "sql/sql_class.h"
 #include "sql/sql_error.h"
@@ -188,6 +189,8 @@ exit:
   mem_root_deque<Item *> list(nullptr);
   TABLE *table = nullptr;
   Table_ref *tr = nullptr;
+  handlerton *hton = nullptr;
+  bool snapshot_attached = false;
 
   thd->system_thread = SYSTEM_THREAD_BACKGROUND;
 
@@ -255,6 +258,21 @@ exit:
   }
 
   table = tr->table;
+  hton = table->s->db_type();
+
+  // Start a consistent snapshot if needed.
+  if (args->snapshot_id) {
+    snapshot_info_st snapshot_info;
+    snapshot_info.op = snapshot_operation::SNAPSHOT_ATTACH;
+    snapshot_info.snapshot_id = args->snapshot_id;
+    if (ha_explicit_snapshot(thd, hton, &snapshot_info)) {
+      args->is_err = true;
+      goto exit;
+    }
+    DBUG_PRINT("dump", ("Attached snapshot %llu", args->snapshot_id));
+    snapshot_attached = true;
+  }
+
   // Set SELECT_ACL on the table ref so that insert_fields is able to access
   // all the columns.
   // TODO: what is the right way to handle this?
@@ -311,6 +329,17 @@ exit:
       args->m_err.m_errno = da->mysql_errno();
       strcpy(args->m_err.m_message_text, da->message_text());
     }
+
+    if (snapshot_attached) {
+      snapshot_info_st snapshot_info;
+      snapshot_info.op = snapshot_operation::SNAPSHOT_RELEASE;
+      if (ha_explicit_snapshot(thd, hton, &snapshot_info)) {
+        my_printf_error(ER_UNKNOWN_ERROR, "failed to release snapshot %llu",
+                        MYF(0), snapshot_info.snapshot_id);
+        args->is_err = true;
+      }
+    }
+
     trans_rollback_stmt(thd);
     trans_rollback(thd);
     close_thread_tables(thd);
@@ -332,9 +361,12 @@ exit:
 
 /**
   Create all the worker threads to process chunks.
+
+  @return true on error. false otherwise.
 */
 bool Sql_cmd_dump_table::start_threads(THD *thd, TABLE_SHARE *share,
-                                       int nthreads, my_thread_handle *handles,
+                                       ulonglong snapshot_id, int nthreads,
+                                       my_thread_handle *handles,
                                        Dump_worker_args *args) {
   DBUG_TRACE;
   bool is_err = false;
@@ -349,6 +381,8 @@ bool Sql_cmd_dump_table::start_threads(THD *thd, TABLE_SHARE *share,
     arg->main_thd = thd;
     arg->share = share;
     arg->queue = &m_work_queue;
+    arg->snapshot_id = snapshot_id;
+
     int error = mysql_thread_create_seq(key_thread_dump_worker, i, handles + i,
                                         &thr_attr, dump_worker, arg);
     if (error) {
@@ -435,6 +469,7 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   TABLE *table = nullptr;
   handler *ha = nullptr;
   uchar *rowbuf = nullptr;
+  handlerton *hton = nullptr;
   assert(m_nthreads > 0);
   DBUG_PRINT("dump",
              ("Dumping table '%s' with %d threads. Chunk size: %d rows.",
@@ -449,9 +484,12 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   // the end key each time.
   int64_t last_rownum = 0;
   int chunk_id = 0;
+  bool snapshot_created = false;
+  bool scan_started = false;
   int nrows = m_chunk_size;  // TODO: Also nbytes to byte-based chunking.
   std::vector<my_thread_handle> handles(m_nthreads);
   std::vector<Dump_worker_args> worker_args(m_nthreads);
+  snapshot_info_st snapshot_info;
 
   if (open_and_lock_tables(thd, table_ref, 0)) {
     is_err = true;
@@ -461,9 +499,26 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   table = table_ref->table;
   ha = table->file;
   rowbuf = table->record[0];
+  hton = table->s->db_type();
+
+  if (m_consistent) {
+    // Create a shared snapshot of the data for all worker threads to use.
+    snapshot_info.op = snapshot_operation::SNAPSHOT_CREATE;
+    if (ha_explicit_snapshot(thd, hton, &snapshot_info)) {
+      is_err = true;
+      goto exit;
+    }
+    DBUG_PRINT("dump", ("Created snapshot %llu", snapshot_info.snapshot_id));
+    snapshot_created = true;
+    DEBUG_SYNC(thd, "dump_snapshot_created");
+  }
 
   // Start worker threads.
-  start_threads(thd, table->s, m_nthreads, handles.data(), worker_args.data());
+  if (start_threads(thd, table->s, m_consistent ? snapshot_info.snapshot_id : 0,
+                    m_nthreads, handles.data(), worker_args.data())) {
+    is_err = true;
+    goto exit;
+  }
 
   // TODO: allow select-list with arbitrary expressions.
   table->use_all_columns();
@@ -475,6 +530,7 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
     ha->print_error(error, MYF(0));
     goto exit;
   }
+  scan_started = true;
 
   THD_STAGE_INFO(thd, stage_dumping_table);
 
@@ -567,8 +623,7 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   }
 
 exit:
-
-  if (ha) {
+  if (scan_started) {
     // End the scan.
     ha->ha_rnd_end();
   }
@@ -598,6 +653,15 @@ exit:
         my_printf_error(ER_UNKNOWN_ERROR, "worker thread %d failed", MYF(0), i);
       }
       is_err = true;
+    }
+  }
+
+  if (snapshot_created) {
+    // Release the snapshot we created.
+    snapshot_info.op = snapshot_operation::SNAPSHOT_RELEASE;
+    if (ha_explicit_snapshot(thd, hton, &snapshot_info)) {
+      my_printf_error(ER_UNKNOWN_ERROR, "failed to release snapshot %llu",
+                      MYF(0), snapshot_info.snapshot_id);
     }
   }
 

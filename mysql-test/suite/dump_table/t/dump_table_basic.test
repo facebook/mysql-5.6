@@ -26,23 +26,23 @@ let $chunk_prefix=t1dump;
 
 # Positive tests.
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 let $dump_opts=WITH ( THREADS = 1 );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 let $dump_opts=WITH ( THREADS = 2 );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 let $dump_opts=WITH ( THREADS = 4 );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 let $dump_opts=WITH ( THREADS = 8 );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 # Try different chunk sizes.
 # This number does not evenly divide the number of rows intentionally.
@@ -50,20 +50,20 @@ let $chunk_size_rows=5;
 let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
 let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = $chunk_size_rows ROWS );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 let $chunk_size_rows=50;
 let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
 let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = $chunk_size_rows ROWS );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 # Try a chunk size bigger than the table itself. Expect 1 chunk.
 let $chunk_size_rows=2000;
 let $num_chunks=`SELECT CEIL(@numrows/$chunk_size_rows)`;
 let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = $chunk_size_rows ROWS );
 source suite/dump_table/include/dump_stmt.inc;
-source suite/dump_table/include/load_chunks.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 
 # Negative tests
