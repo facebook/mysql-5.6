@@ -306,6 +306,16 @@ void thd_store_globals(THD *thd) { thd->store_globals(); }
 void thd_store_globals(THD *thd, pid_t id) { thd->store_globals(id); }
 
 /**
+  Specify if thread is managed by the scheduler or not.
+
+  @param thd                   THD object
+  @param managed_by_scheduler  True if managed, false otherwise.
+*/
+void thd_managed_by_scheduler(THD *thd, bool managed_by_scheduler) {
+  thd->set_managed_by_cpu_scheduler(managed_by_scheduler);
+}
+
+/**
   Get thread attributes for connection threads
 
   @retval      Reference to thread attribute for connection threads
