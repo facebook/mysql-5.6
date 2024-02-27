@@ -87,11 +87,7 @@ ENDIF()
 
 INCLUDE(compiler_features)
 ROCKSDB_SET_BUILD_ARCHITECTURE()  # sets "-march=" using ROCKSDB_BUILD_ARCH or ROCKSDB_DISABLE_MARCH_NATIVE
-ROCKSDB_SET_DEFINTIONS()          # sets HAVE_URING, HAVE_MEMKIND, HAVE_ALIGNED_NEW
-
-IF (HAVE_URING AND ROCKSDB_USE_IO_URING)
-  SET(rocksdb_static_libs ${rocksdb_static_libs} ${URING_LIBRARY})
-ENDIF()
+ROCKSDB_SET_DEFINTIONS()          # sets HAVE_MEMKIND, HAVE_ALIGNED_NEW
 
 IF (HAVE_MEMKIND AND NOT ROCKSDB_DISABLE_MEMKIND)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${MEMKIND_LIBRARY} -lnuma)
@@ -245,6 +241,16 @@ ENDIF()
 IF (WITH_LZ4)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${LZ4_LIBRARY})
   ADD_DEFINITIONS(-DLZ4)
+ENDIF()
+
+IF (WITH_LIBURING)
+  FIND_LIBRARY(URING_LIBRARY
+    NAMES liburing${PIC_EXT}.a uring
+    HINTS ${WITH_LIBURING}/lib)
+  SET(rocksdb_static_libs ${rocksdb_static_libs}
+    ${URING_LIBRARY})
+  ADD_DEFINITIONS(-DROCKSDB_USE_IO_URING=1)
+  ADD_DEFINITIONS(-DROCKSDB_IOURING_PRESENT)
 ENDIF()
 
 IF (WITH_TBB)

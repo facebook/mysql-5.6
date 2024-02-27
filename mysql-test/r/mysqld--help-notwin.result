@@ -2527,6 +2527,8 @@ The following options may be given as the first argument:
  --rocksdb-use-hyper-clock-cache 
  Use HyperClockCache instead of default LRUCache for
  RocksDB
+ --rocksdb-use-io-uring 
+ Use io_uring for RocksDB
  --rocksdb-use-write-buffer-manager 
  For experiment only. Use write buffer manager
  --rocksdb-validate-tables=# 
@@ -3923,6 +3925,7 @@ rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
 rocksdb-use-hyper-clock-cache FALSE
+rocksdb-use-io-uring FALSE
 rocksdb-use-write-buffer-manager FALSE
 rocksdb-validate-tables 1
 rocksdb-vector-index ON
