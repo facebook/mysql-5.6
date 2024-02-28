@@ -670,12 +670,13 @@ exit:
   close_thread_tables(thd);
 
   if (!is_err) {
-    DBUG_PRINT("dump", ("Finished dumping table '%s' with %ld rows",
+    DBUG_PRINT("dump", ("Finished dumping table '%s' with %" PRId64 " rows",
                         table_ref->table_name, rownum));
 
     char msg[256];
-    snprintf(msg, sizeof(msg), "dump table complete: %ld rows, %d chunks",
-             rownum, chunk_id);
+    snprintf(msg, sizeof(msg),
+             "dump table complete: %" PRId64 " rows, %d chunks", rownum,
+             chunk_id);
     my_ok(thd, rownum, 0, msg);
   }
 
