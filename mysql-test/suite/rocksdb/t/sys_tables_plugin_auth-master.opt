@@ -1,0 +1,4 @@
+--initialize --default-dd-system-storage-engine=ROCKSDB
+$PLUGIN_AUTH_OPT
+$PLUGIN_AUTH_LOAD
+--ssl

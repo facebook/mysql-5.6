@@ -42,55 +42,27 @@ mysql.time_zone_transition                         OK
 mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
 sys.sys_config                                     OK
-mtr.asserted_test_suppressions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mtr.global_suppressions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mtr.test_ignored_global_suppressions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mtr.test_suppressions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.columns_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.component
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mtr.asserted_test_suppressions                     OK
+mtr.global_suppressions                            OK
+mtr.test_ignored_global_suppressions               OK
+mtr.test_suppressions                              OK
+mysql.columns_priv                                 OK
+mysql.component                                    OK
 mysql.db                                           OK
-mysql.default_roles
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.engine_cost
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.func
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.default_roles                                OK
+mysql.engine_cost                                  OK
+mysql.func                                         OK
 mysql.general_log
 note     : The storage engine for the table doesn't support optimize
-mysql.global_grants
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.global_grants                                OK
 mysql.gtid_executed
 Warning  : Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.help_category
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_keyword
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_relation
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_topic
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.help_category                                OK
+mysql.help_keyword                                 OK
+mysql.help_relation                                OK
+mysql.help_topic                                   OK
 mysql.innodb_index_stats
 note     : Table does not support optimize, doing recreate + analyze instead
 error    : The used command is not allowed with this MySQL version
@@ -101,68 +73,28 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.password_history
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.plugin
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.procs_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.proxies_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_asynchronous_connection_failover
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_asynchronous_connection_failover_managed
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_group_configuration_version
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_group_member_actions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.role_edges
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.server_cost
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.servers
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_master_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_relay_log_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_worker_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.password_history                             OK
+mysql.plugin                                       OK
+mysql.procs_priv                                   OK
+mysql.proxies_priv                                 OK
+mysql.replication_asynchronous_connection_failover OK
+mysql.replication_asynchronous_connection_failover_managed OK
+mysql.replication_group_configuration_version      OK
+mysql.replication_group_member_actions             OK
+mysql.role_edges                                   OK
+mysql.server_cost                                  OK
+mysql.servers                                      OK
+mysql.slave_master_info                            OK
+mysql.slave_relay_log_info                         OK
+mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support optimize
-mysql.tables_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_leap_second
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_name
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_transition
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_transition_type
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.tables_priv                                  OK
+mysql.time_zone                                    OK
+mysql.time_zone_leap_second                        OK
+mysql.time_zone_name                               OK
+mysql.time_zone_transition                         OK
+mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
 sys.sys_config
 note     : Table does not support optimize, doing recreate + analyze instead
@@ -206,43 +138,23 @@ mysql.time_zone_name                               OK
 mysql.time_zone_transition                         OK
 mysql.time_zone_transition_type                    OK
 mysql.user                                         OK
-mysql.columns_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.component
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.columns_priv                                 OK
+mysql.component                                    OK
 mysql.db                                           OK
-mysql.default_roles
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.engine_cost
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.func
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.default_roles                                OK
+mysql.engine_cost                                  OK
+mysql.func                                         OK
 mysql.general_log
 note     : The storage engine for the table doesn't support optimize
-mysql.global_grants
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.global_grants                                OK
 mysql.gtid_executed
 Warning  : Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.help_category
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_keyword
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_relation
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.help_topic
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.help_category                                OK
+mysql.help_keyword                                 OK
+mysql.help_relation                                OK
+mysql.help_topic                                   OK
 mysql.innodb_index_stats
 note     : Table does not support optimize, doing recreate + analyze instead
 error    : The used command is not allowed with this MySQL version
@@ -253,66 +165,26 @@ error    : The used command is not allowed with this MySQL version
 status   : Operation failed
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
-mysql.password_history
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.plugin
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.procs_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.proxies_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_asynchronous_connection_failover
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_asynchronous_connection_failover_managed
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_group_configuration_version
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.replication_group_member_actions
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.role_edges
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.server_cost
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.servers
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_master_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_relay_log_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.slave_worker_info
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.password_history                             OK
+mysql.plugin                                       OK
+mysql.procs_priv                                   OK
+mysql.proxies_priv                                 OK
+mysql.replication_asynchronous_connection_failover OK
+mysql.replication_asynchronous_connection_failover_managed OK
+mysql.replication_group_configuration_version      OK
+mysql.replication_group_member_actions             OK
+mysql.role_edges                                   OK
+mysql.server_cost                                  OK
+mysql.servers                                      OK
+mysql.slave_master_info                            OK
+mysql.slave_relay_log_info                         OK
+mysql.slave_worker_info                            OK
 mysql.slow_log
 note     : The storage engine for the table doesn't support optimize
-mysql.tables_priv
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_leap_second
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_name
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_transition
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
-mysql.time_zone_transition_type
-note     : Table does not support optimize, doing recreate + analyze instead
-status   : OK
+mysql.tables_priv                                  OK
+mysql.time_zone                                    OK
+mysql.time_zone_leap_second                        OK
+mysql.time_zone_name                               OK
+mysql.time_zone_transition                         OK
+mysql.time_zone_transition_type                    OK
 mysql.user                                         OK

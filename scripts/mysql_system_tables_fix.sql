@@ -32,7 +32,7 @@
 
 set @ddse= (select @@default_dd_system_storage_engine);
 
-set default_storage_engine=InnoDB;
+set default_storage_engine=@ddse;
 
 # We meed to turn off the default strict mode in case legacy data contains e.g.
 # zero dates ('0000-00-00-00:00:00'), otherwise, we risk to end up with
@@ -163,7 +163,14 @@ ADD max_connections int unsigned NOT NULL DEFAULT 0 AFTER max_updates;
 #
 ALTER TABLE proxies_priv MODIFY User char(80) binary DEFAULT '' NOT NULL;
 ALTER TABLE proxies_priv MODIFY Proxied_user char(80) binary DEFAULT '' NOT NULL;
-ALTER TABLE proxies_priv MODIFY Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, ENGINE=InnoDB;
+
+SET @str="ALTER TABLE proxies_priv MODIFY Host char(255)
+CHARACTER SET ASCII DEFAULT '' NOT NULL, ENGINE=";
+SET @cmd = CONCAT(@str, IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 ALTER TABLE proxies_priv MODIFY Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL;
 ALTER TABLE proxies_priv MODIFY Grantor varchar(288) DEFAULT '' NOT NULL;
 
@@ -1028,23 +1035,87 @@ ALTER TABLE help_relation CONVERT TO CHARACTER SET utf8mb3;
 ALTER TABLE help_keyword CONVERT TO CHARACTER SET utf8mb3;
 
 --
--- Upgrade a table engine from MyISAM to InnoDB for the system tables
+-- Upgrade a table engine from MyISAM to MyRocks or InnoDB for the system tables
 -- help_topic, help_category, help_relation, help_keyword, plugin, servers,
 -- time_zone, time_zone_leap_second, time_zone_name, time_zone_transition,
 -- time_zone_transition_type, columns_priv, db, procs_priv, proxies_priv,
 -- tables_priv, user.
-ALTER TABLE func ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE help_topic ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE help_category ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE help_relation ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE help_keyword ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE plugin ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE servers ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE time_zone ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE time_zone_leap_second ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE time_zone_name ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE time_zone_transition ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE time_zone_transition_type ENGINE=InnoDB STATS_PERSISTENT=0;
+SET @cmd = CONCAT("ALTER TABLE func ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE help_category ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE help_relation ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE help_keyword ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE plugin ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE servers ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE time_zone ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE time_zone_leap_second ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE time_zone_name ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE time_zone_transition ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE time_zone_transition_type ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
 
 SET @cmd = CONCAT("ALTER TABLE db ENGINE=",
     IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
@@ -1054,18 +1125,43 @@ EXECUTE stmt;
 DROP PREPARE stmt;
 
 SET @cmd = CONCAT("ALTER TABLE user ENGINE=",
-IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
-" STATS_PERSISTENT=0");
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 SET SESSION innodb_strict_mode=OFF;
-ALTER TABLE tables_priv ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE procs_priv ENGINE=InnoDB STATS_PERSISTENT=0;
+
+SET @cmd = CONCAT("ALTER TABLE tables_priv ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE procs_priv ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 SET SESSION innodb_strict_mode=DEFAULT;
-ALTER TABLE columns_priv ENGINE=InnoDB STATS_PERSISTENT=0;
-ALTER TABLE proxies_priv ENGINE=InnoDB STATS_PERSISTENT=0;
+
+SET @cmd = CONCAT("ALTER TABLE columns_priv ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = CONCAT("ALTER TABLE proxies_priv ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
+    " STATS_PERSISTENT=0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
 
 --
 -- CREATE_ROLE_ACL and DROP_ROLE_ACL
@@ -1086,7 +1182,8 @@ ALTER TABLE user MODIFY Password_require_current enum('N','Y') COLLATE utf8mb3_g
 ALTER TABLE user ADD User_attributes JSON DEFAULT NULL AFTER Password_require_current;
 
 --
--- Change engine of the firewall tables to InnoDB
+-- Change engine of the firewall tables to InnoDB. This is MySQL Enterprise
+-- feature, thus ignore for MyRocks
 --
 SET @had_firewall_whitelist =
   (SELECT COUNT(table_name) FROM information_schema.tables
@@ -1166,7 +1263,8 @@ EXECUTE stmt;
 DROP PREPARE stmt;
 
 --
--- Change engine, size and charset for audit log tables.
+-- Change engine, size and charset for audit log tables. This is MySQL
+-- Enterprise feature, thus ignore for MyRocks
 --
 
 SET @had_audit_log_user =
@@ -1311,35 +1409,48 @@ INSERT IGNORE INTO mysql.global_grants VALUES ('mysql.session', 'localhost', 'CO
 INSERT IGNORE INTO mysql.global_grants VALUES ('mysql.session', 'localhost', 'SYSTEM_USER', 'N');
 
 # Move all system tables with InnoDB storage engine to mysql tablespace.
-SET @cmd="ALTER TABLE mysql.db TABLESPACE = mysql";
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.db TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
-SET @cmd="ALTER TABLE mysql.user TABLESPACE = mysql";
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.user TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 SET SESSION innodb_strict_mode=OFF;
-SET @cmd="ALTER TABLE mysql.tables_priv TABLESPACE = mysql";
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.tables_priv TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
-SET @cmd="ALTER TABLE mysql.procs_priv TABLESPACE = mysql";
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.procs_priv TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 SET SESSION innodb_strict_mode=DEFAULT;
 
 
-SET @cmd="ALTER TABLE mysql.columns_priv TABLESPACE = mysql";
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.columns_priv TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
-SET @cmd="ALTER TABLE mysql.proxies_priv TABLESPACE = mysql";
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.proxies_priv TABLESPACE = mysql");
 PREPARE stmt FROM @cmd;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -1351,27 +1462,147 @@ PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
-ALTER TABLE mysql.func TABLESPACE = mysql;
-ALTER TABLE mysql.plugin TABLESPACE = mysql;
-ALTER TABLE mysql.servers TABLESPACE = mysql;
-ALTER TABLE mysql.help_topic TABLESPACE = mysql;
-ALTER TABLE mysql.help_category TABLESPACE = mysql;
-ALTER TABLE mysql.help_relation TABLESPACE = mysql;
-ALTER TABLE mysql.help_keyword TABLESPACE = mysql;
-ALTER TABLE mysql.time_zone_name TABLESPACE = mysql;
-ALTER TABLE mysql.time_zone TABLESPACE = mysql;
-ALTER TABLE mysql.time_zone_transition TABLESPACE = mysql;
-ALTER TABLE mysql.time_zone_transition_type TABLESPACE = mysql;
-ALTER TABLE mysql.time_zone_leap_second TABLESPACE = mysql;
-ALTER TABLE mysql.slave_relay_log_info TABLESPACE = mysql;
-ALTER TABLE mysql.slave_master_info TABLESPACE = mysql;
-ALTER TABLE mysql.slave_worker_info TABLESPACE = mysql;
-ALTER TABLE mysql.replication_asynchronous_connection_failover TABLESPACE = mysql;
-ALTER TABLE mysql.replication_asynchronous_connection_failover_managed TABLESPACE = mysql;
-ALTER TABLE mysql.replication_group_member_actions TABLESPACE = mysql;
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.func TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.plugin TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.servers TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.help_topic TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.help_category TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.help_relation TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.help_keyword TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.time_zone_name TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.time_zone TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.time_zone_transition TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.time_zone_transition_type TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.time_zone_leap_second TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.slave_relay_log_info TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.slave_master_info TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.slave_worker_info TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.replication_asynchronous_connection_failover TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.replication_asynchronous_connection_failover_managed TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.replication_group_member_actions TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 ALTER TABLE mysql.gtid_executed TABLESPACE = mysql;
-ALTER TABLE mysql.server_cost TABLESPACE = mysql;
-ALTER TABLE mysql.engine_cost TABLESPACE = mysql;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.server_cost TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd=IF(@ddse = 'ROCKSDB',
+    "SET @dummy = 0",
+    "ALTER TABLE mysql.engine_cost TABLESPACE = mysql");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
 
 
 # Increase host name length. We need a separate ALTER TABLE to

@@ -114,6 +114,8 @@
 #include "./ObjectFactory.h"
 #endif
 
+using namespace std::string_view_literals;
+
 #ifdef MYSQL_DYNAMIC_PLUGIN
 // MySQL 8.0 logger service interface
 static SERVICE_TYPE(registry) *reg_srv = nullptr;
@@ -6041,6 +6043,45 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
  */
 static bool rocksdb_user_table_blocked(legacy_db_type db_type) {
   return db_type == DB_TYPE_INNODB;
+}
+
+static bool rocksdb_is_supported_system_table(const char *db_name,
+                                              const char *tbl_name, bool) {
+  static const std::unordered_set<std::string_view> supported_tables{
+      "columns_priv"sv,
+      "component"sv,
+      "db"sv,
+      "default_roles"sv,
+      "engine_cost"sv,
+      "func"sv,
+      "global_grants"sv,
+      "help_category"sv,
+      "help_keyword"sv,
+      "help_relation"sv,
+      "help_topic"sv,
+      "password_history"sv,
+      "plugin"sv,
+      "procs_priv"sv,
+      "proxies_priv"sv,
+      "replication_asynchronous_connection_failover"sv,
+      "replication_asynchronous_connection_failover_managed"sv,
+      "replication_group_configuration_version"sv,
+      "replication_group_member_actions"sv,
+      "role_edges"sv,
+      "server_cost"sv,
+      "servers"sv,
+      "slave_master_info"sv,
+      "slave_relay_log_info"sv,
+      "slave_worker_info"sv,
+      "tables_priv"sv,
+      "time_zone"sv,
+      "time_zone_leap_second"sv,
+      "time_zone_name"sv,
+      "time_zone_transition"sv,
+      "time_zone_transition_type"sv,
+      "user"sv};
+  return strcmp(db_name, "mysql") == 0 &&
+         supported_tables.find(tbl_name) != supported_tables.cend();
 }
 
 /**

@@ -34,7 +34,7 @@ SET FOREIGN_KEY_CHECKS= 1;
 
 # Added sql_mode elements and making it as SET, instead of ENUM
 
-set default_storage_engine=InnoDB;
+set default_storage_engine=@ddse;
 
 SET @cmd = "CREATE TABLE IF NOT EXISTS db
 (
@@ -147,8 +147,12 @@ USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 DEFAULT_ROLE_HOST CHAR(255) CHARACTER SET ASCII DEFAULT '%' NOT NULL,
 DEFAULT_ROLE_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 PRIMARY KEY (HOST, USER, DEFAULT_ROLE_HOST, DEFAULT_ROLE_USER)
-) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Default roles' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+)
+STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Default roles' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -162,8 +166,12 @@ TO_HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
 TO_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 WITH_ADMIN_OPTION ENUM('N', 'Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 PRIMARY KEY (FROM_HOST,FROM_USER,TO_HOST,TO_USER)
-) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Role hierarchy and role grants' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+)
+STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Role hierarchy and role grants' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -176,8 +184,12 @@ HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
 PRIV CHAR(32) COLLATE utf8mb3_general_ci DEFAULT '' NOT NULL,
 WITH_GRANT_OPTION ENUM('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 PRIMARY KEY (USER,HOST,PRIV)
-) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Extended global grants' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+)
+STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Extended global grants' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -192,55 +204,117 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS password_history
   User CHAR(80) BINARY DEFAULT '' NOT NULL,
   Password_timestamp TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   Password TEXT,";
-SET @str = CONCAT(@cmd, "PRIMARY KEY(Host, User, Password_timestamp DESC))", " engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Password history for user accounts' ROW_FORMAT=DYNAMIC TABLESPACE=mysql", " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @str = CONCAT(@cmd,
+    IF(@ddse = 'ROCKSDB',
+        "PRIMARY KEY(Host, User, Password_timestamp))
+        ENGINE=ROCKSDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+        comment='Password history for user accounts' ROW_FORMAT=DYNAMIC",
+        CONCAT("PRIMARY KEY(Host, User, Password_timestamp DESC))
+        engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+        comment='Password history for user accounts' ROW_FORMAT=DYNAMIC ",
+        "TABLESPACE=mysql", " ENCRYPTION='", @is_mysql_encrypted, "'")
+    )
+);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd = "CREATE TABLE IF NOT EXISTS func
+(name char(64) binary DEFAULT '' NOT NULL,
+ret tinyint DEFAULT '0' NOT NULL,
+dl char(128) DEFAULT '' NOT NULL,
+type enum ('function','aggregate') COLLATE utf8mb3_general_ci NOT NULL,
+PRIMARY KEY (name))
+STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='User defined functions' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS func (  name char(64) binary DEFAULT '' NOT NULL, ret tinyint DEFAULT '0' NOT NULL, dl char(128) DEFAULT '' NOT NULL, type enum ('function','aggregate') COLLATE utf8mb3_general_ci NOT NULL, PRIMARY KEY (name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin   comment='User defined functions' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS plugin
+(name varchar(64) DEFAULT '' NOT NULL,
+dl varchar(128) DEFAULT '' NOT NULL,
+PRIMARY KEY (name)) STATS_PERSISTENT=0
+CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci comment='MySQL plugins'
+ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS plugin ( name varchar(64) DEFAULT '' NOT NULL, dl varchar(128) DEFAULT '' NOT NULL, PRIMARY KEY (name) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci comment='MySQL plugins' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS help_topic
+(help_topic_id int unsigned not null,
+name char(64) not null,
+help_category_id smallint unsigned not null,
+description text not null,
+example text not null,
+url text not null,
+primary key (help_topic_id),
+unique index (name)) STATS_PERSISTENT=0 CHARACTER SET utf8mb3
+comment='help topics' ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS help_topic ( help_topic_id int unsigned not null, name char(64) not null, help_category_id smallint unsigned not null, description text not null, example text not null, url text not null, primary key (help_topic_id), unique index (name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='help topics' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS help_category
+(help_category_id smallint unsigned not null,
+name char(64) not null,
+parent_category_id smallint unsigned null,
+url text not null,
+primary key (help_category_id),
+unique index (name) ) STATS_PERSISTENT=0 CHARACTER SET utf8mb3
+comment='help categories' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS help_category ( help_category_id smallint unsigned not null, name  char(64) not null, parent_category_id smallint unsigned null, url text not null, primary key (help_category_id), unique index (name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='help categories' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS help_relation
+(help_topic_id int unsigned not null,
+help_keyword_id int unsigned not null,
+primary key (help_keyword_id, help_topic_id) ) STATS_PERSISTENT=0
+CHARACTER SET utf8mb3 comment='keyword-topic relation' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS help_relation ( help_topic_id int unsigned not null, help_keyword_id  int unsigned not null, primary key (help_keyword_id, help_topic_id) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='keyword-topic relation' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
-PREPARE stmt FROM @str;
-EXECUTE stmt;
-DROP PREPARE stmt;
-
-
-
-SET @cmd = "CREATE TABLE IF NOT EXISTS servers ( Server_name char(64) NOT NULL DEFAULT '', Host char(255) CHARACTER SET ASCII NOT NULL DEFAULT '', Db char(64) NOT NULL DEFAULT '', Username char(64) NOT NULL DEFAULT '', Password char(64) NOT NULL DEFAULT '', Port INT NOT NULL DEFAULT '0', Socket char(64) NOT NULL DEFAULT '', Wrapper char(64) NOT NULL DEFAULT '', Owner char(64) NOT NULL DEFAULT '', PRIMARY KEY (Server_name)) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='MySQL Foreign Servers table' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS servers
+(Server_name char(64) NOT NULL DEFAULT '',
+Host char(255) CHARACTER SET ASCII NOT NULL DEFAULT '',
+Db char(64) NOT NULL DEFAULT '',
+Username char(64) NOT NULL DEFAULT '',
+Password char(64) NOT NULL DEFAULT '',
+Port INT NOT NULL DEFAULT '0',
+Socket char(64) NOT NULL DEFAULT '',
+Wrapper char(64) NOT NULL DEFAULT '',
+Owner char(64) NOT NULL DEFAULT '',
+PRIMARY KEY (Server_name)) STATS_PERSISTENT=0
+CHARACTER SET utf8mb3 comment='MySQL Foreign Servers table' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -259,8 +333,10 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS tables_priv
   Column_priv set('Select','Insert','Update','References') COLLATE utf8mb3_general_ci DEFAULT '' NOT NULL,
   PRIMARY KEY (Host,User,Db,Table_name),
   KEY Grantor (Grantor)
-) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Table privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+  ) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Table privileges' ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -277,56 +353,107 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS columns_priv
   Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   Column_priv set('Select','Insert','Update','References') COLLATE utf8mb3_general_ci DEFAULT '' NOT NULL,
   PRIMARY KEY (Host,User,Db,Table_name,Column_name)
-) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin   comment='Column privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+  ) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Column privileges' ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS help_keyword (   help_keyword_id  int unsigned not null, name char(64) not null, primary key (help_keyword_id), unique index (name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='help keywords' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS help_keyword
+(
+  help_keyword_id int unsigned not null,
+  name char(64) not null,
+  primary key (help_keyword_id),
+  unique index (name)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='help keywords'
+ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_name (   Name char(64) NOT NULL, Time_zone_id int unsigned NOT NULL, PRIMARY KEY Name (Name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3   comment='Time zone names' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_name
+(
+  Name char(64) NOT NULL,
+  Time_zone_id int unsigned NOT NULL,
+  PRIMARY KEY Name (Name)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='Time zone names'
+ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone (   Time_zone_id int unsigned NOT NULL auto_increment, Use_leap_seconds enum('Y','N') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL, PRIMARY KEY TzId (Time_zone_id) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3   comment='Time zones' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone
+(
+  Time_zone_id int unsigned NOT NULL auto_increment,
+  Use_leap_seconds enum('Y','N') COLLATE utf8mb3_general_ci DEFAULT 'N'
+  NOT NULL,
+  PRIMARY KEY TzId (Time_zone_id)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='Time zones'
+ROW_FORMAT=DYNAMIC  engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_transition (   Time_zone_id int unsigned NOT NULL, Transition_time bigint signed NOT NULL, Transition_type_id int unsigned NOT NULL, PRIMARY KEY TzIdTranTime (Time_zone_id, Transition_time) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3   comment='Time zone transitions' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_transition
+(
+  Time_zone_id int unsigned NOT NULL,
+  Transition_time bigint signed NOT NULL,
+  Transition_type_id int unsigned NOT NULL,
+  PRIMARY KEY TzIdTranTime (Time_zone_id, Transition_time)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='Time zone transitions'
+ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_transition_type (   Time_zone_id int unsigned NOT NULL, Transition_type_id int unsigned NOT NULL, Offset int signed DEFAULT 0 NOT NULL, Is_DST tinyint unsigned DEFAULT 0 NOT NULL, Abbreviation char(8) DEFAULT '' NOT NULL, PRIMARY KEY TzIdTrTId (Time_zone_id, Transition_type_id) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3   comment='Time zone transition types' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_transition_type
+(
+  Time_zone_id int unsigned NOT NULL,
+  Transition_type_id int unsigned NOT NULL,
+  Offset int signed DEFAULT 0 NOT NULL,
+  Is_DST tinyint unsigned DEFAULT 0 NOT NULL,
+  Abbreviation char(8) DEFAULT '' NOT NULL,
+  PRIMARY KEY TzIdTrTId (Time_zone_id, Transition_type_id)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 comment='Time zone transition types'
+ROW_FORMAT=DYNAMIC engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_leap_second (   Transition_time bigint signed NOT NULL, Correction int signed NOT NULL, PRIMARY KEY TranTime (Transition_time) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8mb3   comment='Leap seconds information for time zones' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS time_zone_leap_second
+(
+  Transition_time bigint signed NOT NULL,
+  Correction int signed NOT NULL,
+  PRIMARY KEY TranTime (Transition_time)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3
+comment='Leap seconds information for time zones' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -345,8 +472,11 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS procs_priv
   Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (Host,User,Db,Routine_name,Routine_type),
   KEY Grantor (Grantor)
-) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin   comment='Procedure privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='Procedure privileges' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -365,8 +495,16 @@ CREATE TABLE IF NOT EXISTS slow_log (start_time TIMESTAMP(6) NOT NULL DEFAULT CU
 
 SET @@session.sql_require_primary_key = @old_sql_require_primary_key;
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS component ( component_id int unsigned NOT NULL AUTO_INCREMENT, component_group_id int unsigned NOT NULL, component_urn text NOT NULL, PRIMARY KEY (component_id)) engine=INNODB DEFAULT CHARSET=utf8mb3 COMMENT 'Components' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS component
+(
+  component_id int unsigned NOT NULL AUTO_INCREMENT,
+  component_group_id int unsigned NOT NULL,
+  component_urn text NOT NULL,
+  PRIMARY KEY (component_id)
+) CHARSET=utf8mb3 COMMENT 'Components' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -388,9 +526,12 @@ SET @cmd="CREATE TABLE IF NOT EXISTS slave_relay_log_info (
   Require_table_primary_key_check ENUM('STREAM','ON','OFF','GENERATE') NOT NULL DEFAULT 'STREAM' COMMENT 'Indicates what is the channel policy regarding tables without primary keys on create and alter table queries',
   Assign_gtids_to_anonymous_transactions_type ENUM('OFF', 'LOCAL', 'UUID')  NOT NULL DEFAULT 'OFF' COMMENT 'Indicates whether the channel will generate a new GTID for anonymous transactions. OFF means that anonymous transactions will remain anonymous. LOCAL means that anonymous transactions will be assigned a newly generated GTID based on server_uuid. UUID indicates that anonymous transactions will be assigned a newly generated GTID based on Assign_gtids_to_anonymous_transactions_value',
   Assign_gtids_to_anonymous_transactions_value TEXT CHARACTER SET utf8mb3 COLLATE utf8mb3_bin  COMMENT 'Indicates the UUID used while generating GTIDs for anonymous transactions',
-  PRIMARY KEY(Channel_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 COMMENT 'Relay Log Information'";
+  PRIMARY KEY(Channel_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0
+  COMMENT 'Relay Log Information' ROW_FORMAT=DYNAMIC
+  ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -429,9 +570,12 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_master_info (
   Tls_ciphersuites TEXT CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL COMMENT 'Ciphersuites used for TLS 1.3 communication with the master server.',
   Source_connection_auto_failover BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Indicates whether the channel connection failover is enabled.',
   Gtid_only BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Indicates if this channel only uses GTIDs and does not persist positions.',
-  PRIMARY KEY(Channel_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 COMMENT 'Master Information'";
+  PRIMARY KEY(Channel_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0
+  COMMENT 'Master Information' ROW_FORMAT=DYNAMIC
+  ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -450,9 +594,11 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Checkpoint_group_size INTEGER UNSIGNED NOT NULL,
   Checkpoint_group_bitmap BLOB NOT NULL,
   Channel_name VARCHAR(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL COMMENT 'The channel on which the replica is connected to a source. Used in Multisource Replication',
-  PRIMARY KEY(Channel_name, Id)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 COMMENT 'Worker Information'";
+  PRIMARY KEY(Channel_name, Id)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0
+  COMMENT 'Worker Information' ROW_FORMAT=DYNAMIC ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -476,9 +622,13 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS replication_asynchronous_connection_failov
     Network_namespace CHAR(64) COMMENT 'The source network namespace that the replica will attempt to switch over the replication connection to in case of a failure. If its value is empty, connections use the default (global) namespace.',
     Weight TINYINT UNSIGNED NOT NULL COMMENT 'The order in which the replica shall try to switch the connection over to when there are failures. Weight can be set to a number between 1 and 100, where 100 is the highest weight and 1 the lowest.',
     Managed_name CHAR(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT '' COMMENT 'The name of the group which this server belongs to.',
-    PRIMARY KEY(Channel_name, Host, Port, Network_namespace, Managed_name), KEY(Channel_name, Managed_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 COMMENT 'The source configuration details'";
+    PRIMARY KEY(Channel_name, Host, Port, Network_namespace, Managed_name),
+    KEY(Channel_name, Managed_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0
+    COMMENT 'The source configuration details' ROW_FORMAT=DYNAMIC
+    ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -489,9 +639,13 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS replication_asynchronous_connection_failov
     Managed_name CHAR(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT '' COMMENT 'The name of the source which needs to be managed.',
     Managed_type CHAR(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT '' COMMENT 'Determines the managed type.',
     Configuration JSON DEFAULT NULL COMMENT 'The data to help manage group. For Managed_type = GroupReplication, Configuration value should contain {\"Primary_weight\": 80, \"Secondary_weight\": 60}, so that it assigns weight=80 to PRIMARY of the group, and weight=60 for rest of the members in mysql.replication_asynchronous_connection_failover table.',
-    PRIMARY KEY(Channel_name, Managed_name)) DEFAULT CHARSET=utf8mb3 STATS_PERSISTENT=0 COMMENT 'The managed source configuration details'";
+    PRIMARY KEY(Channel_name, Managed_name)) DEFAULT CHARSET=utf8mb3
+    STATS_PERSISTENT=0 COMMENT 'The managed source configuration details'
+    ROW_FORMAT=DYNAMIC
+    ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -504,9 +658,13 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS replication_group_member_actions (
     type CHAR(64) CHARACTER SET ASCII NOT NULL COMMENT 'The action type.',
     priority TINYINT UNSIGNED NOT NULL COMMENT 'The order on which the action will be run, value between 1 and 100, lower values first.',
     error_handling CHAR(64) CHARACTER SET ASCII NOT NULL COMMENT 'On errors during the action will be handled: IGNORE, CRITICAL.',
-    PRIMARY KEY(name, event), KEY(event)) DEFAULT CHARSET=utf8mb4 STATS_PERSISTENT=0 COMMENT 'The member actions configuration.'";
+    PRIMARY KEY(name, event), KEY(event)) DEFAULT CHARSET=utf8mb4
+    STATS_PERSISTENT=0 COMMENT 'The member actions configuration.'
+    ROW_FORMAT=DYNAMIC
+    ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -515,9 +673,12 @@ DROP PREPARE stmt;
 SET @cmd= "CREATE TABLE IF NOT EXISTS replication_group_configuration_version (
     name CHAR(255) CHARACTER SET ASCII NOT NULL COMMENT 'The configuration name.',
     version BIGINT UNSIGNED NOT NULL COMMENT 'The version of the configuration name.',
-    PRIMARY KEY(name)) DEFAULT CHARSET=utf8mb4 STATS_PERSISTENT=0 COMMENT 'The group configuration version.'";
+    PRIMARY KEY(name)) DEFAULT CHARSET=utf8mb4 STATS_PERSISTENT=0
+    COMMENT 'The group configuration version.' ROW_FORMAT=DYNAMIC
+    ENGINE=";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB ROW_FORMAT=DYNAMIC TABLESPACE=mysql ENCRYPTION=\'', @is_mysql_encrypted,'\''), CONCAT(@cmd, ' ENGINE= MYISAM'));
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -546,8 +707,10 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS server_cost (
        ELSE NULL
      END) VIRTUAL,
   PRIMARY KEY (cost_name)
-) ENGINE=InnoDB CHARACTER SET=utf8mb3 COLLATE=utf8mb3_general_ci STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+) CHARACTER SET=utf8mb3 COLLATE=utf8mb3_general_ci STATS_PERSISTENT=0
+ROW_FORMAT=DYNAMIC ENGINE=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -574,8 +737,10 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS engine_cost (
        ELSE NULL
      END) VIRTUAL,
   PRIMARY KEY (cost_name, engine_name, device_type)
-) ENGINE=InnoDB CHARACTER SET=utf8mb3 COLLATE=utf8mb3_general_ci STATS_PERSISTENT=0 ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+  ) CHARACTER SET=utf8mb3 COLLATE=utf8mb3_general_ci STATS_PERSISTENT=0
+  ROW_FORMAT=DYNAMIC ENGINE=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -586,8 +751,23 @@ INSERT IGNORE INTO engine_cost(engine_name, device_type, cost_name) VALUES
   ("default", 0, "io_block_read_cost");
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS proxies_priv (Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, Proxied_user char(80) binary DEFAULT '' NOT NULL, With_grant BOOL DEFAULT 0 NOT NULL, Grantor varchar(288) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='User proxy privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
-SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
+SET @cmd = "CREATE TABLE IF NOT EXISTS proxies_priv
+(
+  Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
+  User char(80) binary DEFAULT '' NOT NULL,
+  Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
+  Proxied_user char(80) binary DEFAULT '' NOT NULL,
+  With_grant BOOL DEFAULT 0 NOT NULL,
+  Grantor varchar(288) DEFAULT '' NOT NULL,
+  Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user),
+  KEY Grantor (Grantor)
+) STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin
+comment='User proxy privileges' ROW_FORMAT=DYNAMIC
+engine=";
+SET @str = IF(@ddse = 'ROCKSDB', CONCAT(@cmd, "ROCKSDB"),
+CONCAT(@cmd, "InnoDB TABLESPACE=mysql ENCRYPTION='", @is_mysql_encrypted, "'"));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;

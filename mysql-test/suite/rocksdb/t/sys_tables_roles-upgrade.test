@@ -1,4 +1,3 @@
 --source include/not_valgrind.inc
---source include/have_innodb_system_tables.inc
 
 --source include/roles-upgrade.inc
