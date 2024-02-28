@@ -175,8 +175,10 @@ int table_processlist::make_row(PFS_thread *pfs) {
     return HA_ERR_RECORD_DELETED;
   }
 
-  /* Ignore background threads. */
-  if (pfs->m_user_name.length() == 0 || pfs->m_processlist_id == 0)
+  /* Ignore background threads but include system threads to make
+   * it comparable to show processlist. */
+  if (!pfs->m_class->is_system_thread() &&
+      (pfs->m_user_name.length() == 0 || pfs->m_processlist_id == 0))
     return HA_ERR_RECORD_DELETED;
 
   m_row.m_processlist_id = pfs->m_processlist_id;
