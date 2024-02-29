@@ -64,6 +64,9 @@ class Rdb_iterator {
   virtual int get(const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
                   Rdb_lock_type type, bool skip_ttl_check = false,
                   bool skip_wait = false) = 0;
+  virtual void multi_get(const std::vector<rocksdb::Slice> &key_slices,
+                         std::vector<rocksdb::PinnableSlice> &value_slices,
+                         std::vector<int> &rtn_codes, bool sorted_input) = 0;
   virtual int next() = 0;
   virtual int prev() = 0;
   virtual rocksdb::Slice key() = 0;
@@ -85,6 +88,9 @@ class Rdb_iterator_base : public Rdb_iterator {
                        const int bytes_changed_by_succ,
                        const rocksdb::Slice &end_key);
   int next_with_direction(bool move_forward, bool skip_next);
+  int convert_get_status(myrocks::Rdb_transaction *tx,
+                         const rocksdb::Status &status,
+                         rocksdb::PinnableSlice *value, bool skip_ttl_check);
 
  public:
   Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
@@ -100,6 +106,9 @@ class Rdb_iterator_base : public Rdb_iterator {
   int get(const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
           Rdb_lock_type type, bool skip_ttl_check = false,
           bool skip_wait = false) override;
+  void multi_get(const std::vector<rocksdb::Slice> &key_slices,
+                 std::vector<rocksdb::PinnableSlice> &value_slices,
+                 std::vector<int> &rtn_codes, bool sorted_input) override;
 
   int next() override { return next_with_direction(true, false); }
 
@@ -198,6 +207,9 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   int read_prefix_from_pk();
   int next_with_direction_in_group(bool direction);
   int next_with_direction(bool direction);
+  int handle_get_result(int rtn_code, const rocksdb::Slice *key,
+                        rocksdb::PinnableSlice *value, Rdb_lock_type type,
+                        bool skip_ttl_check, bool skip_wait);
 
   using Slice_pair = std::pair<rocksdb::Slice, rocksdb::Slice>;
   using Records = std::vector<Slice_pair>;
@@ -234,6 +246,9 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   int get(const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
           Rdb_lock_type type, bool skip_ttl_check = false,
           bool skip_wait = false) override;
+  void multi_get(const std::vector<rocksdb::Slice> &key_slices,
+                 std::vector<rocksdb::PinnableSlice> &value_slices,
+                 std::vector<int> &rtn_codes, bool sorted_input) override;
   int next() override;
   int prev() override;
   rocksdb::Slice key() override;

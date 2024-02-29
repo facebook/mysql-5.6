@@ -17,8 +17,10 @@
 #include "./rdb_iterator.h"
 
 #include <algorithm>
+#include <cstddef>
 
 /* MySQL includes */
+#include "rdb_utils.h"
 #include "scope_guard.h"
 #include "sql/sql_class.h"
 #include "sql/thr_malloc.h"
@@ -377,10 +379,29 @@ int Rdb_iterator_base::seek(enum ha_rkey_function find_flag,
   return rc;
 }
 
+int Rdb_iterator_base::convert_get_status(myrocks::Rdb_transaction *tx,
+                                          const rocksdb::Status &s,
+                                          rocksdb::PinnableSlice *value,
+                                          bool skip_ttl_check) {
+  int rc = HA_EXIT_SUCCESS;
+  if (!s.IsNotFound() && !s.ok()) {
+    return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
+  }
+
+  const bool hide_ttl_rec =
+      !skip_ttl_check && m_kd->has_ttl() &&
+      rdb_should_hide_ttl_rec(*m_kd, s.IsNotFound() ? nullptr : value, tx);
+
+  if (hide_ttl_rec || s.IsNotFound()) {
+    return HA_ERR_KEY_NOT_FOUND;
+  }
+
+  return rc;
+}
+
 int Rdb_iterator_base::get(const rocksdb::Slice *key,
                            rocksdb::PinnableSlice *value, Rdb_lock_type type,
                            bool skip_ttl_check, bool skip_wait) {
-  int rc = HA_EXIT_SUCCESS;
   m_valid = false;
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
   rocksdb::Status s;
@@ -397,19 +418,23 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
         s = rocksdb::Status::Corruption();
       });
 
-  if (!s.IsNotFound() && !s.ok()) {
-    return rdb_tx_set_status_error(tx, s, *m_kd, m_tbl_def);
+  return convert_get_status(tx, s, value, skip_ttl_check);
+}
+
+void Rdb_iterator_base::multi_get(
+    const std::vector<rocksdb::Slice> &key_slices,
+    std::vector<rocksdb::PinnableSlice> &value_slices,
+    std::vector<int> &rtn_codes, bool sorted_input) {
+  auto tx = get_tx_from_thd(m_thd);
+  const auto size = key_slices.size();
+  std::vector<rocksdb::Status> statuses(size);
+  rdb_tx_multi_get(tx, m_kd->get_cf(), size, key_slices.data(),
+                   value_slices.data(), m_table_type, statuses.data(),
+                   sorted_input);
+  for (std::size_t i = 0; i < size; i++) {
+    rtn_codes[i] = convert_get_status(tx, statuses[i], &value_slices[i],
+                                      /*skip_ttl_check*/ false);
   }
-
-  const bool hide_ttl_rec =
-      !skip_ttl_check && m_kd->has_ttl() &&
-      rdb_should_hide_ttl_rec(*m_kd, s.IsNotFound() ? nullptr : value, tx);
-
-  if (hide_ttl_rec || s.IsNotFound()) {
-    return HA_ERR_KEY_NOT_FOUND;
-  }
-
-  return rc;
 }
 
 Rdb_iterator_partial::Rdb_iterator_partial(
@@ -994,11 +1019,10 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
   return rc;
 }
 
-int Rdb_iterator_partial::get(const rocksdb::Slice *key,
-                              rocksdb::PinnableSlice *value, Rdb_lock_type type,
-                              bool skip_ttl_check, bool skip_wait) {
-  int rc = Rdb_iterator_base::get(key, value, type, skip_ttl_check, skip_wait);
-
+int Rdb_iterator_partial::handle_get_result(
+    int get_rtn_code, const rocksdb::Slice *key, rocksdb::PinnableSlice *value,
+    Rdb_lock_type type, bool skip_ttl_check, bool skip_wait) {
+  int rc = get_rtn_code;
   if (rc == HA_ERR_KEY_NOT_FOUND) {
     const uint size =
         m_kd->get_primary_key_tuple(*m_pkd, key, m_sk_packed_tuple);
@@ -1023,11 +1047,33 @@ int Rdb_iterator_partial::get(const rocksdb::Slice *key,
 
     value->PinSelf(
         rocksdb::Slice((const char *)m_sk_packed_tuple, sk_packed_size));
-    rc = 0;
+    rc = HA_EXIT_SUCCESS;
   }
+  return rc;
+}
 
+int Rdb_iterator_partial::get(const rocksdb::Slice *key,
+                              rocksdb::PinnableSlice *value, Rdb_lock_type type,
+                              bool skip_ttl_check, bool skip_wait) {
+  int rc = Rdb_iterator_base::get(key, value, type, skip_ttl_check, skip_wait);
+  rc = handle_get_result(rc, key, value, type, skip_ttl_check, skip_wait);
   m_partial_valid = false;
   return rc;
+}
+
+void Rdb_iterator_partial::multi_get(
+    const std::vector<rocksdb::Slice> &key_slices,
+    std::vector<rocksdb::PinnableSlice> &value_slices,
+    std::vector<int> &rtn_codes, bool sorted_input) {
+  Rdb_iterator_base::multi_get(key_slices, value_slices, rtn_codes,
+                               sorted_input);
+
+  for (std::size_t i = 0; i < rtn_codes.size(); i++) {
+    rtn_codes[i] = handle_get_result(
+        rtn_codes[i], &key_slices[i], &value_slices[i], RDB_LOCK_NONE,
+        /*skip_ttl_check*/ false, /*skip_wait*/ false);
+  }
+  m_partial_valid = false;
 }
 
 int Rdb_iterator_partial::next_with_direction_in_group(bool direction) {

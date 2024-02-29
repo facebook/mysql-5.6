@@ -1,0 +1,61 @@
+source ../include/init_thrift_server_plugin.inc;
+
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1;
+enable_warnings;
+enable_query_log;
+
+# disable compaction ttl deletion
+set global rocksdb_pause_ttl_compaction_filter=on;
+set global rocksdb_select_bypass_multiget_min=2;
+
+CREATE TABLE t1 (
+id BIGINT NOT NULL, val VARCHAR(64), ts BIGINT UNSIGNED NOT NULL, PRIMARY KEY (id)
+) ENGINE=ROCKSDB COMMENT='ttl_duration=1;ttl_col=ts;';
+
+# first 3 records are expired
+insert into t1 values (1, 'v1', 42), (2, 'v2', 42), (3, 'v3', 42), (4, 'v4', UNIX_TIMESTAMP()+360000);
+
+echo;
+echo point query multi get;
+echo;
+# where id in (1,2,3,4,5)
+set global rocksdb_enable_ttl_read_filtering=off;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where_in":[{"column":"id","op":0,"values":[{"signedIntVal":1}, {"signedIntVal":2}, {"signedIntVal":3}, {"signedIntVal":4}, {"signedIntVal":5}]}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+
+# should filter out expired data
+set global rocksdb_enable_ttl_read_filtering=on;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where_in":[{"column":"id","op":0,"values":[{"signedIntVal":1}, {"signedIntVal":2}, {"signedIntVal":3}, {"signedIntVal":4}, {"signedIntVal":5}]}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+
+echo;
+echo point query single get;
+echo;
+set global rocksdb_enable_ttl_read_filtering=off;
+# where id = 1
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where":[{"column":"id","op":0,"value":{"signedIntVal":1}}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+
+set global rocksdb_enable_ttl_read_filtering=on;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where":[{"column":"id","op":0,"value":{"signedIntVal":1}}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+
+echo;
+echo point query single get multi keys;
+echo;
+set global rocksdb_enable_ttl_read_filtering=off;
+# where id in (1,4)
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where_in":[{"column":"id","op":0,"values":[{"signedIntVal":1}, {"signedIntVal":4}]}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+set global rocksdb_enable_ttl_read_filtering=on;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "val"],"where_in":[{"column":"id","op":0,"values":[{"signedIntVal":1}, {"signedIntVal":4}]}]}';
+source ../include/get_thrift_server_plugin_output.inc;
+
+echo;
+set global rocksdb_pause_ttl_compaction_filter=default;
+set global rocksdb_enable_ttl_read_filtering=default;
+set global rocksdb_select_bypass_multiget_min=default;
+DROP TABLE t1;
+source ../include/uninit_thrift_server_plugin.inc;
