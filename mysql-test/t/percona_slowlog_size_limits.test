@@ -15,7 +15,7 @@ SET GLOBAL slow_query_log = 1;
 --echo # Case 1 (PS-1484): Test if slowlog_space_limit is working correctly
 --echo #                   with the default slow query log name
 SET GLOBAL max_slowlog_size = 4096;
-SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 3;
+SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 4;
 
 # avoid 100 selects 1 in .result
 --let $i=100
@@ -30,7 +30,7 @@ while($i) {
 
 --let slow_query_base= `SELECT @old_slow_query_log_file`
 --let file_spec = $slow_query_base.*
---let expected_number = 3
+--let expected_number = 4
 --source include/assert_number_of_files.inc
 
 
@@ -144,7 +144,7 @@ while($i) {
 --eval SET GLOBAL slow_query_log_file = '$MYSQLTEST_VARDIR/abcd'
 
 --let file_spec = $MYSQLTEST_VARDIR/abcd*
---let expected_number = 7
+--let expected_number = 6
 --source include/assert_number_of_files.inc
 
 
@@ -153,7 +153,7 @@ SET GLOBAL max_slowlog_size = 4096;
 SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 2;
 
 --let file_spec = $MYSQLTEST_VARDIR/abcd*
---let expected_number = 4
+--let expected_number = 3
 --source include/assert_number_of_files.inc
 
 

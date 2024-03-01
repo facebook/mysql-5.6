@@ -279,7 +279,8 @@ ALTER TABLE slow_log
   MODIFY thread_id BIGINT UNSIGNED NOT NULL;
 ALTER TABLE slow_log
   ADD COLUMN cpu_usage TIME(6) NOT NULL AFTER thread_id,
-  ADD COLUMN delay_total TIME(6) NOT NULL AFTER cpu_usage;
+  ADD COLUMN delay_total TIME(6) NOT NULL AFTER cpu_usage,
+  ADD COLUMN wait_stats MEDIUMTEXT NOT NULL;
 SET GLOBAL slow_query_log = @old_log_state;
 
 SET @@session.sql_require_primary_key = @old_sql_require_primary_key;

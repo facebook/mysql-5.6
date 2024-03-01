@@ -176,6 +176,10 @@ class Log_event_handler {
                                is a query or an administrator command
      @param sql_text           The query or administrator in textual form
      @param sql_text_len       The length of sql_text string
+     @param cpu_stats          The stats about thread pool scheduler
+     @param wait_stats_buf     The wait stats about the workers in thread pool
+     scheduler
+     @param wait_stats_len     The length of wait_buf_stats string
 
      @return true if error, false otherwise.
   */
@@ -184,7 +188,8 @@ class Log_event_handler {
                         size_t user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
                         const char *sql_text, size_t sql_text_len,
-                        tp_cpu_stats &cpu_stats) = 0;
+                        tp_cpu_stats &cpu_stats, char *wait_stats_buf,
+                        size_t wait_stats_len) = 0;
 
   /**
      Log command to the general log.
@@ -252,7 +257,8 @@ class Log_to_csv_event_handler : public Log_event_handler {
                 const char *user_host, size_t user_host_len,
                 ulonglong query_utime, ulonglong lock_utime, bool is_command,
                 const char *sql_text, size_t sql_text_len,
-                tp_cpu_stats &cpu_stats) override;
+                tp_cpu_stats &cpu_stats, char *wait_stats_buf,
+                size_t wait_stats_len) override;
 
   /** @see Log_event_handler::log_general(). */
   bool log_general(THD *thd, ulonglong event_utime, const char *user_host,
