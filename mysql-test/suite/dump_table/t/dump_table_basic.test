@@ -6,13 +6,15 @@ CREATE TABLE t1 (
   a int not null auto_increment,
   b int not null,
   c int not null,
-  d varchar(100),
-  e varchar(200),
+  d varchar(2000),
+  e varchar(2000),
   primary key (a, b, c),
   key c_idx (c)
 );
 
 # Insert some dummy data.
+# Inflate the row sizes a bit to test the chunk sizes better.
+let $repeat = 200;
 source suite/dump_table/include/populate_table.inc;
 
 SELECT COUNT(*) INTO @numrows FROM t1;
@@ -65,6 +67,35 @@ let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = $chunk_size_rows ROWS );
 source suite/dump_table/include/dump_stmt.inc;
 source suite/dump_table/include/load_and_verify_chunks.inc;
 
+# Non-row chunk units.
+
+let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = 4 KB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = 7 KB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 3, CHUNK_SIZE = 101 KB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 2, CHUNK_SIZE = 1 MB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 8, CHUNK_SIZE = 4 MB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 4, CHUNK_SIZE = 1 GB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
+
+let $dump_opts=WITH ( THREADS = 16, CHUNK_SIZE = 2 GB );
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_and_verify_chunks.inc;
 
 # Negative tests
 --error ER_PARSE_ERROR
@@ -73,7 +104,14 @@ eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( THREADS = -10 );
 eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( THREADS = 'abc' );
 --error ER_WRONG_ARGUMENTS
 eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( THREADS = 0 );
-
+--error ER_WRONG_ARGUMENTS
+eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = 0 KB );
+--error ER_PARSE_ERROR
+eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = -1 KB );
+--error ER_WRONG_ARGUMENTS
+eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = 0 ROWS );
+--error ER_PARSE_ERROR
+eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = 1 TB );
 
 # Cleanup
 DROP TABLE t1;

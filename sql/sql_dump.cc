@@ -30,6 +30,7 @@
 #include "sql/log.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"
+#include "sql/parser_yystype.h"
 #include "sql/protocol_classic.h"
 #include "sql/query_result.h"
 #include "sql/snapshot.h"
@@ -52,7 +53,7 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
                                     Dump_work_item *work) {
   DBUG_TRACE;
 
-  DBUG_PRINT("dump", ("Dumping chunk %d", work->chunk_id));
+  DBUG_PRINT("dump", ("Dumping chunk %" PRId64, work->chunk_id));
   bool is_err = false;
   // Was handler initialized?
   bool ha_init = false;
@@ -69,14 +70,15 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
   // Set in pfs threads table / SHOW PROCESSLIST /
   // INFORMATION_SCHEMA.PROCESSLIST
   char pfs_info_msg[256];
-  snprintf(pfs_info_msg, sizeof(pfs_info_msg), "Dumping chunk %d",
+  snprintf(pfs_info_msg, sizeof(pfs_info_msg), "Dumping chunk %" PRId64,
            work->chunk_id);
   PSI_THREAD_CALL(set_thread_info)
   (pfs_info_msg, sizeof(pfs_info_msg));
 #endif
 
   // Create a filename with the chunk suffix.
-  snprintf(filename, sizeof(filename), "%s.%d", m_filename.str, work->chunk_id);
+  snprintf(filename, sizeof(filename), "%s.%" PRId64, m_filename.str,
+           work->chunk_id);
   sql_exchange exchange(filename, false /* dumpfile */, FILETYPE_CSV);
 
   // Create a result_export with the filename above and default escape options.
@@ -124,7 +126,8 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
 
     ++numrows;
     (void)numrows;  // for release builds.
-    DBUG_PRINT("verbose", ("read row %d in chunk %d", numrows, work->chunk_id));
+    DBUG_PRINT("verbose",
+               ("read row %d in chunk %" PRId64, numrows, work->chunk_id));
 
     // send rowbuf to result (which will be the chunk file).
     result.send_data(thd, list);
@@ -138,8 +141,8 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
       assert(!key_cmp_if_same(
           table, work->end_ref, 0,
           table->key_info[0].key_length /* check whole key */));
-      DBUG_PRINT("dump",
-                 ("found end key in chunk %d. Breaking out.", work->chunk_id));
+      DBUG_PRINT("dump", ("found end key in chunk %" PRId64 ". Breaking out.",
+                          work->chunk_id));
 
       break;
     }
@@ -164,11 +167,11 @@ exit:
   if (thd->is_error()) {
     Diagnostics_area *da = thd->get_stmt_da();
     // NO_LINT_DEBUG
-    sql_print_error("Error during dumping chunk %d: %d: %s", work->chunk_id,
-                    da->mysql_errno(), da->message_text());
+    sql_print_error("Error during dumping chunk %" PRId64 ": %d: %s",
+                    work->chunk_id, da->mysql_errno(), da->message_text());
   } else {
-    DBUG_PRINT("dump",
-               ("done writing chunk %d. %d rows", work->chunk_id, numrows));
+    DBUG_PRINT("dump", ("done writing chunk %" PRId64 ". %d rows",
+                        work->chunk_id, numrows));
   }
 
   return is_err;
@@ -406,7 +409,7 @@ exit:
 */
 uchar *Sql_cmd_dump_table::enqueue_chunk(THD *thd, TABLE *table,
                                          uchar *start_ref, uchar *end_row,
-                                         int chunk_id, int64_t chunk_rows) {
+                                         int64_t chunk_id, int64_t chunk_rows) {
   uchar *new_start_ref = nullptr;
   // TODO: should we use some other allocator so that the memory doesn't
   // keep growing (since you can't free from a memroot individually)? Or
@@ -449,13 +452,77 @@ uchar *Sql_cmd_dump_table::enqueue_chunk(THD *thd, TABLE *table,
   work_item->nrows = chunk_rows;
 
   m_work_queue.enqueue(work_item);
-  DBUG_PRINT("dump", ("enqueued work item %d", work_item->chunk_id));
+  DBUG_PRINT("dump", ("enqueued work item %" PRId64 " for %d rows",
+                      work_item->chunk_id, work_item->nrows));
 
   // Next range will start *after* this point.
   new_start_ref = work_item->end_ref;
 
 exit:
   return new_start_ref;
+}
+
+/**
+  Helper to get the actual (not max) size of a row, taking into account variable
+  length fields.
+*/
+static int get_row_actual_size(Field **fields, int nfields) {
+  int sum = 0;
+  for (int i = 0; i < nfields; i++) {
+    Field *field = fields[i];
+    sum += field->data_length();
+  }
+  return sum;
+}
+
+static const char *chunk_unit_names[] = {
+    "unset",  // invalid
+    "rows",  "kb", "mb", "gb",
+};
+static_assert(std::size(chunk_unit_names) ==
+              static_cast<size_t>(Chunk_unit::LAST));
+
+/**
+  Helper to send result metadata for client to consume. Includes info about
+  the dump like number of chunks.
+
+  @return true on error. false otherwise.
+*/
+static bool send_dump_result_info(THD *thd, longlong nchunks, longlong nrows) {
+  DBUG_TRACE;
+  bool is_err = false;
+  Protocol *protocol = thd->get_protocol();
+
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  field_list.push_back(
+      new Item_return_int("num_chunks", 10, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_return_int("rows_dumped", 10, MYSQL_TYPE_LONGLONG));
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    is_err = true;
+    goto exit;
+  }
+
+  protocol->start_row();
+
+  // Fill the fields.
+  protocol->store(nchunks);
+  protocol->store(nrows);
+
+  // Send the row.
+  if (protocol->end_row()) {
+    is_err = true;
+    goto exit;
+  }
+
+exit:
+  if (!is_err) {
+    my_eof(thd);
+  }
+
+  return is_err;
 }
 
 /**
@@ -471,22 +538,37 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   uchar *rowbuf = nullptr;
   handlerton *hton = nullptr;
   assert(m_nthreads > 0);
-  DBUG_PRINT("dump",
-             ("Dumping table '%s' with %d threads. Chunk size: %d rows.",
-              table_ref->table_name, m_nthreads, m_chunk_size));
+  DBUG_PRINT("dump", ("Dumping table '%s' with %d threads. Chunk size: %d %s.",
+                      table_ref->table_name, m_nthreads, m_chunk_size,
+                      chunk_unit_names[(int)m_chunk_unit]));
   // Track the start of each range scan. Initial one will be from start of
   // table.
   uchar *start_ref = nullptr;
   int64_t rownum = 0;
+
+  // Number of bytes examined so far from the scan, reset after each chunk is
+  // created.
+  uint64_t bytes_so_far = 0;
+
   // Used to count the number of rows in each chunk. With row count based
   // chunking, this is a constant. But with size-based, we will need to know
   // how many we scanned before creating the chunk work item, to avoid checking
   // the end key each time.
   int64_t last_rownum = 0;
-  int chunk_id = 0;
+  int64_t chunk_id = 0;
   bool snapshot_created = false;
   bool scan_started = false;
-  int nrows = m_chunk_size;  // TODO: Also nbytes to byte-based chunking.
+
+  // Row based chunking variables.
+  int nrows =
+      m_chunk_size;  // number of rows per chunk if row-based chunking is used.
+
+  // Size-based chunking variables.
+  uint64_t chunk_size_bytes = 0;  // if byte-based chunking is used.
+  // The number of bits to shift m_chunk_size (left) to convert it to bytes,
+  // and bytes_so_far (right) to convert it to `m_chunk_unit`s.
+  int chunk_unit_shift_bits = 0;
+
   std::vector<my_thread_handle> handles(m_nthreads);
   std::vector<Dump_worker_args> worker_args(m_nthreads);
   snapshot_info_st snapshot_info;
@@ -534,6 +616,34 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
 
   THD_STAGE_INFO(thd, stage_dumping_table);
 
+  // Compute some size-based chunking constants if needed.
+  if (m_chunk_unit != Chunk_unit::ROWS) {
+    // Row count based chunking.
+    switch (m_chunk_unit) {
+      // Size-based chunks.
+      // IMPORTANT: ensure the size units are in descending order in size to
+      // ensure the correct chunk_unit_shift_bits calculation.
+      case Chunk_unit::GB:
+        chunk_unit_shift_bits += 10;
+        [[fallthrough]];
+      case Chunk_unit::MB:
+        chunk_unit_shift_bits += 10;
+        [[fallthrough]];
+      case Chunk_unit::KB: {
+        chunk_unit_shift_bits += 10;
+
+        // Calculate how much space we want to consume per chunk in bytes.
+        chunk_size_bytes = m_chunk_size << chunk_unit_shift_bits;
+        break;
+      }
+      default:
+        is_err = true;
+        assert(!"invalid chunk unit");
+        my_error(ER_INTERNAL_ERROR, MYF(0), "Invalid chunk unit");
+        goto exit;
+    }
+  }
+
   // Scan the base table and create work items every N {bytes,rows}
   while (!thd->is_killed()) {
     thd->check_yield();
@@ -572,8 +682,12 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
       break;
     }
 
-    // TODO: track byte size too
     rownum++;
+
+    // Track bytes if needed.
+    if (m_chunk_unit != Chunk_unit::ROWS) {
+      bytes_so_far += get_row_actual_size(table->field, table->s->fields);
+    }
 
     DBUG_EXECUTE_IF("verbose", {
       char buf[128];
@@ -591,13 +705,24 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
       DBUG_PRINT("verbose", ("tuple read: %s: ", tuple.c_str()));
     });
 
-    if (rownum % nrows == 0) {
-      int64_t chunk_rows = rownum - last_rownum;
+    // Should we make a new chunk?
+    bool new_chunk = false;
+
+    if (m_chunk_unit == Chunk_unit::ROWS) {
+      new_chunk = rownum % nrows == 0;
+    } else {
+      if (bytes_so_far >= chunk_size_bytes) {
+        new_chunk = true;
+        bytes_so_far -= chunk_size_bytes;
+      }
+    }
+
+    if (new_chunk) {
+      const int64_t chunk_rows = rownum - last_rownum;
       last_rownum = rownum;
       assert(chunk_rows > 0);
 
       // make new chunk work item.
-      // TODO: do it every nbytes too.
       // TODO: check hdl for HA_PRIMARY_KEY_REQUIRED_FOR_POSITION
       start_ref = enqueue_chunk(thd, table, start_ref, rowbuf /* end_row */,
                                 chunk_id++, chunk_rows);
@@ -609,7 +734,7 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   }
 
   // Enqueue the last chunk in case it didn't evenly divide.
-  if (rownum % nrows != 0) {
+  if (rownum > last_rownum) {
     int64_t chunk_rows = rownum - last_rownum;
     last_rownum = rownum;
     assert(chunk_rows > 0);
@@ -675,9 +800,11 @@ exit:
 
     char msg[256];
     snprintf(msg, sizeof(msg),
-             "dump table complete: %" PRId64 " rows, %d chunks", rownum,
-             chunk_id);
-    my_ok(thd, rownum, 0, msg);
+             "dump table complete: %" PRId64 " rows, %" PRId64 " chunks",
+             rownum, chunk_id);
+    if (send_dump_result_info(thd, chunk_id, rownum)) {
+      is_err = true;
+    }
   }
 
   return is_err;

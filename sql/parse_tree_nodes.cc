@@ -3671,6 +3671,7 @@ Sql_cmd *PT_dump_table::make_cmd(THD *thd) {
   m_opts.init();
   m_cmd.set_thread_count(m_opts.nthreads);
   m_cmd.set_chunk_size(m_opts.chunk_size);
+  m_cmd.set_chunk_unit(m_opts.chunk_unit);
   m_cmd.set_consistent(m_opts.consistent);
   Query_block *const select = lex->current_query_block();
   if (!select->add_table_to_list(thd, m_cmd.get_table(), nullptr, 0))

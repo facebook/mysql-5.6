@@ -3575,7 +3575,7 @@ bool THD::send_result_metadata(const mem_root_deque<Item *> &list, uint flags) {
                                             item->charset_for_protocol()))
           goto err;
         if (flags & Protocol::SEND_DEFAULTS) item->send(m_protocol, &tmp);
-        if (m_protocol->end_row()) return true;
+        if (m_protocol->end_row()) goto err;
       }
       break;
 

@@ -1,22 +1,32 @@
 # Load some dummy data into t1.
 # Option:
-# $iterations - Number of times to run INSERT ... SELECT, which will have the
-#  effect of doubling the table size. I.e. the table will have 2^$iterations
-# rows. Defaults to 10.
+# $rows - Number of rows to INSERT. Defaults to 1024.
+# $repeat - use REPEAT on string columns to inflate the row sizes.
+#   Default is 1 for a single repetition.
 
 --disable_query_log
-# Insert some dummy data.
-insert into t1 (b,c,d,e) values (1,2,'aaa','bbb');
 
-if (!$iterations)
+if (!$rows)
 {
-    let $iterations = 10;
+    let $rows = 1024;
 }
 
-let $i = 0;
-while ($i < $iterations)
+if (!$repeat)
 {
-    insert into t1 (b,c,d,e) select b,c,d,e from t1;
-    inc $i;
+    let $repeat = 1;
 }
+
+# Default is 1000, which will only allow 1000 rows to be generated with the
+# current query. Set to a bigger value.
+set @@cte_max_recursion_depth = 10000;
+
+# Use recursive CTE to generate a sequence of numbers from 1..$rows
+# Then use that CTE to produce the real rows by SELECTing from it.
+eval INSERT INTO t1
+WITH RECURSIVE cte(i) AS
+    (SELECT 1 union all select i+1 from cte where i < $rows)
+SELECT NULL, 1, 2, REPEAT('aaa',$repeat), REPEAT('bbb',$repeat) from cte;
+
+set @@cte_max_recursion_depth = default;
+
 --enable_query_log

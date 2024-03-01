@@ -5098,7 +5098,7 @@ class THD : public MDL_context_owner,
     @retval
       false ok
     @retval
-      true Error  (Note that in this case the error is not sent to the client)
+      true Error (which is sent to the client).
   */
 
   bool send_result_metadata(const mem_root_deque<Item *> &list, uint flags);

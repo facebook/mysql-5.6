@@ -14,6 +14,8 @@ SELECT @numrows;
 1024
 call mtr.add_suppression("File 't1dump.0' already exists");
 DUMP TABLE t1 INTO 't1dump';
+num_chunks	rows_dumped
+8	1024
 DUMP TABLE t1 INTO 't1dump';
 ERROR HY000: worker thread 0 failed: File 't1dump.0' already exists
 DROP TABLE t1;

@@ -26,6 +26,7 @@
 #include "sql/current_thd.h"
 #include "sql/handler.h"
 #include "sql/mysqld.h"
+#include "sql/parser_yystype.h"
 #include "sql/sql_cmd.h" /* Sql_cmd */
 #include "sql/sql_lex.h"
 #include "sql/sql_list.h"
@@ -57,6 +58,11 @@ class Sql_cmd_dump_table final : public Sql_cmd {
     m_chunk_size = n;
   }
 
+  void set_chunk_unit(Chunk_unit unit) {
+    assert(unit != Chunk_unit::UNSET);
+    m_chunk_unit = unit;
+  }
+
   void set_consistent(bool consistent) { m_consistent = consistent; }
 
  private:
@@ -73,7 +79,7 @@ class Sql_cmd_dump_table final : public Sql_cmd {
     /**
       Zero-based chunk ID (monotonically increasing). Used for file naming.
     */
-    int chunk_id;
+    int64_t chunk_id;
     /**
       Number of rows to dump for this chunk.
     */
@@ -141,7 +147,7 @@ class Sql_cmd_dump_table final : public Sql_cmd {
   bool dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
                   Dump_work_item *work);
   uchar *enqueue_chunk(THD *thd, TABLE *table, uchar *start_ref, uchar *end_row,
-                       int chunk_id, int64_t chunk_rows);
+                       int64_t chunk_id, int64_t chunk_rows);
   Table_ident *const m_table;
   LEX_STRING m_filename;
   Work_queue<Dump_work_item> m_work_queue;
@@ -149,7 +155,10 @@ class Sql_cmd_dump_table final : public Sql_cmd {
   // Number of dump worker threads to create.
   int m_nthreads{1};
 
-  // Chunk size. In rows for now, later can be other units such as MB.
+  // Chunk unit.
+  Chunk_unit m_chunk_unit{Chunk_unit::ROWS};
+
+  // Chunk size. In units of `m_chunk_unit`.
   int m_chunk_size{128};
 
   // Should a consistent snapshot be used? Not all storage engines support it.

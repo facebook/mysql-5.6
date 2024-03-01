@@ -55,7 +55,7 @@ source suite/dump_table/include/load_and_verify_chunks.inc;
 # Show that consistency works by mutating the table after the snapshot was taken
 # Insert fewer rows to make the result more manageable.
 TRUNCATE TABLE t1;
-let $iterations = 5;
+let $rows = 32;
 source suite/dump_table/include/populate_table.inc;
 SELECT COUNT(*) INTO @numrows FROM t1;
 SELECT @numrows;

@@ -13,41 +13,36 @@ SELECT COUNT(*) INTO @numrows FROM t1;
 SELECT @numrows;
 @numrows
 1024
-DUMP TABLE t1 INTO 't1dump' ;
-affected rows: 1024
-info: dump table complete: 1024 rows, 8 chunks
+DUMP TABLE t1 INTO 't1dump' 
+Num chunks dumped: 8
 CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
 SELECT COUNT(*) FROM t1load;
 COUNT(*)
 1024
 DROP TABLE t1load;
-DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT );
-affected rows: 1024
-info: dump table complete: 1024 rows, 8 chunks
+DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT )
+Num chunks dumped: 8
 CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
 SELECT COUNT(*) FROM t1load;
 COUNT(*)
 1024
 DROP TABLE t1load;
-DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 1 );
-affected rows: 1024
-info: dump table complete: 1024 rows, 8 chunks
+DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 1 )
+Num chunks dumped: 8
 CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
 SELECT COUNT(*) FROM t1load;
 COUNT(*)
 1024
 DROP TABLE t1load;
-DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 4 );
-affected rows: 1024
-info: dump table complete: 1024 rows, 8 chunks
+DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 4 )
+Num chunks dumped: 8
 CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
 SELECT COUNT(*) FROM t1load;
 COUNT(*)
 1024
 DROP TABLE t1load;
-DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 2, CHUNK_SIZE = 7 ROWS );
-affected rows: 1024
-info: dump table complete: 1024 rows, 147 chunks
+DUMP TABLE t1 INTO 't1dump' WITH ( CONSISTENT SNAPSHOT, THREADS = 2, CHUNK_SIZE = 7 ROWS )
+Num chunks dumped: 147
 CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
 SELECT COUNT(*) FROM t1load;
 COUNT(*)
@@ -66,6 +61,8 @@ SET DEBUG_SYNC='now WAIT_FOR snapshot_created';
 UPDATE t1 SET e = 'eee' WHERE a BETWEEN 10 AND 30;
 SET DEBUG_SYNC='now SIGNAL rows_mutated';
 # connection 1
+num_chunks	rows_dumped
+5	32
 # connection default
 SELECT * FROM t1;
 a	b	c	d	e
