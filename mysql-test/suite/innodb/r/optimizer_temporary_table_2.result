@@ -1,0 +1,55 @@
+#
+# Test for bug#96236 "Big intrinsic tmp InnoDB table make InnoDB
+# engine get totally stuck".
+#
+# Check that InnoDB buffer pool size is set to minimum/5Mb and thus is
+# small enough to trigger original problem. If it ever changes the size
+# of source table below needs to be changed proportionately.
+include/assert.inc [InnoDB Buffer Pool has minimal size (5Mb).]
+CREATE TABLE source (id INT PRIMARY KEY AUTO_INCREMENT, a VARCHAR(100), b VARCHAR(100), c VARCHAR(100), d VARCHAR(100), e VARCHAR(100), hdl_source_id INT, hdl_created_date DATETIME);
+CREATE TABLE dest LIKE source;
+# Populate source table with 64K records.
+SELECT count(*) FROM source;
+count(*)
+65536
+# Run query that creates big intrinsic temporary table. Prior to the
+# fix it has exhausted buffer pool by keeping all its pages buffer
+# fixed in memory, so query stalled.
+#
+# Note that to trigger problematic scenario query must perform scan
+# over <auto_key0> secondary key on intrinsic temporary table
+# (and auxiliary lookups to confirm record status on clustered key).
+# In this case the secondary key scan fixes and unfixes pages
+# through which it iterates, while pages accessed during auxiliary
+# lookups on clustered key stay buffer fixed until mtr commit.
+#
+# In cases when intrinsic temporary table is read using clustered
+# key only the problem didn't occur, as similary to previous case
+# key scan fixes and unfixes pages through which it iterates, but
+# there are no auxiliary lookups to buffer fix additional pages.
+EXPLAIN INSERT INTO dest SELECT id,a,b,c,d,e,hdl_source_id,hdl_created_date FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) a WHERE rn=1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	INSERT	dest	NULL	ALL	NULL	NULL	NULL	NULL	#	NULL	NULL
+1	PRIMARY	<derived2>	NULL	ref	<auto_key0>	<auto_key0>	8	const	#	100.00	NULL
+2	DERIVED	source	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using filesort
+Warnings:
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	insert into `test`.`dest` /* select#1 */ select `a`.`id` AS `id`,`a`.`a` AS `a`,`a`.`b` AS `b`,`a`.`c` AS `c`,`a`.`d` AS `d`,`a`.`e` AS `e`,`a`.`hdl_source_id` AS `hdl_source_id`,`a`.`hdl_created_date` AS `hdl_created_date` from (/* select#2 */ select `test`.`source`.`id` AS `id`,`test`.`source`.`a` AS `a`,`test`.`source`.`b` AS `b`,`test`.`source`.`c` AS `c`,`test`.`source`.`d` AS `d`,`test`.`source`.`e` AS `e`,`test`.`source`.`hdl_source_id` AS `hdl_source_id`,`test`.`source`.`hdl_created_date` AS `hdl_created_date`,row_number() OVER (PARTITION BY `test`.`source`.`id` ORDER BY `test`.`source`.`hdl_source_id` desc,`test`.`source`.`hdl_created_date` desc )  AS `rn` from `test`.`source`) `a` where (`a`.`rn` = 1)
+INSERT INTO dest SELECT id,a,b,c,d,e,hdl_source_id,hdl_created_date FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) a WHERE rn=1;
+# Queries that used several cursors over intrinsic temporary tables
+# were also affected by the same problem. Again problem was visible
+# only if scan over secondary key was used.
+EXPLAIN WITH qn AS (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) SELECT (SELECT COUNT(*) FROM qn WHERE rn=1), (SELECT COUNT(*) FROM qn WHERE rn=2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	#	NULL	No tables used
+4	SUBQUERY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	8	const	#	100.00	NULL
+2	SUBQUERY	<derived3>	NULL	ref	<auto_key0>	<auto_key0>	8	const	#	100.00	NULL
+3	DERIVED	source	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using filesort
+Warnings:
+Note	3598	To get information about window functions use EXPLAIN FORMAT=JSON
+Note	1003	with `qn` as (/* select#3 */ select `test`.`source`.`id` AS `id`,`test`.`source`.`a` AS `a`,`test`.`source`.`b` AS `b`,`test`.`source`.`c` AS `c`,`test`.`source`.`d` AS `d`,`test`.`source`.`e` AS `e`,`test`.`source`.`hdl_source_id` AS `hdl_source_id`,`test`.`source`.`hdl_created_date` AS `hdl_created_date`,row_number() OVER (PARTITION BY `test`.`source`.`id` ORDER BY `test`.`source`.`hdl_source_id` desc,`test`.`source`.`hdl_created_date` desc )  AS `rn` from `test`.`source`) /* select#1 */ select (/* select#2 */ select count(0) from `qn` where (`qn`.`rn` = 1)) AS `(SELECT COUNT(*) FROM qn WHERE rn=1)`,(/* select#4 */ select count(0) from `qn` where (`qn`.`rn` = 2)) AS `(SELECT COUNT(*) FROM qn WHERE rn=2)`
+WITH qn AS (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) SELECT (SELECT COUNT(*) FROM qn WHERE rn=1), (SELECT COUNT(*) FROM qn WHERE rn=2);
+(SELECT COUNT(*) FROM qn WHERE rn=1)	(SELECT COUNT(*) FROM qn WHERE rn=2)
+65536	0
+# Clean-up.
+DROP TABLES dest, source;

@@ -1,0 +1,58 @@
+--echo #
+--echo # Test for bug#96236 "Big intrinsic tmp InnoDB table make InnoDB
+--echo # engine get totally stuck".
+--echo #
+
+--echo # Check that InnoDB buffer pool size is set to minimum/5Mb and thus is
+--echo # small enough to trigger original problem. If it ever changes the size
+--echo # of source table below needs to be changed proportionately.
+--let $innodb_buffer_pool_size = `SELECT @@global.innodb_buffer_pool_size`
+--let $assert_text = InnoDB Buffer Pool has minimal size (5Mb).
+--let $assert_cond = $innodb_buffer_pool_size = 5242880
+--source include/assert.inc
+
+CREATE TABLE source (id INT PRIMARY KEY AUTO_INCREMENT, a VARCHAR(100), b VARCHAR(100), c VARCHAR(100), d VARCHAR(100), e VARCHAR(100), hdl_source_id INT, hdl_created_date DATETIME);
+CREATE TABLE dest LIKE source;
+
+--echo # Populate source table with 64K records.
+--disable_query_log
+INSERT INTO source (a, b, c, d, e, hdl_source_id, hdl_created_date) values ('aaaaaaaaa', 'bbbbbbbbbb', 'cccccccccccccccc', 'dddddddddddddddddddddddddddd', 'eeeeeeeeeeeeeeeeee', 1, NOW());
+--let $i= 0
+while ($i < 16)
+{
+  INSERT INTO source (a, b, c, d, e, hdl_source_id, hdl_created_date) SELECT a, b, c, d, e, hdl_source_id + 1, NOW() FROM source;
+  --inc $i
+}
+--enable_query_log
+SELECT count(*) FROM source;
+
+--echo # Run query that creates big intrinsic temporary table. Prior to the
+--echo # fix it has exhausted buffer pool by keeping all its pages buffer
+--echo # fixed in memory, so query stalled.
+--echo #
+--echo # Note that to trigger problematic scenario query must perform scan
+--echo # over <auto_key0> secondary key on intrinsic temporary table
+--echo # (and auxiliary lookups to confirm record status on clustered key).
+--echo # In this case the secondary key scan fixes and unfixes pages
+--echo # through which it iterates, while pages accessed during auxiliary
+--echo # lookups on clustered key stay buffer fixed until mtr commit.
+--echo #
+--echo # In cases when intrinsic temporary table is read using clustered
+--echo # key only the problem didn't occur, as similary to previous case
+--echo # key scan fixes and unfixes pages through which it iterates, but
+--echo # there are no auxiliary lookups to buffer fix additional pages.
+--let $query = INSERT INTO dest SELECT id,a,b,c,d,e,hdl_source_id,hdl_created_date FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) a WHERE rn=1
+--replace_column 10 #
+--eval EXPLAIN $query
+--eval $query
+
+--echo # Queries that used several cursors over intrinsic temporary tables
+--echo # were also affected by the same problem. Again problem was visible
+--echo # only if scan over secondary key was used.
+--let $query = WITH qn AS (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY hdl_source_id DESC, hdl_created_date DESC) rn FROM source) SELECT (SELECT COUNT(*) FROM qn WHERE rn=1), (SELECT COUNT(*) FROM qn WHERE rn=2)
+--replace_column 10 #
+--eval EXPLAIN $query
+--eval $query
+
+--echo # Clean-up.
+DROP TABLES dest, source;

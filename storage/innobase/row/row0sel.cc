@@ -3969,7 +3969,8 @@ dberr_t row_search_no_mvcc(byte *buf, page_cur_mode_t mode,
   If search key is specified, cursor is open using the key else
   cursor is open to return all the records. */
   if (direction != 0) {
-    if (prebuilt->m_temp_read_shared && !prebuilt->m_temp_tree_modified) {
+    if (prebuilt->m_temp_read_shared && !prebuilt->m_temp_tree_modified &&
+        !(index->last_sel_cur->mtr_records > MAX_INTRINSIC_MTR_RECORDS)) {
       if (!mtr->is_active()) {
         mtr_start(mtr);
 
@@ -3995,10 +3996,17 @@ dberr_t row_search_no_mvcc(byte *buf, page_cur_mode_t mode,
         return (err); /* purecov: inspected */
       }
 
-    } else if (index->last_sel_cur->invalid || prebuilt->m_temp_tree_modified) {
+    } else if (index->last_sel_cur->invalid || prebuilt->m_temp_tree_modified ||
+               index->last_sel_cur->mtr_records > MAX_INTRINSIC_MTR_RECORDS) {
     block_relocated:
       /* Index tree has changed and so active cached cursor is no more valid.
-      Re-set it based on the last selected position. */
+      Re-set it based on the last selected position.
+      Also commit mtr and reset the cursor if we have selected more than
+      MAX_INTRINSIC_MTR_RECORDS within this mtr. The latter is done to unfix
+      buffer pages used by the mtr. Otherwise statements (even single
+      statement in extreme case) using intrinsic tables can consume the whole
+      buffer pool by their buffer fixed pages causing performance problems
+      or even stalls. */
       index->last_sel_cur->release();
       prebuilt->m_temp_tree_modified = false;
 
@@ -4146,6 +4154,7 @@ dberr_t row_search_no_mvcc(byte *buf, page_cur_mode_t mode,
     ut_ad(err == DB_SUCCESS);
     index->last_sel_cur->rec = pcur->get_rec();
     index->last_sel_cur->block = pcur->get_block();
+    index->last_sel_cur->mtr_records++;
 
     /* This is needed in order to restore the cursor if index
     structure changes while SELECT is still active. */

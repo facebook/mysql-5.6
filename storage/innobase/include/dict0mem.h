@@ -984,14 +984,20 @@ struct rec_cache_t {
   size_t nullable_cols{0};
 };
 
+/** Maximum number of records we insert or select from intrinsic table
+before committing mtr. */
+constexpr uint32_t MAX_INTRINSIC_MTR_RECORDS = 100;
+
 /** Cache position of last inserted or selected record by caching record
 and holding reference to the block where record resides.
-Note: We don't commit mtr and hold it beyond a transaction lifetime as this is
-a special case (intrinsic table) that are not shared across connection. */
+Note: We don't commit mtr (unless mtr_records reaches MAX_INTRINSIC_MTR_RECORDS
+limit) and hold it beyond a transaction lifetime as this is a  special case
+(intrinsic table) that are not shared across connection. */
 class last_ops_cur_t {
  public:
   /** Constructor */
-  last_ops_cur_t() : rec(), block(), mtr(), disable_caching(), invalid() {
+  last_ops_cur_t()
+      : rec(), block(), mtr(), disable_caching(), invalid(), mtr_records(0) {
     /* Do Nothing. */
   }
 
@@ -1003,6 +1009,7 @@ class last_ops_cur_t {
     rec = nullptr;
     block = nullptr;
     invalid = false;
+    mtr_records = 0;
   }
 
  public:
@@ -1022,6 +1029,11 @@ class last_ops_cur_t {
   split then invalidate the cached position as it would be no more
   remain valid. Will be re-cached on post-split insert. */
   bool invalid;
+
+  /** Number of records which were inserted or selected into from
+  intrinsic table within this mtr. Needed to limit number of intrinsic
+  table records inserted/selected within single mtr. */
+  uint32_t mtr_records;
 };
 
 /** "GEN_CLUST_INDEX" is the name reserved for InnoDB default

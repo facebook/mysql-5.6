@@ -2627,9 +2627,15 @@ static dberr_t row_ins_sorted_clust_index_entry(ulint mode, dict_index_t *index,
   mtr = &index->last_ins_cur->mtr;
 
   /* Search for position if tree needs to be split or if last position
-  is not cached. */
+  is not cached. Also commit mtr and do the search if we have inserted
+  more than MAX_INTRINSIC_MTR_RECORDS within this mtr. The latter is
+  done to unfix buffer pages used by the mtr. Otherwise statements
+  (even single statement in extreme case) using intrinsic tables can
+  consume the whole buffer pool by their buffer fixed pages causing
+  performance problems or even stalls. */
   if (mode == BTR_MODIFY_TREE || index->last_ins_cur->rec == nullptr ||
-      index->last_ins_cur->disable_caching) {
+      index->last_ins_cur->disable_caching ||
+      index->last_ins_cur->mtr_records > MAX_INTRINSIC_MTR_RECORDS) {
     /* Commit the previous mtr. */
     index->last_ins_cur->release();
 
@@ -2701,6 +2707,7 @@ static dberr_t row_ins_sorted_clust_index_entry(ulint mode, dict_index_t *index,
         index->last_ins_cur->rec = insert_rec;
 
         index->last_ins_cur->block = cursor.page_cur.block;
+        index->last_ins_cur->mtr_records++;
       } else {
         index->last_ins_cur->release();
       }
