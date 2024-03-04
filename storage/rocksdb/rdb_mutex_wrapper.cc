@@ -18,11 +18,10 @@
 #include "./rdb_mutex_wrapper.h"
 
 /* MySQL header files */
+#include "sql/current_thd.h"
 #include "sql/replication.h"
-#include "sql/sql_class.h"
 
 /* MyRocks header files */
-#include "./ha_rocksdb.h"
 #include "./rdb_utils.h"
 
 namespace myrocks {

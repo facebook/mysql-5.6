@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <map>
-
 // MySQL header files
 #include "sql/debug_sync.h"
 #include "sql/handler.h"

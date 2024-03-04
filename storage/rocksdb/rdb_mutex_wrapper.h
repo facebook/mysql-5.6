@@ -17,22 +17,17 @@
 #pragma once
 
 /* C++ standard header file */
-#include <chrono>
-#include <condition_variable>
-#include <functional>
-#include <mutex>
 #include <unordered_map>
 
 /* MySQL header files */
-#include "./my_sys.h"
 #include "mysql/plugin.h"
 
 /* RocksDB header files */
 #include "rocksdb/utilities/transaction_db_mutex.h"
 
 /* MyRocks header files */
-#include "./rdb_global.h"
-#include "./rdb_psi.h"
+#include "rdb_global.h"
+#include "rdb_utils.h"
 
 namespace myrocks {
 

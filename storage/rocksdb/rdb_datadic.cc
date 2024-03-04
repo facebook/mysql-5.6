@@ -28,7 +28,9 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#ifndef NDEBUG
 #include <limits>
+#endif
 #include <map>
 #include <set>
 #include <string>
@@ -40,21 +42,19 @@
 #include "./my_bit.h"
 #include "./my_bitmap.h"
 #include "./my_byteorder.h"
-#include "my_compare.h"  // get_rec_bits
-#include "my_dir.h"
-#include "myisampack.h"  // mi_int2store
+#include "my_checksum.h"
 #include "mysql/thread_pool_priv.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/field.h"
 #include "sql/key.h"
+#include "sql/mysqld.h"
+#include "sql/sql_class.h"
 #include "sql/sql_table.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
-#include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
-#include "./rdb_psi.h"
 #include "./rdb_utils.h"
 
 extern CHARSET_INFO my_charset_utf16_bin;

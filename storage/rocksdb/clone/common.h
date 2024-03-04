@@ -27,13 +27,13 @@
 #include <string_view>
 #include <unordered_set>
 
-#include "my_dbug.h"
 #include "my_inttypes.h"
 #include "mysql/plugin.h"
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysqld_error.h"
+#include "sql/handler.h"
 
 #include "../rdb_buff.h"
 #include "../rdb_psi.h"

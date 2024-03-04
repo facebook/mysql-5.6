@@ -28,19 +28,17 @@
 #include <utility>
 #include <vector>
 
-/* C standard header files */
-#include <ctype.h>
-
 /* MySQL header files */
 #include "./sql/item.h"
 #include "./sql/item_func.h"
+#include "./sql/mysqld.h"
+#include "./sql/protocol.h"
 #include "./sql/query_result.h"
 #include "./sql/sql_base.h"
 #include "./sql/sql_lex_hash.h"
 #include "./sql/sql_select.h"
 #include "./sql/strfunc.h"
 #include "./sql/transaction.h"
-#include "mysql/services.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/sql_lex.h"
 

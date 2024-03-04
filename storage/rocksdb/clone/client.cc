@@ -24,12 +24,10 @@
 
 #include "my_compiler.h"
 #include "mysql/psi/mysql_file.h"
-#include "mysql/psi/mysql_mutex.h"
 #include "mysqld_error.h"
 #include "sql/handler.h"
 #include "sql/sql_class.h"
 
-#include "../ha_rocksdb.h"
 #include "common.h"
 
 using namespace std::string_view_literals;

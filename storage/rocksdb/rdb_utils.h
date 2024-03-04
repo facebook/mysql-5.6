@@ -24,7 +24,6 @@
 /* MySQL header files */
 #include "./my_stacktrace.h"
 #include "./sql_string.h"
-#include "sql/mysqld.h"
 #define LOG_COMPONENT_TAG "rocksdb"
 #include "mysql/components/services/log_builtins.h"
 #include "mysqld_error.h"

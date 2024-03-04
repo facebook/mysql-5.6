@@ -31,6 +31,7 @@
 #include "m_ctype.h"
 #include "my_dir.h"
 #include "mysys_err.h"
+#include "sql/mysqld.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"

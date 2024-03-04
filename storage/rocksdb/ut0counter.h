@@ -28,6 +28,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #define UT0COUNTER_H
 
 #include <string.h>
+#include <cassert>
 
 /** CPU cache line size */
 #define INNOBASE_CACHE_LINE_SIZE 64

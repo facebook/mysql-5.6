@@ -5,7 +5,6 @@
 #include "./lex_string.h"
 #include "./m_string.h"
 #include "sql/item_func.h"
-#include "sql/sql_digest_stream.h"
 
 #pragma once
 

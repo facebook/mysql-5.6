@@ -20,7 +20,6 @@
 #include <deque>
 #include <map>
 #include <string>
-#include <utility>
 
 /* MySQL includes */
 #include <mysql/psi/mysql_table.h>
@@ -28,7 +27,6 @@
 #include "sql/sql_class.h"
 
 /* MyRocks header files */
-#include "./rdb_global.h"
 #include "./rdb_utils.h"
 #include "rocksdb/db.h"
 

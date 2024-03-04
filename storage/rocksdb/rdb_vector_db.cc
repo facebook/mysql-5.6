@@ -15,11 +15,11 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "./rdb_vector_db.h"
-#include <mutex>
 #include "sql-common/json_dom.h"
 #include "sql/field.h"
 #ifdef WITH_FB_VECTORDB
 #include <faiss/IndexFlat.h>
+#include <mutex>
 #endif
 
 namespace myrocks {

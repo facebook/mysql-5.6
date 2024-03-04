@@ -15,14 +15,9 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #pragma once
-#include "m_ctype.h"
-#include "my_sys.h"
-#include "mysql/psi/psi_memory.h"
-#include "mysql/service_mysql_alloc.h"
 #include "sql/dd/properties.h"
 #include "sql/dd/types/column.h"
 #include "sql/dd/types/table.h"
-#include "sql/field.h"
 #include "sql/table.h"
 
 namespace myrocks {

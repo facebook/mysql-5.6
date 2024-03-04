@@ -21,6 +21,7 @@
 #include "sql/dd/types/table.h"  // dd::Table
 
 /* MyRocks header files */
+#include "sql/mysqld.h"
 #include "sql/plugin_table.h"
 #include "storage/rocksdb/ha_rocksdb_proto.h"
 #include "storage/rocksdb/rdb_datadic.h"

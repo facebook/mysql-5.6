@@ -33,9 +33,6 @@
 #include "sql-common/json_dom.h"
 #include "sql/sql_class.h"
 
-// RocksDB includes
-#include "file/filename.h"
-
 // MyRocks includes
 #include "../ha_rocksdb.h"
 #include "../ha_rocksdb_proto.h"

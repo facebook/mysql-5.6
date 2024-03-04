@@ -17,12 +17,10 @@
 #pragma once
 
 // C++ standard header files
-#include <string>
 #include <vector>
 
 // MySQL header files
 #include "./sql_string.h"
-#include "./ut0counter.h"
 
 // MyRocks header files
 #include "./ha_rocksdb.h"
