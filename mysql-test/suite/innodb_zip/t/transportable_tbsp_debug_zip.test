@@ -1,3 +1,5 @@
+# The debug-only sysvar innodb_purge_stop_now deadlocks with MyRocks DD accesses
+--source include/have_innodb_ddse.inc
 # This test case needs to crash the server. Needs a debug server.
 --source include/have_debug.inc
 --source include/big_test.inc
