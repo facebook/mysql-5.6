@@ -40,6 +40,7 @@
 #include <queue>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 /* MySQL includes */
@@ -443,17 +444,16 @@ class Rdb_open_tables_map {
 
 static Rdb_open_tables_map rdb_open_tables;
 
-static std::string rdb_normalize_dir(std::string dir) {
-  while (dir.size() > 0 && dir.back() == '/') {
-    dir.resize(dir.size() - 1);
+static std::string_view rdb_normalize_dir(std::string_view dir) {
+  while (!dir.empty() && dir.back() == '/') {
+    dir.remove_suffix(1);
   }
   return dir;
 }
 
-int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
-  assert(checkpoint_dir_raw);
-
-  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
+int rocksdb_create_checkpoint(std::string_view checkpoint_dir_raw) {
+  const auto checkpoint_dir =
+      std::string{rdb_normalize_dir(checkpoint_dir_raw)};
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                   "creating checkpoint in directory: %s\n",
                   checkpoint_dir.c_str());
@@ -1305,8 +1305,9 @@ static void rocksdb_set_reset_stats(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
-  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
+int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw) {
+  const auto checkpoint_dir =
+      std::string{rdb_normalize_dir(checkpoint_dir_raw)};
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                   "deleting temporary checkpoint in directory : %s\n",
                   checkpoint_dir.c_str());
@@ -1315,7 +1316,7 @@ int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
   op.sst_file_manager.reset(NewSstFileManager(
       rocksdb_db_options->env, rocksdb_db_options->info_log, "",
       rocksdb_sst_mgr_rate_bytes_per_sec, false /* delete_existing_trash */));
-  const auto status = rocksdb::DestroyDB(checkpoint_dir, op);
+  const auto status = rocksdb::DestroyDB(checkpoint_dir.c_str(), op);
 
   if (status.ok()) {
     return HA_EXIT_SUCCESS;
@@ -7480,17 +7481,15 @@ static int rocksdb_table_exists_in_engine(handlerton *, THD *,
 }
 
 static rocksdb::Status check_rocksdb_options_compatibility(
-    const char *const dbpath, const rocksdb::Options &main_opts,
+    const std::string &dbpath, const rocksdb::Options &main_opts,
     const std::vector<rocksdb::ColumnFamilyDescriptor> &cf_descr) {
-  assert(rocksdb_datadir != nullptr);
-
   rocksdb::DBOptions loaded_db_opt;
   std::vector<rocksdb::ColumnFamilyDescriptor> loaded_cf_descs;
   rocksdb::ConfigOptions config_options;
   config_options.ignore_unknown_options = rocksdb_ignore_unknown_options;
   config_options.input_strings_escaped = true;
   config_options.env = rocksdb::Env::Default();
-  rocksdb::Status status = LoadLatestOptions(config_options, dbpath,
+  rocksdb::Status status = LoadLatestOptions(config_options, dbpath.c_str(),
                                              &loaded_db_opt, &loaded_cf_descs);
 
   // If we're starting from scratch and there are no options saved yet then this
@@ -7537,7 +7536,7 @@ static rocksdb::Status check_rocksdb_options_compatibility(
       rocksdb_ignore_unknown_options;
   config_options_for_check.input_strings_escaped = true;
   config_options_for_check.env = rocksdb::Env::Default();
-  status = CheckOptionsCompatibility(config_options_for_check, dbpath,
+  status = CheckOptionsCompatibility(config_options_for_check, dbpath.c_str(),
                                      main_opts, loaded_cf_descs);
 
   return status;
@@ -7607,11 +7606,13 @@ static void move_wals_to_target_dir() {
 
     for_each_in_dir(
         rocksdb_datadir, MY_WANT_STAT | MY_FAE, [](const fileinfo &f_info) {
+          const auto fn = std::string_view{f_info.name};
+
           if (!S_ISREG(f_info.mystat->st_mode) ||
-              !has_file_extension(f_info.name, ".log"))
+              !has_file_extension(fn, ".log"sv))
             return true;
-          const auto src_path = rdb_concat_paths(rocksdb_datadir, f_info.name);
-          const auto dst_path = rdb_concat_paths(rocksdb_wal_dir, f_info.name);
+          const auto src_path = rdb_concat_paths(rocksdb_datadir, fn);
+          const auto dst_path = rdb_concat_paths(rocksdb_wal_dir, fn);
           rdb_path_rename_or_abort(src_path, dst_path);
           return true;
         });
@@ -8400,7 +8401,7 @@ static int rocksdb_init_internal(void *const p) {
 
   // 2. Transaction logs.
   if (is_wal_dir_separate()) {
-    directories.push_back(myrocks::rocksdb_wal_dir);
+    directories.emplace_back(myrocks::rocksdb_wal_dir);
   }
 
 #ifndef __APPLE__

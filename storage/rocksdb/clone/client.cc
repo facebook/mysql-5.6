@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <cstdint>
 #include <forward_list>
+#include <string_view>
 #include <unordered_map>
 
 #include "my_compiler.h"
@@ -31,17 +32,20 @@
 #include "../ha_rocksdb.h"
 #include "common.h"
 
+using namespace std::string_view_literals;
+
 namespace {
 
-[[nodiscard]] int return_file_error(const std::string &message,
-                                    const std::string fn) {
+[[nodiscard]] int return_file_error(std::string_view message,
+                                    std::string_view fn) {
   char errbuf[MYSYS_STRERROR_SIZE];
   const auto errn = my_errno();
   my_strerror(errbuf, sizeof(errbuf), errn);
   // Size good as anything else
   char msgbuf[MYSYS_ERRMSG_SIZE];
-  snprintf(msgbuf, sizeof(msgbuf), "%s, name %s, errno %d (%s)",
-           message.c_str(), fn.c_str(), errn, errbuf);
+  snprintf(msgbuf, sizeof(msgbuf), "%.*s, name %.*s, errno %d (%s)",
+           static_cast<int>(message.length()), message.data(),
+           static_cast<int>(fn.length()), fn.data(), errn, errbuf);
   return myrocks::clone::return_error(ER_INTERNAL_ERROR, msgbuf);
 }
 
@@ -58,7 +62,7 @@ namespace {
           "Incorrect type of stale in-place clone directory");
     }
 
-    const auto success = myrocks::clone::remove_dir(path.c_str(), false);
+    const auto success = myrocks::clone::remove_dir(path, false);
     if (!success) {
       return return_file_error("Failed to remove in-place temp clone directory",
                                myrocks::clone::in_place_temp_datadir);
@@ -111,7 +115,7 @@ class [[nodiscard]] file_in_progress final {
     return m_pos;
   }
 
-  [[nodiscard]] constexpr const auto &get_name() const noexcept {
+  [[nodiscard]] std::string_view get_name() const noexcept {
     assert(m_pos <= m_target_size);
     return m_name;
   }
@@ -301,7 +305,7 @@ class [[nodiscard]] client final : public myrocks::clone::session {
   ~client();
 
   [[nodiscard]] int save_and_handle_error(const THD *thd, int new_error,
-                                          const std::string &new_error_path) {
+                                          std::string_view new_error_path) {
     save_error(new_error, new_error_path, my_errno());
     return handle_any_error(thd);
   }
@@ -492,8 +496,8 @@ int client::register_file(myrocks::clone::file_metadata &&new_file,
 
   auto &&name = new_file.take_away_name();
   const auto path = myrocks::rdb_concat_paths(
-      myrocks::has_file_extension(name, ".log") ? m_rdb_wal_dir
-                                                : m_rdb_data_dir,
+      myrocks::has_file_extension(name, ".log"sv) ? m_rdb_wal_dir
+                                                  : m_rdb_data_dir,
       name);
 
   mysql_rwlock_wrlock(&m_files_lock);
