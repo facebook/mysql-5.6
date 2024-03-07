@@ -55,9 +55,6 @@ if ($SYSSE == "RocksDB") {
   SET SESSION binlog_format=ROW;
 }
 call mtr.add_suppression("Could not find a valid tablespace file for");
-if ($SYSSE == "RocksDB") {
-  SET SESSION binlog_format=ROW;
-}
 --enable_query_log
 
 # The *internal* var is used by gtid_step_assert.inc
