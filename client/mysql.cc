@@ -80,7 +80,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 // Not using syslog but EventLog on Win32, so a dummy facility is enough.
 #define LOG_USER 0
 #else
+#ifdef MYSQL_BUCK_SUPPORT
+#include <editline/readline.h>
+#else
 #include <readline.h>
+#endif  // MYSQL_BUCK_SUPPORT
 #include <syslog.h>
 
 #define HAVE_READLINE
