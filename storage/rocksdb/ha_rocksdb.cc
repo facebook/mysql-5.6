@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include <cassert>
+#include "mysqld_error.h"
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation  // gcc: Class implementation
 #endif
@@ -945,6 +946,9 @@ enum read_free_rpl_type { OFF = 0, PK_ONLY, PK_SK };
 static ulong rocksdb_read_free_rpl = read_free_rpl_type::OFF;
 enum corrupt_data_action { ERROR = 0, ABORT_SERVER, WARNING };
 static ulong rocksdb_corrupt_data_action = corrupt_data_action::ERROR;
+enum invalid_create_option_action { LOG = 0, PUSH_WARNING, PUSH_ERROR };
+static ulong rocksdb_invalid_create_option_action =
+    invalid_create_option_action::LOG;
 enum class io_error_action : ulong { ABORT_SERVER = 0, IGNORE_ERROR };
 static ulong rocksdb_io_error_action =
     static_cast<ulong>(io_error_action::ABORT_SERVER);
@@ -1275,6 +1279,15 @@ static const char *corrupt_data_action_names[] = {"ERROR", "ABORT_SERVER",
 static TYPELIB corrupt_data_action_typelib = {
     array_elements(corrupt_data_action_names) - 1,
     "corrupt_data_action_typelib", corrupt_data_action_names, nullptr};
+
+/* This enum needs to be kept up to date with invalid_create_option_action */
+static const char *invalid_create_option_action_names[] = {
+    "LOG", "PUSH_WARNING", "PUSH_ERROR", NullS};
+
+static TYPELIB invalid_create_option_action_typelib = {
+    array_elements(invalid_create_option_action_names) - 1,
+    "invalid_create_option_action_typelib", invalid_create_option_action_names,
+    nullptr};
 
 /* This enum needs to be kept up to date with io_error_action */
 static const char *io_error_action_names[] = {"ABORT_SERVER", "IGNORE_ERROR",
@@ -1681,6 +1694,14 @@ static MYSQL_SYSVAR_ENUM(
     "Control behavior when hitting data corruption. We can fail the query, "
     "crash the server or pass the query and give users a warning. ",
     nullptr, nullptr, corrupt_data_action::ERROR, &corrupt_data_action_typelib);
+
+static MYSQL_SYSVAR_ENUM(
+    invalid_create_option_action, rocksdb_invalid_create_option_action,
+    PLUGIN_VAR_RQCMDARG,
+    "Control behavior when creating the table hits some error. We can log the "
+    "error only, pass the query and give users a warning, or fail the query.",
+    nullptr, nullptr, invalid_create_option_action::LOG,
+    &invalid_create_option_action_typelib);
 
 static MYSQL_SYSVAR_ENUM(
     io_error_action, rocksdb_io_error_action, PLUGIN_VAR_RQCMDARG,
@@ -3273,6 +3294,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_delete_range_for_drop_index),
     MYSQL_SYSVAR(max_intrinsic_tmp_table_write_count),
     MYSQL_SYSVAR(corrupt_data_action),
+    MYSQL_SYSVAR(invalid_create_option_action),
     MYSQL_SYSVAR(io_error_action),
     MYSQL_SYSVAR(clone_checkpoint_max_age),
     MYSQL_SYSVAR(clone_checkpoint_max_count),
@@ -10694,6 +10716,31 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 
   // Check whether Data Dictionary contain information
   THD *const thd = my_core::thd_get_current_thd();
+
+  // myrocks only admits DYNAMIC format, handle error based on
+  // rocksdb_invalid_create_option_action
+  if (create_info->row_type != ROW_TYPE_DEFAULT &&
+      create_info->row_type != ROW_TYPE_NOT_USED &&
+      create_info->row_type != ROW_TYPE_DYNAMIC) {
+    switch (rocksdb_invalid_create_option_action) {
+      case invalid_create_option_action::LOG:
+        LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                        "RocksDB only uses DYNAMIC row format, will ignore "
+                        "custom setting for row format");
+        break;
+      case invalid_create_option_action::PUSH_WARNING:
+        push_warning_printf(thd, Sql_condition::SL_WARNING,
+                            ER_CANT_CREATE_TABLE,
+                            "RocksDB only uses DYNAMIC row format, will ignore "
+                            "custom setting for row format");
+        break;
+      case invalid_create_option_action::PUSH_ERROR:
+        my_error(ER_CANT_CREATE_TABLE, MYF(0),
+                 "RocksDB only uses DYNAMIC row format");
+        DBUG_RETURN(HA_WRONG_CREATE_OPTION);
+    }
+  }
+
   Rdb_tbl_def *old_tbl = ddl_manager.find(str);
   if (old_tbl != nullptr) {
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {

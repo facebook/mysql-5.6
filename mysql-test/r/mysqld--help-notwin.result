@@ -2253,6 +2253,10 @@ The following options may be given as the first argument:
  Filter level for info logs to be written mysqld error
  log. Valid values include 'debug_level', 'info_level',
  'warn_level''error_level' and 'fatal_level'.
+ --rocksdb-invalid-create-option-action=name 
+ Control behavior when creating the table hits some error.
+ We can log the error only, pass the query and give users
+ a warning, or fail the query.
  --rocksdb-io-error-action=name 
  Control behavior when hitting I/O error. By default
  MyRocks aborts server and refuses to start. Setting
@@ -3877,6 +3881,7 @@ rocksdb-ignore-unknown-options TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
 rocksdb-info-log-level error_level
+rocksdb-invalid-create-option-action LOG
 rocksdb-io-error-action ABORT_SERVER
 rocksdb-io-write-timeout 0
 rocksdb-is-fd-close-on-exec TRUE

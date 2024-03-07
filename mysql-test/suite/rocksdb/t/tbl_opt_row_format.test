@@ -83,3 +83,20 @@ SHOW CREATE TABLE t1;
 
 DROP TABLE t1;
 
+--echo #
+--echo # Check error behavior on sysvar changes when row format is not DYNAMIC
+--echo #
+
+SET GLOBAL rocksdb_invalid_create_option_action='PUSH_WARNING';
+CREATE TABLE t1 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
+
+SET GLOBAL rocksdb_invalid_create_option_action='PUSH_ERROR';
+--error ER_CANT_CREATE_TABLE
+CREATE TABLE t2 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
+
+SET GLOBAL rocksdb_invalid_create_option_action='LOG';
+call mtr.add_suppression("RocksDB only uses DYNAMIC row format, will ignore custom setting for row format");
+CREATE TABLE t2 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
+
+DROP TABLE t1;
+DROP TABLE t2;
