@@ -17,8 +17,14 @@
 # In this case, the user will be returned no row. 
 
 let $isolation_level = REPEATABLE READ;
+let $skip_snapshot_validation = 0;
+--source rocksdb_concurrent_point_update_sk.inc
+
+let $isolation_level = REPEATABLE READ;
+let $skip_snapshot_validation = 1;
 --source rocksdb_concurrent_point_update_sk.inc
 
 let $isolation_level = READ COMMITTED;
+let $skip_snapshot_validation = 0;
 --source rocksdb_concurrent_point_update_sk.inc
 

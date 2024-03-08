@@ -1,9 +1,11 @@
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -31,11 +33,13 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction 
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, index a(a));
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --SK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -63,11 +67,13 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction 
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -95,11 +101,13 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction 
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -127,11 +135,13 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction 
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -164,6 +174,7 @@ create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (
 insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
 --First row delete with PRIMARY
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (PRIMARY) set value=100 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -177,6 +188,7 @@ id1	id2	value
 1	5	100
 --Middle row delete with PRIMARY
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (PRIMARY) set value=200 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -208,6 +220,7 @@ create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (
 insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
 --First row delete with sk
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (sk) set value=100 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -221,6 +234,7 @@ id1	id2	value
 1	5	100
 --Middle row delete with sk
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (sk) set value=200 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -246,12 +260,267 @@ id1	id2	value
 1	4	100
 set debug_sync='RESET';
 drop table t1;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='RESET';
+CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
+INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
+--PK first row delete
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 1;
+SET debug_sync='now SIGNAL go';
+pk	a
+--PK middle row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 3;
+SET debug_sync='now SIGNAL go';
+pk	a
+2	2
+--PK end row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 5;
+SET debug_sync='now SIGNAL go';
+pk	a
+2	2
+4	4
+set debug_sync='RESET';
+drop table t1;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='RESET';
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, index a(a));
+INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
+--SK first row delete
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
+SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 1;
+SET debug_sync='now SIGNAL go';
+a
+--SK middle row delete
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
+SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 3;
+SET debug_sync='now SIGNAL go';
+a
+2
+--SK end row delete
+SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
+SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 5;
+SET debug_sync='now SIGNAL go';
+a
+2
+4
+set debug_sync='RESET';
+drop table t1;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='RESET';
+CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
+INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
+--PK first row delete
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 5;
+SET debug_sync='now SIGNAL go';
+pk	a
+--PK middle row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 3;
+SET debug_sync='now SIGNAL go';
+pk	a
+4	4
+--PK end row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 1;
+SET debug_sync='now SIGNAL go';
+pk	a
+4	4
+2	2
+set debug_sync='RESET';
+drop table t1;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='RESET';
+CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
+INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
+--PK first row delete
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 1;
+SET debug_sync='now SIGNAL go';
+pk	a
+--PK middle row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 3;
+SET debug_sync='now SIGNAL go';
+pk	a
+2	2
+--PK end row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 5;
+SET debug_sync='now SIGNAL go';
+pk	a
+2	2
+4	4
+set debug_sync='RESET';
+drop table t1;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='RESET';
+CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
+INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
+--PK first row delete
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 5;
+SET debug_sync='now SIGNAL go';
+pk	a
+--PK middle row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 3;
+SET debug_sync='now SIGNAL go';
+pk	a
+4	4
+--PK end row delete
+SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
+SET debug_sync='now WAIT_FOR parked';
+DELETE FROM t1 WHERE pk = 1;
+SET debug_sync='now SIGNAL go';
+pk	a
+4	4
+2	2
+set debug_sync='RESET';
+drop table t1;
+set debug_sync='RESET';
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (id1, value)) engine=rocksdb;
+insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
+--First row delete with PRIMARY
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (PRIMARY) set value=100 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=1;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	2	1
+1	3	1
+1	4	1
+1	5	1
+--Middle row delete with PRIMARY
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (PRIMARY) set value=200 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=3;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	4	1
+1	5	1
+1	2	200
+--End row delete with PRIMARY
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (PRIMARY) set value=300 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=5;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	2	300
+1	4	300
+set debug_sync='RESET';
+drop table t1;
+set debug_sync='RESET';
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (id1, value)) engine=rocksdb;
+insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
+--First row delete with sk
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (sk) set value=100 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=1;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	2	1
+1	3	1
+1	4	1
+1	5	1
+--Middle row delete with sk
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (sk) set value=200 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=3;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	4	1
+1	5	1
+1	2	200
+--End row delete with sk
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
+update t1 force index (sk) set value=300 where id1=1;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where id1=1 and id2=5;
+set debug_sync='now SIGNAL go';
+select * from t1 where id1=1;
+id1	id2	value
+1	2	200
+1	4	300
+set debug_sync='RESET';
+drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -284,11 +553,13 @@ pk	a
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY, a INT, index a(a));
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --SK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_upd_or_delete_sk SIGNAL parked WAIT_FOR go';
 SELECT a FROM t1 FORCE INDEX(a) FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -321,11 +592,13 @@ a
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -358,11 +631,13 @@ pk	a
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk ASC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -395,11 +670,13 @@ pk	a
 set debug_sync='RESET';
 drop table t1;
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='RESET';
 CREATE TABLE t1 (pk INT PRIMARY KEY COMMENT "rev:cf2", a INT);
 INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --PK first row delete
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 SELECT * FROM t1 order by t1.pk DESC FOR UPDATE;
 SET debug_sync='now WAIT_FOR parked';
@@ -437,6 +714,7 @@ create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (
 insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
 --First row delete with PRIMARY
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (PRIMARY) set value=100 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -450,6 +728,7 @@ id1	id2	value
 1	5	100
 --Middle row delete with PRIMARY
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (PRIMARY) set value=200 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -479,6 +758,7 @@ create table t1 (id1 int, id2 int, value int, primary key (id1, id2), index sk (
 insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2);
 --First row delete with sk
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (sk) set value=100 where id1=1;
 set debug_sync='now WAIT_FOR parked';
@@ -492,6 +772,7 @@ id1	id2	value
 1	5	100
 --Middle row delete with sk
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 update t1 force index (sk) set value=200 where id1=1;
 set debug_sync='now WAIT_FOR parked';

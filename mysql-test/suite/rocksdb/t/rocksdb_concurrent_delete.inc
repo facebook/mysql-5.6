@@ -26,6 +26,7 @@ if ($order == 'DESC')
 connect (con, localhost, root,,);
 connection default;
 eval SET SESSION TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 
 SET debug_sync='RESET';
 
@@ -37,6 +38,7 @@ INSERT INTO t1 VALUES(1,1), (2,2), (3,3), (4,4), (5,5);
 --echo --PK first row delete
 connection con;
 eval SET SESSION TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 SET debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
 send_eval SELECT * FROM t1 order by t1.pk $order FOR UPDATE;
 
@@ -68,8 +70,15 @@ SET debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  --error ER_LOCK_DEADLOCK
-  reap;
+  if ($skip_snapshot_validation == 0)
+  {
+    --error ER_LOCK_DEADLOCK
+    reap;
+  }
+  if ($skip_snapshot_validation == 1)
+  {
+    reap;
+  }
 }
 if ($isolation_level == "READ COMMITTED")
 {
@@ -89,8 +98,15 @@ SET debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  --error ER_LOCK_DEADLOCK
-  reap;
+  if ($skip_snapshot_validation == 0)
+  {
+    --error ER_LOCK_DEADLOCK
+    reap;
+  }
+  if ($skip_snapshot_validation == 1)
+  {
+    reap;
+  }
 }
 if ($isolation_level == "READ COMMITTED")
 {

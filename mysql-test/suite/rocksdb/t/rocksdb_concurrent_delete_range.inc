@@ -19,6 +19,7 @@ insert into t1 values (1, 1, 1),(1, 2, 1),(1, 3, 1),(1, 4, 1),(1, 5, 1),(2, 2, 2
 --echo --First row delete with $index
 connection con;
 eval SET SESSION TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 send_eval update t1 force index ($index) set value=100 where id1=1;
 
@@ -34,6 +35,7 @@ select * from t1 where id1=1;
 # deleting a middle row
 --echo --Middle row delete with $index
 eval SET SESSION TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 set debug_sync='rocksdb.get_row_by_rowid SIGNAL parked WAIT_FOR go';
 send_eval update t1 force index ($index) set value=200 where id1=1;
 
@@ -45,8 +47,15 @@ set debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  --error ER_LOCK_DEADLOCK
-  reap;
+  if ($skip_snapshot_validation == 0)
+  {
+    --error ER_LOCK_DEADLOCK
+    reap;
+  }
+  if ($skip_snapshot_validation == 1)
+  {
+    reap;
+  }
 }
 if ($isolation_level == "READ COMMITTED")
 {
@@ -68,8 +77,15 @@ set debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  --error ER_LOCK_DEADLOCK
-  reap;
+  if ($skip_snapshot_validation == 0)
+  {
+    --error ER_LOCK_DEADLOCK
+    reap;
+  }
+  if ($skip_snapshot_validation == 1)
+  {
+    reap;
+  }
 }
 if ($isolation_level == "READ COMMITTED")
 {

@@ -4,7 +4,13 @@
 # https://github.com/ept/hermitage
 
 let $trx_isolation = READ COMMITTED;
+let $skip_snapshot_validation = 0;
 --source hermitage.inc
 
 let $trx_isolation = REPEATABLE READ;
+let $skip_snapshot_validation = 0;
+--source hermitage.inc
+
+let $trx_isolation = REPEATABLE READ;
+let $skip_snapshot_validation = 1;
 --source hermitage.inc

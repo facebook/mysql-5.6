@@ -16,6 +16,7 @@ row_key	val1	val2
 3	14	Charlie
 4	14	Delta
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 START TRANSACTION;
 Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
 set DEBUG_SYNC = "rocksdb_concurrent_upd_or_delete_sk SIGNAL waiting_for_update WAIT_FOR update_done";
@@ -23,6 +24,7 @@ Conn A: activate DEBUG_SYNC point rocksdb_concurrent_upd_or_delete_sk
 SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa' FOR UPDATE;
 Conn A: Sent SELECT
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 START TRANSACTION;
 Conn B: Started TRANSACTION B (Concurrent update)
 Conn B: Waiting for Conn A to hit `waiting_for_update`
@@ -68,7 +70,64 @@ row_key	val1	val2
 2	14	Bravo
 3	14	Charlie
 4	14	Delta
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+START TRANSACTION;
+Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
+set DEBUG_SYNC = "rocksdb_concurrent_upd_or_delete_sk SIGNAL waiting_for_update WAIT_FOR update_done";
+Conn A: activate DEBUG_SYNC point rocksdb_concurrent_upd_or_delete_sk 
+SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa' FOR UPDATE;
+Conn A: Sent SELECT
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET SESSION rocksdb_skip_snapshot_validation=1;
+START TRANSACTION;
+Conn B: Started TRANSACTION B (Concurrent update)
+Conn B: Waiting for Conn A to hit `waiting_for_update`
+set DEBUG_SYNC = "now WAIT_FOR waiting_for_update";
+Conn B: Conn A triggered `waiting_for_update`
+UPDATE table1 SET val1 = 15 WHERE val1 = 14 AND val2 = 'Alfa';
+SELECT * FROM table1;
+row_key	val1	val2
+1	15	Alfa
+2	14	Bravo
+3	14	Charlie
+4	14	Delta
+COMMIT;
+Conn B: COMMIT for update done
+set DEBUG_SYNC = "now SIGNAL update_done";
+Conn B: signalled Conn A with event `update_done`
+Conn A: reaping SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa';  
+The SELECT output should be empty
+row_key	val1	val2
+1	15	Alfa
+ROLLBACK;
+Conn A: Table after
+SELECT * FROM table1;
+row_key	val1	val2
+1	15	Alfa
+2	14	Bravo
+3	14	Charlie
+4	14	Delta
+DROP TABLE table1;
+Conn A creating table
+CREATE TABLE table1 (
+row_key BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, 
+val1 TINYINT NOT NULL,
+val2 VARCHAR(128) NOT NULL,
+PRIMARY KEY (row_key),
+KEY idx_val1 (val1)
+) ENGINE=RocksDB;
+INSERT INTO table1 (val1, val2) VALUES (14, 'Alfa'), (14, 'Bravo'), (14, 'Charlie'), (14, 'Delta');
+Conn A: `table1` created with 4 rows
+Conn A: Table before
+SELECT * FROM table1;
+row_key	val1	val2
+1	14	Alfa
+2	14	Bravo
+3	14	Charlie
+4	14	Delta
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 START TRANSACTION;
 Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
 set DEBUG_SYNC = "rocksdb_concurrent_upd_or_delete_sk SIGNAL waiting_for_update WAIT_FOR update_done";
@@ -76,6 +135,7 @@ Conn A: activate DEBUG_SYNC point rocksdb_concurrent_upd_or_delete_sk
 SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 AND val2 = 'Alfa' FOR UPDATE;
 Conn A: Sent SELECT
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION rocksdb_skip_snapshot_validation=0;
 START TRANSACTION;
 Conn B: Started TRANSACTION B (Concurrent update)
 Conn B: Waiting for Conn A to hit `waiting_for_update`

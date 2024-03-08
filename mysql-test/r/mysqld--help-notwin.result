@@ -2449,6 +2449,10 @@ The following options may be given as the first argument:
  Skip filling block cache on read requests
  --rocksdb-skip-locks-if-skip-unique-check 
  Skip row locking when unique checks are disabled.
+ --rocksdb-skip-snapshot-validation 
+ Skips snapshot validation on locking reads. This makes
+ MyRocks Repeatable Read behavior close to InnoDB --
+ forcing reading the newest data with locking reads.
  --rocksdb-sst-mgr-rate-bytes-per-sec=# 
  DBOptions::sst_file_manager rate_bytes_per_sec for
  RocksDB
@@ -3915,6 +3919,7 @@ rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-locks-if-skip-unique-check FALSE
+rocksdb-skip-snapshot-validation FALSE
 rocksdb-sst-mgr-rate-bytes-per-sec 0
 rocksdb-sst-props ON
 rocksdb-stats-dump-period-sec 600

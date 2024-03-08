@@ -27,6 +27,7 @@ SELECT * FROM table1;
 # update gets frozen. 
 
 eval SET TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 START TRANSACTION;
 --echo Conn A: Started TRANSACTION A (SELECT .. FOR UPDATE )
 
@@ -41,6 +42,7 @@ send SELECT * from table1 FORCE INDEX(idx_val1) WHERE row_key = 1 AND val1 = 14 
 --connection con0
 
 eval SET TRANSACTION ISOLATION LEVEL $isolation_level;
+eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 START TRANSACTION;
 --echo Conn B: Started TRANSACTION B (Concurrent update)
 
@@ -64,9 +66,17 @@ set DEBUG_SYNC = "now SIGNAL update_done";
 --connection default
 if ($isolation_level == "REPEATABLE READ")
 {
-   --echo The SELECT output should see the snapshot conflict error
-   --error ER_LOCK_DEADLOCK
+  if ($skip_snapshot_validation == 0)
+  {
+    --echo The SELECT output should see the snapshot conflict error
+    --error ER_LOCK_DEADLOCK
+    reap;
+  }
+  if ($skip_snapshot_validation == 1)
+  {
+   --echo The SELECT output should be empty
    reap;
+  }
 }
 if ($isolation_level == "READ COMMITTED")
 {
