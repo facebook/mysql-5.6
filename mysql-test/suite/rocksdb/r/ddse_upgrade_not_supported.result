@@ -1,0 +1,6 @@
+upgrade from INNODB->ROCKSDB DDSE
+# restart: --default_dd_system_storage_engine=rocksdb --datadir=DATADIR
+should fail with unsupported error for ROCKSDB->INNODB DDSE
+check error in the log file
+Pattern "The DD Engine upgrade from 'ROCKSDB' to 'INNODB' isn't supported yet." found
+# restart

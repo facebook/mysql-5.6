@@ -1,0 +1,32 @@
+--source include/have_rocksdb.inc
+--source include/have_innodb_ddse.inc
+
+# save data
+--let $MYSQLD_DATADIR= `select @@datadir`
+let $tmp_dir = $MYSQLTEST_VARDIR/tmp;
+let $saved_datadir = $tmp_dir/saved_datadir;
+force-cpdir $MYSQLD_DATADIR $saved_datadir;
+
+--echo upgrade from INNODB->ROCKSDB DDSE
+let restart_parameters="restart: --default_dd_system_storage_engine=rocksdb --datadir=$saved_datadir";
+--replace_result $saved_datadir DATADIR
+--source include/restart_mysqld.inc
+
+--echo should fail with unsupported error for ROCKSDB->INNODB DDSE
+--source include/shutdown_mysqld.inc
+--let LOG=$MYSQLTEST_VARDIR/tmp/ddse_upgrade_not_supported.err
+--replace_result $saved_datadir DATADIR
+--error 1
+--exec $MYSQLD_CMD --log-error=$LOG --default_dd_system_storage_engine=innodb --datadir=$saved_datadir
+
+--echo check error in the log file
+let SEARCH_FILE= $LOG;
+--let SEARCH_PATTERN=The DD Engine upgrade from 'ROCKSDB' to 'INNODB' isn't supported yet.
+--source include/search_pattern.inc
+remove_file $LOG;
+
+# cleanup
+--force-rmdir $saved_datadir
+let $restart_parameters = "restart";
+--replace_result $MYSQLD_DATADIR DATADIR
+--source include/start_mysqld.inc

@@ -12093,6 +12093,9 @@ ER_UNSUPPORTED_DD_ENGINE
 ER_CANT_CREATE_DUMP_THREAD
   eng "Can't create thread for DUMP TABLE (errno= %d)"
 
+ER_DD_ENGINE_UPGRADED_UNSUPPORTED
+  eng "The DD Engine upgrade from '%s' to '%s' isn't supported yet."
+
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
 # in the same directory as this file.
