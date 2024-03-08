@@ -122,6 +122,7 @@ int main(int argc, char **argv) {
           break;
         case '\\':
           pos++;
+          [[fallthrough]];
         default:
           break;
       }

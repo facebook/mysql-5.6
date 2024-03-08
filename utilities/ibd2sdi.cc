@@ -1702,6 +1702,7 @@ uint64_t ibd2sdi::copy_compressed_blob(ib_tablespace *ts,
         ib::error() << "Inflate() of compressed BLOB page " << page_id
                     << " returned " << err << " (" << d_stream.msg << ")";
       }
+        [[fallthrough]];
       case Z_BUF_ERROR:
         goto func_exit;
     }

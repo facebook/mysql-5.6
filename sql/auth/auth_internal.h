@@ -251,6 +251,7 @@ bool grant_dynamic_privileges_to_auth_id(
     const Role_id &id, const std::vector<std::string> &priv_list);
 void revoke_dynamic_privileges_from_auth_id(
     const Role_id &id, const std::vector<std::string> &priv_list);
+bool operator==(const std::pair<Role_id, bool> &a, const std::string &b);
 bool operator==(const Role_id &a, const Auth_id_ref &b);
 bool operator==(const Auth_id_ref &a, const Role_id &b);
 bool operator==(const std::pair<const Role_id, Role_id> &a,
