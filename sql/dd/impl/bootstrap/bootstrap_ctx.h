@@ -110,6 +110,7 @@ class DD_bootstrap_ctx {
   // default_dd_system_storage_engine
   legacy_db_type m_actual_dd_engine = DB_TYPE_UNKNOWN;
   legacy_db_type m_did_dd_engine_upgrade_from = DB_TYPE_UNKNOWN;
+  legacy_db_type m_upgraded_dd_system_engine = DB_TYPE_UNKNOWN;
 
  public:
   DD_bootstrap_ctx() = default;
@@ -185,6 +186,14 @@ class DD_bootstrap_ctx {
 
   uint get_upgraded_server_version() const { return m_upgraded_server_version; }
 
+  void set_upgraded_dd_system_engine(legacy_db_type upgraded_dd_engine) {
+    m_upgraded_dd_system_engine = upgraded_dd_engine;
+  }
+
+  legacy_db_type get_upgraded_dd_engine() const {
+    return m_upgraded_dd_system_engine;
+  }
+
   bool upgraded_server_version_is(uint compare_upgraded_server_version) const {
     return (m_upgraded_server_version == compare_upgraded_server_version);
   }
@@ -202,7 +211,9 @@ class DD_bootstrap_ctx {
   }
 
   bool is_server_upgrade() const {
-    return !opt_initialize && (m_upgraded_server_version < MYSQL_VERSION_ID);
+    return !opt_initialize &&
+           ((m_upgraded_server_version < MYSQL_VERSION_ID) ||
+            (m_upgraded_dd_system_engine != get_dd_engine_type()));
   }
 
   bool is_dd_upgrade_from_before(uint compare_actual_dd_version) const {

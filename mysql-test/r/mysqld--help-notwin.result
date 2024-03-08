@@ -2758,6 +2758,11 @@ The following options may be given as the first argument:
  --skip-slave-start  This option is deprecated. Use skip_replica_start
  instead.
  --skip-stack-trace  Don't print a stack trace on failure.
+ --skip-sys-tables-engine-check 
+ skip System Tables storage engine check. If True, System
+ Tables can use any supported storage engines; If False,
+ System Tables can only use
+ default_dd_system_storage_engine
  --slave-allow-batching 
  This option is deprecated. Use replica_allow_batching
  instead.
@@ -4012,6 +4017,7 @@ skip-networking FALSE
 skip-replica-start FALSE
 skip-show-database FALSE
 skip-slave-start FALSE
+skip-sys-tables-engine-check FALSE
 slave-allow-batching TRUE
 slave-check-before-image-consistency OFF
 slave-checkpoint-group 512

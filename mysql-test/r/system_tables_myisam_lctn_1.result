@@ -1,3 +1,4 @@
+SET GLOBAL skip_sys_tables_engine_check=true;
 #
 # Bug#30248138 - adding a function once mysql.func is converted to myisam
 #                leads to crash
@@ -314,3 +315,4 @@ Warning	1726	Storage engine 'MyISAM' does not support system tables. [mysql.user
 DROP PROCEDURE test_create_system_table;
 DROP PROCEDURE execute_stmt;
 DROP TABLE system_tables;
+SET GLOBAL skip_sys_tables_engine_check=default;

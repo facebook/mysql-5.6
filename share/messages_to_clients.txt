@@ -10402,6 +10402,10 @@ ER_RDB_TTL_WRITES_WITH_STALE_SNAPSHOT
 OBSOLETE_ER_RDB_DDSE_CANNOT_DISABLE_LARGE_PREFIX
   eng "Can't disable rocksdb_large_prefix when MyRocks is the MySQL data dictionary engine"
 
+ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+  eng "System table [%s.%s] couldn't use specified engine %s. System tables should always use default-dd-system-storage-engine."
+
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

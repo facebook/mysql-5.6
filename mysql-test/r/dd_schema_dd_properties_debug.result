@@ -5,9 +5,11 @@
 # recorded on a case sensitive file system, which has an impact
 # of some of the collations.
 #
+SET GLOBAL skip_sys_tables_engine_check=true;
 set debug='+d,skip_dd_table_access_check';
 SELECT * FROM mysql.dd_properties INTO OUTFILE 'MYSQL_TMP_DIR/dd_properties.txt';
 set debug='-d,skip_dd_table_access_check';
+DD_SYSTEM_ENGINE_UPGRADED=12
 SYSTEM_TABLES=
 catalogs=
   col0=table_id=6
@@ -3445,3 +3447,4 @@ view_table_usage=
        table_id=34
        trx_id=0
        space_id=1
+SET GLOBAL skip_sys_tables_engine_check=default;

@@ -96,6 +96,8 @@ DD_properties::DD_properties() : m_properties() {
       MYSQLD_VERSION_UPGRADED   The server version of the last
                                 completed successful upgrade.
       DD_ENGINE                 Actual DD engine
+      DD_SYSTEM_ENGINE_UPGRADED The DD SYSTEM engine of the last
+                                completed successful upgrade.
   */
   m_property_desc = {
       {"DD_VERSION", Property_type::UNSIGNED_INT_32},
@@ -112,7 +114,8 @@ DD_properties::DD_properties() : m_properties() {
       {"UPGRADE_TARGET_SCHEMA", Property_type::CHARACTER_STRING},
       {"UPGRADE_ACTUAL_SCHEMA", Property_type::CHARACTER_STRING},
       {"MYSQLD_VERSION_UPGRADED", Property_type::UNSIGNED_INT_32},
-      {"DD_ENGINE", Property_type::UNSIGNED_INT_32}};
+      {"DD_ENGINE", Property_type::UNSIGNED_INT_32},
+      {"DD_SYSTEM_ENGINE_UPGRADED", Property_type::UNSIGNED_INT_32}};
 }
 
 // Read all properties from disk and populate the cache.

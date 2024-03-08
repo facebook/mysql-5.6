@@ -12093,6 +12093,12 @@ ER_UNSUPPORTED_DD_ENGINE
 ER_CANT_CREATE_DUMP_THREAD
   eng "Can't create thread for DUMP TABLE (errno= %d)"
 
+ER_SYSTEM_TABLE_SERVER_UPGRADE_STATUS
+  eng "Server upgrade from '%s' to '%s' %s."
+
+ER_DD_SYSTEM_ENGINE_UPGRADED_NOT_FOUND
+  eng "The DD_SYSTEM_ENGINE_UPGRADED property for the data dictionary was not found. Starting the server using DD_SYSTEM_ENGINE_UPGRADED='%s'."
+
 # DO NOT add server-to-client messages here;
 # they go in messages_to_clients.txt
 # in the same directory as this file.

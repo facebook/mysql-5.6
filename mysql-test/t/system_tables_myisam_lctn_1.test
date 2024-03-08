@@ -1,5 +1,6 @@
 #
 --source include/force_restart.inc
+SET GLOBAL skip_sys_tables_engine_check=true;
 
 --echo #
 --echo # Bug#30248138 - adding a function once mysql.func is converted to myisam
@@ -16,3 +17,4 @@
 --echo #-----------------------------------------------------------------------
 --let uppercase_system_table_names= `SELECT @@global.lower_case_table_names`
 --source include/system_tables_storage_engine_tests.inc
+SET GLOBAL skip_sys_tables_engine_check=default;

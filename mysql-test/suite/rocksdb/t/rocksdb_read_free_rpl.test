@@ -1,6 +1,22 @@
 source include/have_debug.inc;
 source include/have_rocksdb.inc;
 source include/master-slave.inc;
+# rocksdb stats value in replica is different between innodb and rocksdb ddse
+# when rocksdb is ddse, during applier execute binlog event, it write/flush data
+# into mysql.slave_relay_log_info table, which increase
+# rocksdb_num_get_for_update_calls stats
+# call stack
+#     mysqld`myrocks::rdb_tx_get_for_update
+#     mysqld`myrocks::ha_rocksdb::get_row_by_rowid
+#     mysqld`Rpl_info_table_access::find_info
+#     mysqld`Rpl_info_table::do_flush_info
+#     mysqld`Rpl_info_handler::flush_info
+#     mysqld`Relay_log_info::flush_info
+#     mysqld`Xid_apply_log_event::do_apply_event
+#     mysqld`Log_event::apply_event
+#     mysqld`apply_event_and_update_pos
+#     mysqld`exec_relay_log_event
+source include/have_innodb_system_tables.inc;
 
 # initialization/insert
 --source include/rpl_connection_master.inc

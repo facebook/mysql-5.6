@@ -5,6 +5,7 @@
 
 let $LOG_VERBOSE= `select @@global.log_error_verbosity`;
 SET @@global.log_error_verbosity=3;
+SET GLOBAL skip_sys_tables_engine_check=1;
 
 # This test does not rely on debug features. If you need to add a case that
 # does, start a new file, or add it to error_log_debug.test instead.
