@@ -102,3 +102,12 @@ my_off_t my_ws_tell(File fd);
     On failure, -1
 */
 size_t my_ws_write(File fd, const uchar *buffer, size_t Count);
+
+/**
+  Retrieve filename(URI) for specified fd
+
+  returns
+    On success, WSEnv URI
+    On failure, "Unknown WS FD"
+*/
+const char *my_ws_filename(File fd);

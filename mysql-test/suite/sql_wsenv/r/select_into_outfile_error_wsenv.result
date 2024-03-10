@@ -1,0 +1,12 @@
+call mtr.add_suppression("Error writing file .*");
+create table t1 (pk int primary key,col1 varchar(10));
+insert into t1 values (1,"aaa"),(2,"bbb"),(3,"ccc"),(4,"ddd"),(5,"eee");
+set enable_sql_wsenv=1;
+SET @debug_save= @@GLOBAL.DEBUG;
+SET @@DEBUG= 'd,simulate_file_write_error';
+SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';
+ERROR HY000: Can't create/write to file 'OUTPUT_FILE' (OS errno 5 - Input/output error)
+SET @@DEBUG=@debug_save;
+set enable_sql_wsenv=0;
+drop table t1;
+# restart

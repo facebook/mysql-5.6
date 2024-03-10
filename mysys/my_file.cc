@@ -51,6 +51,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysys/my_static.h"
+#include "mysys/my_wsfile.h"
 #include "mysys/mysys_priv.h"
 #include "sql/malloc_allocator.h"
 #include "sql/stateless_allocator.h"
@@ -190,6 +191,9 @@ namespace file_info {
  */
 void RegisterFilename(File fd, const char *file_name, OpenType type_of_file) {
   if (fivp == nullptr) return;
+  // WS files aren't registered
+  if (fd >= WS_START_FD) return;
+
   assert(fd > -1);
   FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);
@@ -217,6 +221,8 @@ void UnregisterFilename(File fd) {
   FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);
 
+  // WS files aren't registered
+  if (fd >= WS_START_FD) return;
   if (static_cast<size_t>(fd) >= fiv.size()) {
     dbug("fileinfo", [&]() {
       std::cerr << "Un-registering unknown fd:" << fd << "!" << std::endl;
@@ -248,6 +254,10 @@ void UnregisterFilename(File fd) {
 const char *my_filename(File fd) {
   DBUG_TRACE;
   if (fivp == nullptr) return "<nullptr fivp>";
+
+  if (fd >= WS_START_FD) {
+    return my_ws_filename(fd);
+  }
 
   const FileInfoVector &fiv = *fivp;
   MUTEX_LOCK(g, &THR_LOCK_open);

@@ -68,6 +68,8 @@ class WSBaseFile {
   virtual int ws_sync() = 0;
   virtual int ws_fsync() = 0;
 
+  const std::string &ws_uri() const { return wsenv_uri; }
+
  protected:
   // uri format: {wsenv_uri_prefix}/{wsenv_cluster}/{file}
   std::string wsenv_uri;
@@ -460,6 +462,19 @@ size_t my_ws_write(File fd, const uchar *buffer, size_t count) {
   My_thd_wait_scope wait(MY_THD_WAIT_WS_IO);
   size_t result = iter->second->ws_write(buffer, count);
   return result;
+}
+
+const char *my_ws_filename(File fd) {
+  mysql_rwlock_rdlock(&ws_current_fd_lock);
+  auto grd =
+      create_scope_guard([]() { mysql_rwlock_unlock(&ws_current_fd_lock); });
+  auto iter = ws_file_map.find(fd);
+  // Return error if fd is not present
+  if (iter == ws_file_map.end()) {
+    errno = EINVAL;
+    return "<Unknown WS FD>";
+  }
+  return iter->second->ws_uri().c_str();
 }
 
 void MyWSFileEnd() { ws_file_map.clear(); }
