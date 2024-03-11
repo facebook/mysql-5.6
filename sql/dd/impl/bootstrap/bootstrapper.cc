@@ -1353,6 +1353,15 @@ bool initialize_dd_properties(THD *thd) {
              oss.str().c_str());
       return true;
     }
+
+    // DDSE ROCKSDB->INNODB isn't supported yet
+    if (actual_dd_engine == DB_TYPE_ROCKSDB &&
+        get_dd_engine_type() == DB_TYPE_INNODB) {
+      LogErr(ERROR_LEVEL, ER_DD_ENGINE_UPGRADED_UNSUPPORTED,
+             get_dd_engine_name(DB_TYPE_ROCKSDB),
+             get_dd_engine_name(DB_TYPE_INNODB));
+      return true;
+    }
     bootstrap::DD_bootstrap_ctx::instance().set_actual_dd_engine(
         actual_dd_engine);
 

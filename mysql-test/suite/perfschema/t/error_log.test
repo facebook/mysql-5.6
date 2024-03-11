@@ -135,6 +135,7 @@ SELECT prio,error_code,subsystem,data
 # MY-013503: Directory '.rocksdb' will not be scanned because it is a hidden directory
 # MY-011071: LogPluginErrMsg for both static and dynamic plugins
 # MY-010990: Resource group feature shall not be available. Incompatible thread handling option.
+# MY-014008: The DD Engine upgrade from 'ROCKSDB' to 'INNODB' isn't supported yet
 
 SELECT prio,error_code,subsystem
   FROM performance_schema.error_log
@@ -149,7 +150,7 @@ SELECT prio,error_code,subsystem
                          "MY-013602", "MY-010069", "MY-013595", "MY-010108",
                          "MY-012363", "MY-011953", "MY-013623", "MY-013711",
                          "MY-013880", "MY-013881", "MY-013882", "MY-013883",
-                         "MY-013884", "MY-013908", "MY-013930")
+                         "MY-013884", "MY-013908", "MY-013930", "MY-014008")
  ORDER BY logged, error_code;
 
 --echo

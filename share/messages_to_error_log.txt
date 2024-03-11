@@ -12093,6 +12093,9 @@ ER_UNSUPPORTED_DD_ENGINE
 ER_CANT_CREATE_DUMP_THREAD
   eng "Can't create thread for DUMP TABLE (errno= %d)"
 
+ER_DD_ENGINE_UPGRADED_UNSUPPORTED
+  eng "The DD Engine upgrade from '%s' to '%s' isn't supported yet."
+
 ER_SYSTEM_TABLE_SERVER_UPGRADE_STATUS
   eng "Server upgrade from '%s' to '%s' %s."
 
