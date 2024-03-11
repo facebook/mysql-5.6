@@ -6,6 +6,7 @@ CALL mtr.add_suppression("Column count of");
 CALL mtr.add_suppression("Incorrect definition of table");
 CALL mtr.add_suppression("Cannot load from");
 CALL mtr.add_suppression("Storage engine 'MyISAM' does not");
+SET GLOBAL skip_sys_tables_engine_check=true;
 #-----------------------------------------------------------------------
 # Test cases to verify system table's behavior with storage engines
 # InnoDB and MyISAM.
@@ -594,3 +595,4 @@ WHERE table_schema='mysql'
 TABLE_SCHEMA	TABLE_NAME	ENGINE
 mysql	event	MyISAM
 mysql	proc	MyISAM
+SET GLOBAL skip_sys_tables_engine_check=default;

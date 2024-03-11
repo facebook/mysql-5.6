@@ -20,7 +20,6 @@
 #include <array>
 #include <atomic>
 #include <map>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -34,6 +33,7 @@
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
 #include "./rdb_buff.h"
+#include "./rdb_global.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_utils.h"
 #include "./rdb_vector_db.h"
@@ -41,6 +41,17 @@
 /* Server header files */
 #include "sql/dd/object_id.h"
 #include "sql/fb_vector_base.h"
+
+// Forward declarations
+#ifdef ROCKSDB_CUSTOM_NAMESPACE
+namespace ROCKSDB_CUSTOM_NAMESPACE {
+#else
+namespace rocksdb {
+#endif
+
+class TransactionDB;
+
+}  // namespace ROCKSDB_CUSTOM_NAMESPACE / rocksdb
 
 namespace myrocks {
 
@@ -347,6 +358,8 @@ class Rdb_key_def {
            m_index_type == INDEX_TYPE_HIDDEN_PRIMARY;
   }
 
+  inline bool is_unique_sk() const { return m_is_unique_sk; }
+
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
   bool can_cover_lookup() const;
 
@@ -381,8 +394,8 @@ class Rdb_key_def {
                              const rocksdb::Slice *const key,
                              uchar *const pk_buffer) const;
 
-  uint get_memcmp_sk_parts(const TABLE *table, const rocksdb::Slice &key,
-                           uchar *sk_buffer, uint *n_null_fields) const;
+  uint get_memcmp_sk_parts(const rocksdb::Slice &key, uchar *sk_buffer,
+                           uint *n_null_fields) const;
 
   /* Return max length of mem-comparable form */
   uint max_storage_fmt_length() const { return m_maxlength; }
@@ -943,6 +956,12 @@ class Rdb_key_def {
     many elements are in the m_pack_info array.
   */
   uint m_key_parts;
+
+  /* Whether the key is a unique secondary key */
+  bool m_is_unique_sk;
+
+  /* Number of key parts in the secondary key*/
+  uint m_user_defined_sk_parts;
 
   /*
     If TTL column is part of the PK, offset of the column within pk.

@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include <openssl/ssl.h>
+#include <cassert>
 #include "rdb_global.h"
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation  // gcc: Class implementation
@@ -27,7 +28,9 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#ifndef NDEBUG
 #include <limits>
+#endif
 #include <map>
 #include <set>
 #include <string>
@@ -39,21 +42,19 @@
 #include "./my_bit.h"
 #include "./my_bitmap.h"
 #include "./my_byteorder.h"
-#include "my_compare.h"  // get_rec_bits
-#include "my_dir.h"
-#include "myisampack.h"  // mi_int2store
+#include "my_checksum.h"
 #include "mysql/thread_pool_priv.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/field.h"
 #include "sql/key.h"
+#include "sql/mysqld.h"
+#include "sql/sql_class.h"
 #include "sql/sql_table.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
-#include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
-#include "./rdb_psi.h"
 #include "./rdb_utils.h"
 
 extern CHARSET_INFO my_charset_utf16_bin;
@@ -380,8 +381,12 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def) {
       m_name = HIDDEN_PK_NAME;
     }
 
+    m_is_unique_sk = false;
+    m_user_defined_sk_parts = 0;
     if (secondary_key) {
       m_pk_key_parts = hidden_pk_exists ? 1 : pk_info->actual_key_parts;
+      m_is_unique_sk = key_info->flags & HA_NOSAME;
+      m_user_defined_sk_parts = key_info->user_defined_key_parts;
     } else {
       pk_info = nullptr;
       m_pk_key_parts = 0;
@@ -1003,14 +1008,12 @@ uint Rdb_key_def::get_primary_key_tuple(const Rdb_key_def &pk_descr,
     sk_buffer     OUT  Put here mem-comparable form of the Secondary Key.
     n_null_fields OUT  Put number of null fields contained within sk entry
 */
-uint Rdb_key_def::get_memcmp_sk_parts(const TABLE *table,
-                                      const rocksdb::Slice &key,
+uint Rdb_key_def::get_memcmp_sk_parts(const rocksdb::Slice &key,
                                       uchar *sk_buffer,
                                       uint *n_null_fields) const {
-  assert(table != nullptr);
   assert(sk_buffer != nullptr);
   assert(n_null_fields != nullptr);
-  assert(m_keyno != table->s->primary_key && !table_has_hidden_pk(*table));
+  assert(!is_primary_key());
 
   uchar *buf = sk_buffer;
 
@@ -1021,7 +1024,7 @@ uint Rdb_key_def::get_memcmp_sk_parts(const TABLE *table,
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE))) return RDB_INVALID_KEY_LEN;
 
-  for (uint i = 0; i < table->key_info[m_keyno].user_defined_key_parts; i++) {
+  for (uint i = 0; i < m_user_defined_sk_parts; i++) {
     if ((res = read_memcmp_key_part(&reader, i)) > 0) {
       return RDB_INVALID_KEY_LEN;
     } else if (res == -1) {

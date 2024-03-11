@@ -97,6 +97,7 @@
 #include "sql/dd/dd.h"          // dd::get_dictionary
 #include "sql/dd/dd_schema.h"   // dd::schema_exists
 #include "sql/dd/dd_table.h"    // dd::drop_table, dd::update_keys...
+#include "sql/dd/dd_utility.h"  // dd::get_dd_engine_type
 #include "sql/dd/dictionary.h"  // dd::Dictionary
 #include "sql/dd/properties.h"  // dd::Properties
 #include "sql/dd/sdi_api.h"     // dd::sdi::drop_sdis
@@ -19000,6 +19001,20 @@ static bool check_engine(THD *thd, const char *db_name, const char *table_name,
       !ha_check_if_supported_system_table(*new_engine, db_name, table_name)) {
     my_error(ER_UNSUPPORTED_ENGINE, MYF(0),
              ha_resolve_storage_engine_name(*new_engine), db_name, table_name);
+    *new_engine = nullptr;
+    return true;
+  }
+
+  /*
+    check that new system table storage engine is same as
+    default_dd_system_storage_engine
+  */
+  if (!thd->is_system_thread() && !skip_sys_tables_engine_check &&
+      (create_info->used_fields & HA_CREATE_USED_ENGINE) &&
+      dd::get_dictionary()->is_system_table_name(db_name, table_name) &&
+      dd::get_dd_engine_type() != (*new_engine)->db_type) {
+    my_error(ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE, MYF(0), db_name, table_name,
+             ha_resolve_storage_engine_name(*new_engine));
     *new_engine = nullptr;
     return true;
   }

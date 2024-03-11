@@ -279,7 +279,8 @@ ALTER TABLE slow_log
   MODIFY thread_id BIGINT UNSIGNED NOT NULL;
 ALTER TABLE slow_log
   ADD COLUMN cpu_usage TIME(6) NOT NULL AFTER thread_id,
-  ADD COLUMN delay_total TIME(6) NOT NULL AFTER cpu_usage;
+  ADD COLUMN delay_total TIME(6) NOT NULL AFTER cpu_usage,
+  ADD COLUMN wait_stats MEDIUMTEXT NOT NULL;
 SET GLOBAL slow_query_log = @old_log_state;
 
 SET @@session.sql_require_primary_key = @old_sql_require_primary_key;
@@ -1160,6 +1161,158 @@ SET @cmd = CONCAT("ALTER TABLE proxies_priv ENGINE=",
     IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"),
     " STATS_PERSISTENT=0");
 PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+--
+-- alter table engine=DDSE if necessary by check actual engine
+--
+SET @component_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='component');
+SET @cmd = CONCAT("ALTER TABLE component ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @component_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @default_roles_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='default_roles');
+SET @cmd = CONCAT("ALTER TABLE default_roles ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @default_roles_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @engine_cost_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='engine_cost');
+SET @cmd = CONCAT("ALTER TABLE engine_cost ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @engine_cost_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @global_grants_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='global_grants');
+SET @cmd = CONCAT("ALTER TABLE global_grants ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @global_grants_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @help_topic_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='help_topic');
+SET @cmd = CONCAT("ALTER TABLE help_topic ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @help_topic_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @replication_asynchronous_connection_failover_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='replication_asynchronous_connection_failover');
+SET @cmd = CONCAT("ALTER TABLE replication_asynchronous_connection_failover ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @replication_asynchronous_connection_failover_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @replication_asynchronous_connection_failover_managed_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='replication_asynchronous_connection_failover_managed');
+SET @cmd = CONCAT("ALTER TABLE replication_asynchronous_connection_failover_managed ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @replication_asynchronous_connection_failover_managed_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @replication_group_configuration_version_engine = (select ENGINE from
+    information_schema.tables where table_schema='mysql' and
+    table_name='replication_group_configuration_version');
+SET @cmd = CONCAT("ALTER TABLE replication_group_configuration_version ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @replication_group_configuration_version_engine,
+    "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @replication_group_member_actions_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='replication_group_member_actions');
+SET @cmd = CONCAT("ALTER TABLE replication_group_member_actions ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @replication_group_member_actions_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @role_edges_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='role_edges');
+SET @cmd = CONCAT("ALTER TABLE role_edges ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @role_edges_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+SET @server_cost_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='server_cost');
+SET @cmd = CONCAT("ALTER TABLE server_cost ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @server_cost_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @slave_master_info_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='slave_master_info');
+SET @cmd = CONCAT("ALTER TABLE slave_master_info ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @slave_master_info_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @slave_relay_log_info_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='slave_relay_log_info');
+SET @cmd = CONCAT("ALTER TABLE slave_relay_log_info ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @slave_relay_log_info_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @slave_worker_info_engine = (select ENGINE from information_schema.tables where
+    table_schema='mysql' and table_name='slave_worker_info');
+SET @cmd = CONCAT("ALTER TABLE slave_worker_info ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @slave_worker_info_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+#
+# Drop DESC due to MyRocks not supporting DESC yet
+#
+SET @password_history_engine = (select ENGINE from information_schema.tables
+    where table_schema='mysql' and table_name='password_history');
+SET @cmd = CONCAT("ALTER TABLE password_history DROP PRIMARY KEY,",
+    IF(@ddse = 'ROCKSDB', "ADD PRIMARY KEY(Host, User, Password_timestamp)",
+        "ADD PRIMARY KEY(Host, User, Password_timestamp DESC)"));
+SET @str = IF(@ddse = @password_history_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @password_history_engine = (select ENGINE from information_schema.tables
+    where table_schema='mysql' and table_name='password_history');
+SET @cmd = CONCAT("ALTER TABLE password_history ENGINE=",
+    IF(@ddse = 'ROCKSDB', "ROCKSDB", "InnoDB"));
+SET @str = IF(@ddse = @password_history_engine, "SET @dummy = 0", @cmd);
+PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 

@@ -1,0 +1,64 @@
+ALTER TABLE mysql.columns_priv ENGINE="ENGINE";
+ERROR HY000: System table [mysql.columns_priv] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.component ENGINE="ENGINE";
+ERROR HY000: System table [mysql.component] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.db ENGINE="ENGINE";
+ERROR HY000: System table [mysql.db] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.default_roles ENGINE="ENGINE";
+ERROR HY000: System table [mysql.default_roles] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.engine_cost ENGINE="ENGINE";
+ERROR HY000: System table [mysql.engine_cost] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.func ENGINE="ENGINE";
+ERROR HY000: System table [mysql.func] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.global_grants ENGINE="ENGINE";
+ERROR HY000: System table [mysql.global_grants] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.help_category ENGINE="ENGINE";
+ERROR HY000: System table [mysql.help_category] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.help_keyword ENGINE="ENGINE";
+ERROR HY000: System table [mysql.help_keyword] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.help_relation ENGINE="ENGINE";
+ERROR HY000: System table [mysql.help_relation] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.help_topic ENGINE="ENGINE";
+ERROR HY000: System table [mysql.help_topic] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.password_history ENGINE="ENGINE";
+ERROR HY000: System table [mysql.password_history] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.plugin ENGINE="ENGINE";
+ERROR HY000: System table [mysql.plugin] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.procs_priv ENGINE="ENGINE";
+ERROR HY000: System table [mysql.procs_priv] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.proxies_priv ENGINE="ENGINE";
+ERROR HY000: System table [mysql.proxies_priv] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.replication_asynchronous_connection_failover ENGINE="ENGINE";
+ERROR HY000: System table [mysql.replication_asynchronous_connection_failover] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.replication_asynchronous_connection_failover_managed ENGINE="ENGINE";
+ERROR HY000: System table [mysql.replication_asynchronous_connection_failover_managed] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.replication_group_configuration_version ENGINE="ENGINE";
+ERROR HY000: System table [mysql.replication_group_configuration_version] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.replication_group_member_actions ENGINE="ENGINE";
+ERROR HY000: System table [mysql.replication_group_member_actions] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.role_edges ENGINE="ENGINE";
+ERROR HY000: System table [mysql.role_edges] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.server_cost ENGINE="ENGINE";
+ERROR HY000: System table [mysql.server_cost] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.servers ENGINE="ENGINE";
+ERROR HY000: System table [mysql.servers] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.slave_master_info ENGINE="ENGINE";
+ERROR HY000: System table [mysql.slave_master_info] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.slave_relay_log_info ENGINE="ENGINE";
+ERROR HY000: System table [mysql.slave_relay_log_info] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.slave_worker_info ENGINE="ENGINE";
+ERROR HY000: System table [mysql.slave_worker_info] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.tables_priv ENGINE="ENGINE";
+ERROR HY000: System table [mysql.tables_priv] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.time_zone ENGINE="ENGINE";
+ERROR HY000: System table [mysql.time_zone] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.time_zone_leap_second ENGINE="ENGINE";
+ERROR HY000: System table [mysql.time_zone_leap_second] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.time_zone_name ENGINE="ENGINE";
+ERROR HY000: System table [mysql.time_zone_name] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.time_zone_transition ENGINE="ENGINE";
+ERROR HY000: System table [mysql.time_zone_transition] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.time_zone_transition_type ENGINE="ENGINE";
+ERROR HY000: System table [mysql.time_zone_transition_type] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.
+ALTER TABLE mysql.user ENGINE="ENGINE";
+ERROR HY000: System table [mysql.user] couldn't use specified engine ENGINE. System tables should always use default-dd-system-storage-engine.

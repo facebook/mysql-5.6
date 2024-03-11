@@ -18,12 +18,12 @@
 /* C++ standard header files */
 #include <chrono>
 #include <string>
+#include <string_view>
 #include <vector>
 
 /* MySQL header files */
 #include "./my_stacktrace.h"
 #include "./sql_string.h"
-#include "sql/mysqld.h"
 #define LOG_COMPONENT_TAG "rocksdb"
 #include "mysql/components/services/log_builtins.h"
 #include "mysqld_error.h"
@@ -347,12 +347,12 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
 /*
   Helper function to return dir + '/' + file
  */
-std::string rdb_concat_paths(const std::string &dir, const std::string &file);
+std::string rdb_concat_paths(std::string_view dir, std::string_view file);
 
 /*
   Helper function to see if a database exists
  */
-bool rdb_database_exists(const std::string &db_name);
+bool rdb_database_exists(std::string_view db_name);
 
 /**
   Helper class wrappers to meansure startup time
@@ -462,8 +462,8 @@ class Ensure_initialized {
 };
 
 // extension must start with a dot.
-[[nodiscard]] inline bool has_file_extension(const std::string &fn,
-                                             const std::string &extension) {
+[[nodiscard]] inline bool has_file_extension(std::string_view fn,
+                                             std::string_view extension) {
   const auto ext_len = extension.length();
   assert(ext_len > 0);
   assert(extension[0] == '.');

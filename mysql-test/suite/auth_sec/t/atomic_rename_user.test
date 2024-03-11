@@ -3,6 +3,7 @@
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
+SET global skip_sys_tables_engine_check=true; 
 
 --echo # -----------------------------------------------------------------------
 
@@ -197,5 +198,6 @@ DROP USER a;
 
 --echo # -----------------------------------------------------------------------
 
+SET GLOBAL skip_sys_tables_engine_check=default; 
 # Wait till we reached the initial number of concurrent sessions
 --source include/wait_until_count_sessions.inc

@@ -138,7 +138,8 @@ CREATE TABLE `slow_log` (
   `sql_text` mediumblob NOT NULL,
   `thread_id` bigint(21) unsigned NOT NULL,
   `cpu_usage` time(6) NOT NULL,
-  `delay_total` time(6) NOT NULL
+  `delay_total` time(6) NOT NULL,
+  `wait_stats` mediumtext NOT NULL
 ) ENGINE=CSV DEFAULT CHARSET=utf8 COMMENT='Slow log';
 
 set global general_log='ON';

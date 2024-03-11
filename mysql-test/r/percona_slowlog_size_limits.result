@@ -3,9 +3,11 @@ SET @old_log_output = @@global.log_output;
 SET @old_slow_query_log_file = @@global.slow_query_log_file;
 SET @old_max_slowlog_size = @@global.max_slowlog_size;
 SET @old_slowlog_space_limit = @@global.slowlog_space_limit;
+SET @old_log_slow_extra = @@global.log_slow_extra;
 SET long_query_time = 0;
 SET GLOBAL log_output = FILE;
 SET GLOBAL slow_query_log = 1;
+SET GLOBAL log_slow_extra = 0;
 # Case 1 (PS-1484): Test if slowlog_space_limit is working correctly
 #                   with the default slow query log name
 SET GLOBAL max_slowlog_size = 4096;
@@ -42,10 +44,10 @@ include/assert_number_of_files.inc [The number of files matches expected 5]
 # Case 5: Rotating log but should not delete previous logs
 SET GLOBAL slow_query_log_file = 'MYSQLTEST_VARDIR/abcd';
 SET GLOBAL slow_query_log_file = 'MYSQLTEST_VARDIR/abcd';
-include/assert_number_of_files.inc [The number of files matches expected 7]
+include/assert_number_of_files.inc [The number of files matches expected 6]
 # Case 6: Calling "SET slowlog_space_limit" should reduce number of logs
 SET GLOBAL max_slowlog_size = 4096;
-SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 2;
+SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 3;
 include/assert_number_of_files.inc [The number of files matches expected 4]
 # Case 7: Delete all small logs with max_slowlog_size = 0
 SET GLOBAL max_slowlog_size = 0;
@@ -65,3 +67,4 @@ SET @@global.log_output = @old_log_output;
 SET @@global.slow_query_log_file = @old_slow_query_log_file;
 SET @@global.max_slowlog_size = @old_max_slowlog_size;
 SET @@global.slowlog_space_limit = @old_slowlog_space_limit;
+SET @@global.log_slow_extra = @old_log_slow_extra;

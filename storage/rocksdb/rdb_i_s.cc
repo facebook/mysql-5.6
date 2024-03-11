@@ -29,14 +29,10 @@
 #include "sql/sql_show.h"
 
 /* RocksDB header files */
-#include "rocksdb/version.h"
-#if ROCKSDB_MAJOR >= 8
 #include "rocksdb/advanced_cache.h"
-#endif  // ROCKSDB_MAJOR >= 8
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/convenience.h"
 #include "rocksdb/filter_policy.h"
-#include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/utilities/transaction_db.h"

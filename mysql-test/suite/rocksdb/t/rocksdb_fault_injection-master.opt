@@ -1,1 +1,4 @@
+# Specify DDSE as INNODB, since during DDSE upgrade system table,
+# myrocks drop index thread will crash due to fault inject IO error
 --rocksdb_fault_injection_options="{"retry":true,"failure_ratio":1,"filetypes":["kTableFile"]}"
+--default-dd-system-storage-engine=InnoDB

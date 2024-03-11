@@ -7,10 +7,11 @@ SET @old_log_output = @@global.log_output;
 SET @old_slow_query_log_file = @@global.slow_query_log_file;
 SET @old_max_slowlog_size = @@global.max_slowlog_size;
 SET @old_slowlog_space_limit = @@global.slowlog_space_limit;
+SET @old_log_slow_extra = @@global.log_slow_extra;
 SET long_query_time = 0;
 SET GLOBAL log_output = FILE;
 SET GLOBAL slow_query_log = 1;
-
+SET GLOBAL log_slow_extra = 0;
 
 --echo # Case 1 (PS-1484): Test if slowlog_space_limit is working correctly
 --echo #                   with the default slow query log name
@@ -144,13 +145,13 @@ while($i) {
 --eval SET GLOBAL slow_query_log_file = '$MYSQLTEST_VARDIR/abcd'
 
 --let file_spec = $MYSQLTEST_VARDIR/abcd*
---let expected_number = 7
+--let expected_number = 6
 --source include/assert_number_of_files.inc
 
 
 --echo # Case 6: Calling "SET slowlog_space_limit" should reduce number of logs
 SET GLOBAL max_slowlog_size = 4096;
-SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 2;
+SET GLOBAL slowlog_space_limit = @@global.max_slowlog_size * 3;
 
 --let file_spec = $MYSQLTEST_VARDIR/abcd*
 --let expected_number = 4
@@ -219,6 +220,7 @@ SET @@global.log_output = @old_log_output;
 SET @@global.slow_query_log_file = @old_slow_query_log_file;
 SET @@global.max_slowlog_size = @old_max_slowlog_size;
 SET @@global.slowlog_space_limit = @old_slowlog_space_limit;
+SET @@global.log_slow_extra = @old_log_slow_extra;
 
 --remove_files_wildcard $MYSQLTEST_VARDIR abcd*
 --remove_files_wildcard $MYSQLTEST_VARDIR zxcv*

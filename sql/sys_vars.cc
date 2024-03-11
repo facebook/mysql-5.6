@@ -10397,3 +10397,11 @@ static Sys_var_uint Sys_fb_vector_max_dimension(
     SESSION_VAR(fb_vector_max_dimension), CMD_LINE(OPT_ARG),
     VALID_RANGE(1, 1024 * 1024), DEFAULT(4 * 1024), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_bool Sys_skip_sys_tables_engine_check(
+    "skip_sys_tables_engine_check",
+    "skip System Tables storage engine check. If True, System Tables can use "
+    "any supported storage engines; If False, System Tables can only use "
+    "default_dd_system_storage_engine",
+    GLOBAL_VAR(skip_sys_tables_engine_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));

@@ -785,6 +785,8 @@ extern thread_local MEM_ROOT **THR_MALLOC;
 extern PSI_file_key key_file_binlog_cache;
 extern PSI_file_key key_file_binlog_index_cache;
 
+extern bool skip_sys_tables_engine_check;
+
 #ifdef HAVE_PSI_INTERFACE
 
 extern PSI_mutex_key key_LOCK_tc;

@@ -16,10 +16,6 @@
 
 #pragma once
 
-/* MySQL header files */
-#include "mysql/plugin.h"
-#include "sql/handler.h" /* handler */
-
 /* C++ standard header files */
 #include <queue>
 #include <set>
@@ -27,6 +23,11 @@
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
+
+/* MySQL header files */
+#include "my_compiler.h"
+#include "my_inttypes.h"
+#include "mysql/components/services/bits/my_io_bits.h"
 
 /* MyRocks header files */
 #include "./rdb_global.h"

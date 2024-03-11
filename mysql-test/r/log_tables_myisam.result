@@ -7,7 +7,7 @@ event_time	user_host	thread_id	server_id	command_type	argument
 TIMESTAMP	USER_HOST	THREAD_ID	1	Query	select * from general_log
 truncate table slow_log;
 select * from slow_log;
-start_time	user_host	query_time	lock_time	rows_sent	rows_examined	db	last_insert_id	insert_id	server_id	sql_text	thread_id	cpu_usage	delay_total
+start_time	user_host	query_time	lock_time	rows_sent	rows_examined	db	last_insert_id	insert_id	server_id	sql_text	thread_id	cpu_usage	delay_total	wait_stats
 alter table mysql.general_log engine=myisam;
 ERROR HY000: You cannot 'ALTER' a log table if logging is enabled
 alter table mysql.slow_log engine=myisam;
@@ -46,7 +46,8 @@ slow_log	CREATE TABLE `slow_log` (
   `sql_text` mediumblob NOT NULL,
   `thread_id` bigint unsigned NOT NULL,
   `cpu_usage` time(6) NOT NULL,
-  `delay_total` time(6) NOT NULL
+  `delay_total` time(6) NOT NULL,
+  `wait_stats` mediumtext NOT NULL
 ) ENGINE=CSV DEFAULT CHARSET=utf8mb3 COMMENT='Slow log'
 alter table mysql.general_log engine=myisam;
 alter table mysql.slow_log engine=myisam;
@@ -76,7 +77,8 @@ slow_log	CREATE TABLE `slow_log` (
   `sql_text` mediumblob NOT NULL,
   `thread_id` bigint unsigned NOT NULL,
   `cpu_usage` time(6) NOT NULL,
-  `delay_total` time(6) NOT NULL
+  `delay_total` time(6) NOT NULL,
+  `wait_stats` mediumtext NOT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COMMENT='Slow log'
 set global general_log='ON';
 set global slow_query_log='ON';
@@ -144,7 +146,8 @@ ON UPDATE CURRENT_TIMESTAMP(6),
 `sql_text` mediumblob NOT NULL,
 `thread_id` bigint(21) unsigned NOT NULL,
 `cpu_usage` time(6) NOT NULL,
-`delay_total` time(6) NOT NULL
+`delay_total` time(6) NOT NULL,
+`wait_stats` mediumtext NOT NULL
 ) ENGINE=CSV DEFAULT CHARSET=utf8 COMMENT='Slow log';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.

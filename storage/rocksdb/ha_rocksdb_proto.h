@@ -23,6 +23,9 @@
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/transaction_db.h"
 
+/* MySQL header files */
+#include "my_compiler.h"
+
 /* MyRocks header files */
 #include "./rdb_global.h"
 

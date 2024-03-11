@@ -15,20 +15,12 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 /* C++ standard header files */
-#include <array>
-#include <atomic>
 #include <deque>
 #include <mutex>
 #include <string>
-#include <vector>
-
-/* C standard header files */
-#include <ctype.h>
 
 /* MySQL header files */
 #include <mysql/service_rpc_plugin.h>
-#include "./sql_string.h"
-#include "sql/protocol.h"
 #include "sql/sql_class.h"
 
 #pragma once

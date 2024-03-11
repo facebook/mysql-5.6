@@ -9,7 +9,7 @@ CALL mtr.add_suppression("Column count of mysql.* is wrong. "
 CALL mtr.add_suppression("Cannot load from mysql.*. The table is probably corrupted");
 
 --let $SYSSE=`SELECT @@default_dd_system_storage_engine`
-
+SET GLOBAL skip_sys_tables_engine_check=true;
 --echo #
 --echo # WL7158: Move privilege system tables from MyISAM to InnoDB
 --echo #
@@ -2277,6 +2277,7 @@ GRANT SYSTEM_USER ON *.* TO 'mysql.session'@localhost;
 
 FLUSH PRIVILEGES;
 
+SET GLOBAL skip_sys_tables_engine_check=default;
 DROP USER u1@h;
 DROP TABLE t1;
 

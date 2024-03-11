@@ -1,0 +1,135 @@
+--let ddse=`SELECT UPPER(@@default_dd_system_storage_engine)`
+
+let engine = "INNODB";
+if($ddse == "INNODB")
+{
+  let engine = "ROCKSDB";
+}
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.columns_priv ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.component ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.db ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.default_roles ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.engine_cost ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.func ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.global_grants ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.help_category ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.help_keyword ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.help_relation ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.help_topic ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.password_history ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.plugin ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.procs_priv ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.proxies_priv ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.replication_asynchronous_connection_failover ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.replication_asynchronous_connection_failover_managed ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.replication_group_configuration_version ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.replication_group_member_actions ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.role_edges ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.server_cost ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.servers ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.slave_master_info ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.slave_relay_log_info ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.slave_worker_info ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.tables_priv ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.time_zone ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.time_zone_leap_second ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.time_zone_name ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.time_zone_transition ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.time_zone_transition_type ENGINE=$engine;
+
+--replace_regex /innodb/ENGINE/i /rocksdb/ENGINE/i
+--error ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
+EVAL ALTER TABLE mysql.user ENGINE=$engine;

@@ -8,8 +8,10 @@
 
 --source include/have_case_sensitive_file_system.inc
 
+SET GLOBAL skip_sys_tables_engine_check=true; 
 --let $file = $MYSQL_TMP_DIR/dd_properties.txt
 --let $filter = MYSQLD_VERSION|DD_VERSION|NDBINFO_VERSION|LCTN|IS_VERSION|PS_VERSION|SDI_VERSION|MINOR_DOWNGRADE_THRESHOLD|DD_ENGINE
 --source include/dd_schema_dd_properties.inc
 --cat_file $file
 --remove_file $file
+SET GLOBAL skip_sys_tables_engine_check=default; 

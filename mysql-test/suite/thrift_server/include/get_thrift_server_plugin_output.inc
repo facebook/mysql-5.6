@@ -1,0 +1,6 @@
+disable_query_log;
+SELECT TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT WHERE TYPE IN ('header', 'row') ORDER BY SEQ_NUMBER;
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+enable_query_log;
