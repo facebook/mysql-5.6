@@ -132,6 +132,8 @@ class Rdb_sst_info {
 
   // List of committed SST files - we'll ingest them later in one single batch
   std::vector<std::string> m_committed_files;
+  std::vector<std::thread> m_commiting_threads;
+  std::mutex m_commiting_threads_mutex;
 
   const bool m_tracing;
   bool m_print_client_error;
@@ -139,6 +141,7 @@ class Rdb_sst_info {
   int open_new_sst_file();
   void close_curr_sst_file();
   void commit_sst_file(Rdb_sst_file_ordered *sst_file);
+  void commit_sst_file_func(Rdb_sst_file_ordered*);
 
   void set_error_msg(const std::string &sst_file_name,
                      const rocksdb::Status &s);
