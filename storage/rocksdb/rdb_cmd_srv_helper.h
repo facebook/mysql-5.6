@@ -94,12 +94,13 @@ class Rdb_cmd_srv_helper {
      Only 1 metadata record is permitted per index.
      The value is a json object with the following fields:
       - version. The version of the index data. Currently set to 1.
-  2. quantizer. The type is set to "quantizer". The value is a json array
+  2. type. The type is set to "quantizer". The value is a json array
      of float values. There could be multiple quantizer records per index.
      The records are ordered by seqno when they are read.
   */
   Rdb_cmd_srv_status load_index_data(
-      const std::string &table_name, const std::string &id,
+      const std::string &db_name, const std::string &table_name,
+      const std::string &id,
       std::unique_ptr<Rdb_vector_index_data> &index_data);
 
  private:
@@ -120,6 +121,7 @@ class Rdb_cmd_srv_helper {
     }
 
     mysql_service_status_t init() { return m_command_factory->init(&mysql); }
+
     ~MYSQL_H_wrapper() {
       if (mysql) {
         m_command_factory->close(mysql);
@@ -154,11 +156,13 @@ class Rdb_cmd_srv_helper {
 
   Rdb_cmd_srv_status connect(MYSQL_H_wrapper &mysql_wrapper);
 
-  Rdb_cmd_srv_status execute_query(const std::string &query,
+  Rdb_cmd_srv_status execute_query(const std::string &db_name,
+                                   const std::string &query,
                                    MYSQL_H_wrapper &mysql_wrapper,
                                    MYSQL_RES_H_wrapper &mysql_res_wrapper);
 
-  Rdb_cmd_srv_status get_error_status(MYSQL_H_wrapper &mysql_wrapper);
+  Rdb_cmd_srv_status get_error_status(MYSQL_H_wrapper &mysql_wrapper,
+                                      bool connection_error);
 
   Rdb_cmd_srv_status get_row_count(MYSQL_H_wrapper &mysql_wrapper,
                                    uint64_t &row_count);
@@ -176,9 +180,11 @@ class Rdb_cmd_srv_helper {
                                      int col, Json_dom_ptr &dom_ptr,
                                      enum_json_type expected_type);
 
-  Rdb_cmd_srv_status read_index_metadata(const std::string &table_name,
+  Rdb_cmd_srv_status read_index_metadata(const std::string &db_name,
+                                         const std::string &table_name,
                                          const std::string &id);
-  Rdb_cmd_srv_status read_index_quantizer(const std::string &table_name,
+  Rdb_cmd_srv_status read_index_quantizer(const std::string &db_name,
+                                          const std::string &table_name,
                                           const std::string &id,
                                           std::vector<float> &codes);
 };

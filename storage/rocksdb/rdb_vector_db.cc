@@ -904,9 +904,9 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
                      Rdb_cmd_srv_helper &cmd_srv_helper) override {
     std::unique_ptr<Rdb_vector_index_data> m_index_data;
     const std::string trained_index_table =
-        db_name + "." + to_string(m_index_def.trained_index_table());
+        to_string(m_index_def.trained_index_table());
     auto status = cmd_srv_helper.load_index_data(
-        trained_index_table, to_string(m_index_def.trained_index_id()),
+        db_name, trained_index_table, to_string(m_index_def.trained_index_id()),
         m_index_data);
     if (status.error()) {
       LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,

@@ -24,17 +24,23 @@ namespace myrocks {
 namespace {
 enum class Rdb_vector_index_data_version { NONE, V1 };
 constexpr std::string_view METADATA_KEY_VERSION = "version";
+const char *CMD_SRV_USER = "admin:sys.database";
 
 }  // namespace
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_error_status(
-    MYSQL_H_wrapper &mysql_wrapper) {
+    MYSQL_H_wrapper &mysql_wrapper, bool connection_error = false) {
   MYSQL_H mysql_h = mysql_wrapper.mysql;
   unsigned int error_no;
   if (m_command_error_info->sql_errno(mysql_h, &error_no)) {
     LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
                     "failed to get error number");
     return Rdb_cmd_srv_status("unknown error, failed to get error number");
+  }
+  // if it is a connection error, sql_error does not work because the required
+  // data structure is not initialized.
+  if (connection_error) {
+    return Rdb_cmd_srv_status(error_no, "connection error", "");
   }
   std::array<char, MYSQL_ERRMSG_SIZE> error_msg;
   char *error_msg_ptr = error_msg.data();
@@ -65,18 +71,30 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::connect(MYSQL_H_wrapper &mysql_wrapper) {
   }
 
   MYSQL_H mysql_h = mysql_wrapper.mysql;
-  m_command_options->set(mysql_h, MYSQL_COMMAND_USER_NAME, "root");
+  if (m_command_options->set(mysql_h, MYSQL_COMMAND_USER_NAME, CMD_SRV_USER)) {
+    LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to set user name");
+    return Rdb_cmd_srv_status("failed to set user name");
+  }
   if (m_command_factory->connect(mysql_h)) {
     LogPluginErrMsg(WARNING_LEVEL, ER_LOG_PRINTF_MSG, "failed to connect");
-    return get_error_status(mysql_wrapper);
+    return get_error_status(mysql_wrapper, true);
   }
 
   return Rdb_cmd_srv_status();
 }
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::execute_query(
-    const std::string &query, MYSQL_H_wrapper &mysql_wrapper,
-    MYSQL_RES_H_wrapper &mysql_res_wrapper) {
+    const std::string &db_name, const std::string &query,
+    MYSQL_H_wrapper &mysql_wrapper, MYSQL_RES_H_wrapper &mysql_res_wrapper) {
+  const std::string use_db = "USE " + db_name;
+  if (m_command_query->query(mysql_wrapper.mysql, use_db.data(),
+                             use_db.length())) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to execute query: %s", use_db.c_str());
+    return get_error_status(mysql_wrapper);
+  }
+
   if (m_command_query->query(mysql_wrapper.mysql, query.data(),
                              query.length())) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -209,7 +227,8 @@ static bool get_json_int_field(Json_object *dom, const std::string_view &field,
 }
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
-    const std::string &table_name, const std::string &id) {
+    const std::string &db_name, const std::string &table_name,
+    const std::string &id) {
   MYSQL_H_wrapper mysql_wrapper(m_command_factory);
   auto status = connect(mysql_wrapper);
   if (status.error()) {
@@ -219,7 +238,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
   MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
   const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
                           id + "' and type = 'metadata'");
-  status = execute_query(query, mysql_wrapper, mysql_res_wrapper);
+  status = execute_query(db_name, query, mysql_wrapper, mysql_res_wrapper);
   if (status.error()) {
     return status;
   }
@@ -261,8 +280,8 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
 }
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
-    const std::string &table_name, const std::string &id,
-    std::vector<float> &codes) {
+    const std::string &db_name, const std::string &table_name,
+    const std::string &id, std::vector<float> &codes) {
   MYSQL_H_wrapper mysql_wrapper(m_command_factory);
   auto status = connect(mysql_wrapper);
   if (status.error()) {
@@ -272,7 +291,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
   MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
   const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
                           id + "' and type = 'quantizer' order by seqno");
-  status = execute_query(query, mysql_wrapper, mysql_res_wrapper);
+  status = execute_query(db_name, query, mysql_wrapper, mysql_res_wrapper);
   if (status.error()) {
     return status;
   }
@@ -314,15 +333,16 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
 }
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::load_index_data(
-    const std::string &table_name, const std::string &id,
-    std::unique_ptr<Rdb_vector_index_data> &index_data) {
-  auto status = read_index_metadata(table_name, id);
+    const std::string &db_name, const std::string &table_name,
+    const std::string &id, std::unique_ptr<Rdb_vector_index_data> &index_data) {
+  auto status = read_index_metadata(db_name, table_name, id);
   if (status.error()) {
     return status;
   }
 
   index_data = std::make_unique<Rdb_vector_index_data>();
-  return read_index_quantizer(table_name, id, index_data->m_quantizer_codes);
+  return read_index_quantizer(db_name, table_name, id,
+                              index_data->m_quantizer_codes);
 }
 
 }  // namespace myrocks
