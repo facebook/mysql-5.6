@@ -56,6 +56,7 @@ class Rdb_vector_search_params {
   FB_VECTOR_INDEX_METRIC m_metric = FB_VECTOR_INDEX_METRIC::NONE;
   uint m_k = 0;
   uint m_batch_size = 0;
+  uint m_nprobe = 0;
 };
 
 /**
@@ -141,9 +142,12 @@ class Rdb_vector_db_handler {
   std::string current_pk(const Index_id pk_index_id) const;
 
   uint knn_search(THD *thd, Rdb_vector_index *index);
-  int vector_index_orderby_init(Item *sort_func, int limit, uint batch_size) {
+
+  int vector_index_orderby_init(Item *sort_func, int limit, uint batch_size,
+                                uint nprobe) {
     m_limit = limit;
     m_batch_size = batch_size;
+    m_nprobe = nprobe;
 
     Fb_vector input_vector;
     Item_func *item_func = (Item_func *)sort_func;
@@ -194,6 +198,7 @@ class Rdb_vector_db_handler {
   // LIMIT associated with the ORDER BY clause
   uint m_limit;
   uint m_batch_size;
+  uint m_nprobe;
 
   uint decode_value_to_buffer(Field *field, FB_vector_dimension dimension,
                               std::vector<float> &buffer);

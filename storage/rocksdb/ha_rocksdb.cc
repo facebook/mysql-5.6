@@ -13565,7 +13565,8 @@ int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
   // update the ORDER BY parameters
   auto vector_db_handler = get_vector_db_handler();
   return vector_db_handler->vector_index_orderby_init(
-      sort_func, limit, THDVAR(table->in_use, vectordb_scan_batch_size));
+      sort_func, limit, THDVAR(table->in_use, vectordb_scan_batch_size),
+      table->in_use->variables.fb_vector_search_nprobe);
 }
 
 /**

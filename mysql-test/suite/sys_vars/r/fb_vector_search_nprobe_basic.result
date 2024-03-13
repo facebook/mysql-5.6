@@ -1,0 +1,93 @@
+Default value of fb_vector_search_nprobe is 10485760
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+16
+show session variables like 'fb_vector_search_nprobe';
+Variable_name	Value
+fb_vector_search_nprobe	16
+select * from performance_schema.session_variables
+where variable_name='fb_vector_search_nprobe';
+VARIABLE_NAME	VARIABLE_VALUE
+fb_vector_search_nprobe	16
+fb_vector_search_nprobe is a dynamic variable (change to 1024)
+set @@session.fb_vector_search_nprobe = 1024;
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1024
+restore the default value
+SET @@session.fb_vector_search_nprobe = 16;
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+16
+Verify other accepted values
+SET @@session.fb_vector_search_nprobe = 1;
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1
+SET @@session.fb_vector_search_nprobe = 10000;
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+10000
+SET @@session.fb_vector_search_nprobe = 0;
+Warnings:
+Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '0'
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1
+SET @@session.fb_vector_search_nprobe = -1;
+Warnings:
+Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '-1'
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1
+SET @@session.fb_vector_search_nprobe = 10001;
+Warnings:
+Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '10001'
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+10000
+SET @@session.fb_vector_search_nprobe = 104857601;
+Warnings:
+Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '104857601'
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+10000
+SET @@session.fb_vector_search_nprobe = True;
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1
+SET @@session.fb_vector_search_nprobe = False;
+Warnings:
+Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '0'
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1
+Attempt setting invalid values
+SET @@session.fb_vector_search_nprobe = "off";
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET @@session.fb_vector_search_nprobe = "on";
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET @@session.fb_vector_search_nprobe = " ";
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET @@session.fb_vector_search_nprobe = "";
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET @@session.fb_vector_search_nprobe = '';
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET @@session.fb_vector_search_nprobe = ' ';
+ERROR 42000: Incorrect argument type to variable 'fb_vector_search_nprobe'
+SET local.fb_vector_search_nprobe = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.fb_vector_search_nprobe = 1' at line 1
+SELECT local.fb_vector_search_nprobe;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.fb_vector_search_nprobe;
+ERROR 42S02: Unknown table 'session' in field list
+restart the server with non default value (1024)
+# restart: --fb_vector_search_nprobe=1024
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+1024
+restart the server with the default value (16)
+# restart
+SELECT @@session.fb_vector_search_nprobe;
+@@session.fb_vector_search_nprobe
+16

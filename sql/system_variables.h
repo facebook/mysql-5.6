@@ -652,6 +652,13 @@ struct System_variables {
    maximum vector dimension.
   */
   uint fb_vector_max_dimension;
+
+  /**
+    This parameter controls the vector search radius for a query
+    vector when doing nearest neighbour search or similarity search.
+  */
+  uint fb_vector_search_nprobe;
+
 };
 
 /**

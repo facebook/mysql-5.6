@@ -849,8 +849,8 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
     std::vector<float> distances(k);
     constexpr faiss::idx_t vector_count = 1;
     faiss::IVFSearchParameters search_params;
-    // TODO make it configurable
-    search_params.nprobe = 16;
+
+    search_params.nprobe = params.m_nprobe;
     Rdb_faiss_inverted_list_context context(thd);
     search_params.inverted_list_context = &context;
     index->search(vector_count, query_vector.data(), k, distances.data(),
@@ -1101,8 +1101,10 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, Rdb_vector_index *index) {
     return HA_EXIT_FAILURE;
   }
 
-  Rdb_vector_search_params params{
-      .m_metric = m_metric, .m_k = m_limit, .m_batch_size = m_batch_size};
+  Rdb_vector_search_params params{.m_metric = m_metric,
+                                  .m_k = m_limit,
+                                  .m_batch_size = m_batch_size,
+                                  .m_nprobe = m_nprobe};
   uint rtn = index->knn_search(thd, m_buffer, params, m_search_result);
   if (rtn) {
     return rtn;

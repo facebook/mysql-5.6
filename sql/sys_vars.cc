@@ -10405,3 +10405,16 @@ static Sys_var_bool Sys_skip_sys_tables_engine_check(
     "default_dd_system_storage_engine",
     GLOBAL_VAR(skip_sys_tables_engine_check), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_uint Sys_fb_vector_search_nprobe(
+    "fb_vector_search_nprobe",
+    "This parameter controls the vector search radius for a query "
+    "vector when doing nearest neighbour search or similarity search. "
+    "The nprobe value corresponds to the number of closest centroids "
+    "that become part of the vector search space. Only vectors in the "
+    "nprobe-closest voronoi cells or partitions are searched. "
+    "This session default can be superceded by a query level "
+    "nprobe value using a query hint like this: "
+    "'SELECT /*+ SET_VAR(fb_vector_search_nprobe = 3) */ ... '. Default: 16",
+    HINT_UPDATEABLE SESSION_VAR(fb_vector_search_nprobe), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 10000), DEFAULT(16), BLOCK_SIZE(1));
