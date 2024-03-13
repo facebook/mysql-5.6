@@ -1676,7 +1676,6 @@ rocksdb_non_last_level_seek_data_useful_filter_match	#
 rocksdb_non_last_level_seek_data_useful_no_filter	#
 rocksdb_non_last_level_seek_filter_match	#
 rocksdb_non_last_level_seek_filtered	#
-rocksdb_number_block_not_compressed	#
 rocksdb_number_db_next	#
 rocksdb_number_db_next_found	#
 rocksdb_number_db_prev	#
@@ -1793,7 +1792,6 @@ ROCKSDB_NON_LAST_LEVEL_SEEK_FILTERED
 ROCKSDB_NON_LAST_LEVEL_SEEK_FILTER_MATCH
 ROCKSDB_NO_FILE_ERRORS
 ROCKSDB_NO_FILE_OPENS
-ROCKSDB_NUMBER_BLOCK_NOT_COMPRESSED
 ROCKSDB_NUMBER_DB_NEXT
 ROCKSDB_NUMBER_DB_NEXT_FOUND
 ROCKSDB_NUMBER_DB_PREV
@@ -1929,7 +1927,6 @@ ROCKSDB_NON_LAST_LEVEL_SEEK_FILTERED
 ROCKSDB_NON_LAST_LEVEL_SEEK_FILTER_MATCH
 ROCKSDB_NO_FILE_ERRORS
 ROCKSDB_NO_FILE_OPENS
-ROCKSDB_NUMBER_BLOCK_NOT_COMPRESSED
 ROCKSDB_NUMBER_DB_NEXT
 ROCKSDB_NUMBER_DB_NEXT_FOUND
 ROCKSDB_NUMBER_DB_PREV
