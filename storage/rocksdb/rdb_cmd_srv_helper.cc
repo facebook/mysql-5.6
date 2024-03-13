@@ -15,8 +15,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "./rdb_cmd_srv_helper.h"
+
+#include <cinttypes>
 #include <string_view>
-#include "rdb_utils.h"
+
+#include "rdb_utils.h"  // LOG_COMPONENT_TAG for includes below
+
+#include "mysql/components/services/log_builtins.h"
+#include "mysqld_error.h"
 #include "sql/fb_vector_base.h"
 
 namespace myrocks {
@@ -112,7 +118,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::check_row_count(
   }
   if (row_count != expected_row_count) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                    "expect one row, but got %lu", row_count);
+                    "expect one row, but got %" PRIu64, row_count);
     return Rdb_cmd_srv_status("Unexpected number of rows returned.");
   }
 
