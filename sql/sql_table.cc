@@ -3901,8 +3901,8 @@ struct sort_keys {
         return b.flags & HA_NULL_PART_KEY;
 
       // Sort PRIMARY KEY before other UNIQUE NOT NULL.
-      if (a.name == primary_key_name) return true;
       if (b.name == primary_key_name) return false;
+      if (a.name == primary_key_name) return true;
 
       // Sort keys don't containing partial segments before others.
       if ((a.flags ^ b.flags) & HA_KEY_HAS_PART_KEY_SEG)
