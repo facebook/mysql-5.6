@@ -5682,6 +5682,7 @@ longlong Item_func_benchmark::val_int() {
         assert(0);
         return 0;
     }
+    thd->check_yield();
   }
   return 0;
 }
