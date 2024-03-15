@@ -37,7 +37,7 @@ CREATE TABLE t1 (
 # ivf test cases
 
 # quantizer size 4
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
 # invalid version number
 insert into VECTORDB_DATA values ('id2', 'metadata', 0, '{"version": 2}'), ('id2', 'quantizer', 0, '[0, 0, 0, 0]');
 

@@ -3,7 +3,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 2)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
 include/sync_slave_sql_with_master.inc
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,

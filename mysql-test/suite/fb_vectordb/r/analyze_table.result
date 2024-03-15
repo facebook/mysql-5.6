@@ -1,4 +1,4 @@
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1));
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 5));
 insert into VECTORDB_DATA (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT 'id1', 'quantizer', i, json_array(i, i, 0, 0) from a);
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,

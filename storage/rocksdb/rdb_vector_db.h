@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
+#include <cstddef>
 #ifdef WITH_FB_VECTORDB
 #include <faiss/Index.h>
 #endif
@@ -42,8 +43,14 @@ class Rdb_vector_index_info {
   */
   uint m_hit{0};
 
+  std::size_t m_code_size{0};
+  std::size_t m_nlist{0};
+  uint m_pq_m{0};
+  uint m_pq_nbits{0};
+
   /**
-    stats for ivf lists
+    stats for ivf lists.
+    populated when scanning the index.
   */
   uint m_min_list_size{0};
   uint m_max_list_size{0};
@@ -55,7 +62,6 @@ class Rdb_vector_search_params {
  public:
   FB_VECTOR_INDEX_METRIC m_metric = FB_VECTOR_INDEX_METRIC::NONE;
   uint m_k = 0;
-  uint m_batch_size = 0;
   uint m_nprobe = 0;
 };
 
@@ -143,11 +149,10 @@ class Rdb_vector_db_handler {
 
   uint knn_search(THD *thd, Rdb_vector_index *index);
 
-  int vector_index_orderby_init(Item *sort_func, int limit, uint batch_size,
-                                uint nprobe, uint limit_multiplier) {
+  int vector_index_orderby_init(Item *sort_func, int limit, uint nprobe,
+                                uint limit_multiplier) {
     m_limit = limit;
     m_limit_multiplier = limit_multiplier;
-    m_batch_size = batch_size;
     m_nprobe = nprobe;
 
     Fb_vector input_vector;
@@ -173,9 +178,9 @@ class Rdb_vector_db_handler {
            (args[0]->data_type() == MYSQL_TYPE_JSON));
 
     assert(((args[1]->type() == Item::STRING_ITEM) &&
-           (args[1]->data_type() == MYSQL_TYPE_VARCHAR)) ||
-          ((args[1]->type() == Item::CACHE_ITEM) &&
-           (args[1]->data_type() == MYSQL_TYPE_JSON)));
+            (args[1]->data_type() == MYSQL_TYPE_VARCHAR)) ||
+           ((args[1]->type() == Item::CACHE_ITEM) &&
+            (args[1]->data_type() == MYSQL_TYPE_JSON)));
 
     if (parse_fb_vector_from_item(args, arg_idx, tmp_str, __FUNCTION__,
                                   input_vector))
@@ -205,7 +210,6 @@ class Rdb_vector_db_handler {
   FB_VECTOR_INDEX_METRIC m_metric = FB_VECTOR_INDEX_METRIC::NONE;
   // LIMIT associated with the ORDER BY clause
   uint m_limit;
-  uint m_batch_size;
   uint m_nprobe;
   uint m_limit_multiplier;
 

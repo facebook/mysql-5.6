@@ -1002,6 +1002,7 @@ prev_date=`date +%D`
 # see https://github.com/OpenMathLib/OpenBLAS/wiki/faq#multi-threaded,
 # OpenBLAS multi-threading causes server hang during shutdown.
 export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 
 while true
 do

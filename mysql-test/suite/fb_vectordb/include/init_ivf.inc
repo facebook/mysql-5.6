@@ -5,8 +5,8 @@ DROP USER IF EXISTS 'admin:sys.database';
 enable_warnings;
 # create table to store trained faiss index for ivf
 create table VECTORDB_DATA (
-  id varchar(64) not null,
-  type varchar(16) not null,
+  id varchar(128) not null,
+  type varchar(128) not null,
   seqno int not null,
   value JSON not null,
   primary key (id, type, seqno)

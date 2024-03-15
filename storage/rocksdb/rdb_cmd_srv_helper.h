@@ -30,7 +30,11 @@ namespace myrocks {
 class Rdb_vector_index_data {
  public:
   Rdb_vector_index_data() {}
+  uint m_nlist = 0;
+  uint m_pq_m = 0;
+  uint m_pq_nbits = 0;
   std::vector<float> m_quantizer_codes;
+  std::vector<float> m_pq_codes;
 };
 
 class Rdb_cmd_srv_status {
@@ -90,13 +94,20 @@ class Rdb_cmd_srv_helper {
     primary key (id, type, seqno)
    );
 
+  The index data is stored in 3 types of records:
   1. metadata. The type is set to "metadata". The seqno is set to 0.
      Only 1 metadata record is permitted per index.
      The value is a json object with the following fields:
       - version. The version of the index data. Currently set to 1.
-  2. type. The type is set to "quantizer". The value is a json array
+      - nlist. number of centroids in the index.
+      - pq_m. number of subquantizers in the product quantizer.
+      - pq_nbits. number of bits per quantization index.
+  2. quantizer codes. The type is set to "quantizer". The value is a json array
      of float values. There could be multiple quantizer records per index.
      The records are ordered by seqno when they are read.
+  3. product quantizer codes. The type is set to "product_quantizer". The value
+  is a json array of float values. There could be multiple product_quantizer
+  records per index. The records are ordered by seqno when they are read.
   */
   Rdb_cmd_srv_status load_index_data(
       const std::string &db_name, const std::string &table_name,
@@ -182,10 +193,12 @@ class Rdb_cmd_srv_helper {
 
   Rdb_cmd_srv_status read_index_metadata(const std::string &db_name,
                                          const std::string &table_name,
-                                         const std::string &id);
-  Rdb_cmd_srv_status read_index_quantizer(const std::string &db_name,
-                                          const std::string &table_name,
-                                          const std::string &id,
-                                          std::vector<float> &codes);
+                                         const std::string &id,
+                                         Rdb_vector_index_data &index_data);
+  Rdb_cmd_srv_status read_codes(const std::string &db_name,
+                                const std::string &table_name,
+                                const std::string &id,
+                                const std::string_view type,
+                                std::vector<float> &codes);
 };
 }  // namespace myrocks

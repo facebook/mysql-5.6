@@ -1,4 +1,4 @@
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]'),
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 10)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]'),
 ('id1', 'quantizer', 2, '[2, 2, 0, 0]'), ('id1', 'quantizer', 3, '[3, 3, 0, 0]'), ('id1', 'quantizer', 4, '[4, 4, 0, 0]'), ('id1', 'quantizer', 5, '[5, 5, 0, 0]'),
 ('id1', 'quantizer', 6, '[6, 6, 0, 0]'), ('id1', 'quantizer', 7, '[7, 7, 0, 0]'), ('id1', 'quantizer', 8, '[8, 8, 0, 0]'), ('id1', 'quantizer', 9, '[9, 9, 0, 0]');
 CREATE TABLE t1 (

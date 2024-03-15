@@ -32,7 +32,7 @@ vector1 JSON,
 INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
 ) COMMENT "ttl_duration=3600;";
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
 insert into VECTORDB_DATA values ('id2', 'metadata', 0, '{"version": 2}'), ('id2', 'quantizer', 0, '[0, 0, 0, 0]');
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,

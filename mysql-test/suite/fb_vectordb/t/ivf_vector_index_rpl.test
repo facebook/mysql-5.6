@@ -10,7 +10,7 @@ enable_query_log;
 source ../include/init_ivf.inc;
 
 # 2 centroids
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 2)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
 
 source include/sync_slave_sql_with_master.inc;
 

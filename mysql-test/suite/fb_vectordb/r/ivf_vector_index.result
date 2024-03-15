@@ -1,4 +1,4 @@
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 2)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
 vector1 JSON,

@@ -6,7 +6,6 @@ INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
 );
 insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10,6,5]', 'val3'), (4, '[3,9,4]', 'val4');
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10) from a);
-set rocksdb_vectordb_scan_batch_size=2;
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 id	vector1	name	dis
 3	[10, 6, 5]	val3	0

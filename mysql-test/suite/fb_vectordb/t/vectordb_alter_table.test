@@ -50,7 +50,7 @@ SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX W
 
 
 echo;
-insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0, 0, 0, 0, 0]');
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0, 0, 0, 0, 0]');
 alter table t1 add index vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 8 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1';
 select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';

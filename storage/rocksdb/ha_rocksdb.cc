@@ -2413,11 +2413,6 @@ static MYSQL_THDVAR_UINT(force_index_records_in_range, PLUGIN_VAR_RQCMDARG,
                          nullptr, nullptr, 0,
                          /* min */ 0, /* max */ INT_MAX, 0);
 
-static MYSQL_THDVAR_UINT(vectordb_scan_batch_size, PLUGIN_VAR_RQCMDARG,
-                         "Batch size for scanning vectors.", nullptr, nullptr,
-                         2048,
-                         /* min */ 1, /* max */ 1024 * 1024, 0);
-
 static MYSQL_SYSVAR_UINT(
     debug_optimizer_n_rows, rocksdb_debug_optimizer_n_rows,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR,
@@ -3204,8 +3199,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(force_compute_memtable_stats_cachetime),
     MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
     MYSQL_SYSVAR(debug_cardinality_multiplier),
-
-    MYSQL_SYSVAR(vectordb_scan_batch_size),
 
     MYSQL_SYSVAR(compact_cf),
     MYSQL_SYSVAR(delete_cf),
@@ -13633,8 +13626,7 @@ int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
   // update the ORDER BY parameters
   auto vector_db_handler = get_vector_db_handler();
   return vector_db_handler->vector_index_orderby_init(
-      sort_func, limit, THDVAR(table->in_use, vectordb_scan_batch_size),
-      table->in_use->variables.fb_vector_search_nprobe,
+      sort_func, limit, table->in_use->variables.fb_vector_search_nprobe,
       table->in_use->variables.fb_vector_search_limit_multiplier);
 }
 

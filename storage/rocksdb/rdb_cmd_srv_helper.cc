@@ -28,9 +28,24 @@
 namespace myrocks {
 
 namespace {
+constexpr std::string_view INDEX_DATA_TYPE_METADATA = "metadata";
+constexpr std::string_view INDEX_DATA_TYPE_QUANTIZER = "quantizer";
+constexpr std::string_view INDEX_DATA_TYPE_PRODUCT_QUANTIZER =
+    "product_quantizer";
+
 enum class Rdb_vector_index_data_version { NONE, V1 };
 constexpr std::string_view METADATA_KEY_VERSION = "version";
+constexpr std::string_view METADATA_KEY_NLIST = "nlist";
+constexpr std::string_view METADATA_KEY_PQ_M = "pq_m";
+constexpr std::string_view METADATA_KEY_PQ_NBITS = "pq_nbits";
 const char *CMD_SRV_USER = "admin:sys.database";
+
+// create query statement to read vector index data
+std::string create_query(const std::string &table_name, const std::string &id,
+                         const std::string_view type) {
+  return "SELECT value FROM " + table_name + " WHERE id = '" + id +
+         "' and type = '" + std::string(type) + "' order by seqno";
+}
 
 }  // namespace
 
@@ -225,6 +240,10 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_json_column(
 static bool get_json_int_field(Json_object *dom, const std::string_view &field,
                                longlong &value) {
   Json_dom *field_dom = dom->get(MYSQL_LEX_CSTRING{field.data(), field.size()});
+  if (field_dom == nullptr) {
+    value = 0;
+    return false;
+  }
   if (field_dom->json_type() != enum_json_type::J_INT) {
     return true;
   }
@@ -235,7 +254,7 @@ static bool get_json_int_field(Json_object *dom, const std::string_view &field,
 
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
     const std::string &db_name, const std::string &table_name,
-    const std::string &id) {
+    const std::string &id, Rdb_vector_index_data &index_data) {
   MYSQL_H_wrapper mysql_wrapper(m_command_factory);
   auto status = connect(mysql_wrapper);
   if (status.error()) {
@@ -243,8 +262,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
   }
 
   MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
-  const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
-                          id + "' and type = 'metadata'");
+  const auto query = create_query(table_name, id, INDEX_DATA_TYPE_METADATA);
   status = execute_query(db_name, query, mysql_wrapper, mysql_res_wrapper);
   if (status.error()) {
     return status;
@@ -272,23 +290,41 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_metadata(
     return status;
   }
   Json_object *json_object = down_cast<Json_object *>(dom_ptr.get());
-  longlong version_number;
-  if (get_json_int_field(json_object, METADATA_KEY_VERSION, version_number)) {
+  longlong int_field_val;
+  if (get_json_int_field(json_object, METADATA_KEY_VERSION, int_field_val)) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "invalid version number");
-    return Rdb_cmd_srv_status("could not extract version number from metadata");
+    return Rdb_cmd_srv_status("failed to read version number from metadata");
   }
-  if (version_number != (int)Rdb_vector_index_data_version::V1) {
+  if (int_field_val != (int)Rdb_vector_index_data_version::V1) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                    "invalid version number %lld", version_number);
+                    "invalid version number %lld", int_field_val);
     return Rdb_cmd_srv_status("unsupported version number");
   }
+  if (get_json_int_field(json_object, METADATA_KEY_NLIST, int_field_val)) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "invalid nlist");
+    return Rdb_cmd_srv_status("failed to read nlist from metadata");
+  }
+  index_data.m_nlist = int_field_val;
+  if (get_json_int_field(json_object, METADATA_KEY_PQ_M, int_field_val)) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "invalid pq_m");
+    return Rdb_cmd_srv_status("failed to read pq_m from metadata");
+  }
+  index_data.m_pq_m = int_field_val;
+  if (get_json_int_field(json_object, METADATA_KEY_PQ_NBITS, int_field_val)) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "invalid pq_nbits");
+    return Rdb_cmd_srv_status("failed to read pq_nbits from metadata");
+  }
+  index_data.m_pq_nbits = int_field_val;
+
   return status;
 }
 
-Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
-    const std::string &db_name, const std::string &table_name,
-    const std::string &id, std::vector<float> &codes) {
+Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_codes(const std::string &db_name,
+                                                  const std::string &table_name,
+                                                  const std::string &id,
+                                                  const std::string_view type,
+                                                  std::vector<float> &codes) {
   MYSQL_H_wrapper mysql_wrapper(m_command_factory);
   auto status = connect(mysql_wrapper);
   if (status.error()) {
@@ -296,8 +332,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
   }
 
   MYSQL_RES_H_wrapper mysql_res_wrapper(m_command_query_result);
-  const std::string query("SELECT value FROM " + table_name + " WHERE id = '" +
-                          id + "' and type = 'quantizer' order by seqno");
+  const auto query = create_query(table_name, id, type);
   status = execute_query(db_name, query, mysql_wrapper, mysql_res_wrapper);
   if (status.error()) {
     return status;
@@ -306,9 +341,6 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
   status = get_row_count(mysql_wrapper, row_count);
   if (status.error()) {
     return status;
-  }
-  if (row_count < 1) {
-    return Rdb_cmd_srv_status("no quantizer found");
   }
   status = check_column_types(mysql_wrapper, mysql_res_wrapper,
                               std::vector<enum_field_types>{MYSQL_TYPE_JSON});
@@ -342,14 +374,23 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_index_quantizer(
 Rdb_cmd_srv_status Rdb_cmd_srv_helper::load_index_data(
     const std::string &db_name, const std::string &table_name,
     const std::string &id, std::unique_ptr<Rdb_vector_index_data> &index_data) {
-  auto status = read_index_metadata(db_name, table_name, id);
+  index_data = std::make_unique<Rdb_vector_index_data>();
+  auto status = read_index_metadata(db_name, table_name, id, *index_data);
   if (status.error()) {
     return status;
   }
-
-  index_data = std::make_unique<Rdb_vector_index_data>();
-  return read_index_quantizer(db_name, table_name, id,
-                              index_data->m_quantizer_codes);
+  status = read_codes(db_name, table_name, id, INDEX_DATA_TYPE_QUANTIZER,
+                      index_data->m_quantizer_codes);
+  if (status.error()) {
+    return status;
+  }
+  if (index_data->m_pq_m > 0) {
+    // only read pq codes when needed
+    return read_codes(db_name, table_name, id,
+                      INDEX_DATA_TYPE_PRODUCT_QUANTIZER,
+                      index_data->m_pq_codes);
+  }
+  return status;
 }
 
 }  // namespace myrocks
