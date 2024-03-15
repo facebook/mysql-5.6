@@ -18,7 +18,7 @@
 
 #include <string>
 
-#include "include/my_inttypes.h"
+#include <my_inttypes.h>
 
 enum snapshot_operation {
   SNAPSHOT_CREATE,
