@@ -4199,7 +4199,7 @@ bool update_relay_log_cordinates(Relay_log_info *rli) {
   @retval false success
   @retval true failure
 */
-bool show_raft_logs(THD *thd) {
+bool show_raft_logs(THD *thd, bool with_gtid) {
   uint length;
   char file_name_and_gtid_set_length[FN_REFLEN + 22];
   File file;
@@ -4208,7 +4208,7 @@ bool show_raft_logs(THD *thd) {
   const char *errmsg = 0;
 
   // Redirect to show_binlog() on leader instances
-  if (!mysql_bin_log.is_apply_log) return show_binlogs(thd);
+  if (!mysql_bin_log.is_apply_log) return show_binlogs(thd, with_gtid);
 
   Master_info *active_mi;
   if (!get_and_lock_master_info(&active_mi)) {
@@ -4233,6 +4233,10 @@ bool show_raft_logs(THD *thd) {
   field_list.push_back(new Item_empty_string("Log_name", 255));
   field_list.push_back(
       new Item_return_int("File_size", 20, MYSQL_TYPE_LONGLONG));
+  if (with_gtid)
+    field_list.push_back(
+        new Item_empty_string("Prev_gtid_set",
+                              0));  // max_size seems not to matter
 
   int error = 0;
   if (thd->send_result_metadata(field_list,
@@ -4280,6 +4284,26 @@ bool show_raft_logs(THD *thd) {
       }
     }
     protocol->store(file_length);
+
+    if (with_gtid) {
+      const auto previous_gtid_set_map =
+          rli->relay_log.get_previous_gtid_set_map();
+      Sid_map sid_map(nullptr);
+      Gtid_set gtid_set(&sid_map, nullptr);
+      const auto gtid_str_it = previous_gtid_set_map->find(fname);
+      if (gtid_str_it != previous_gtid_set_map->end() &&
+          !gtid_str_it->second.empty()) {  // if GTID enabled
+        gtid_set.add_gtid_encoding((const uchar *)gtid_str_it->second.c_str(),
+                                   gtid_str_it->second.length(), nullptr);
+        char *buf;
+        gtid_set.to_string(&buf, false, &Gtid_set::commented_string_format);
+        protocol->store_string(buf, strlen(buf), &my_charset_bin);
+        my_free(buf);
+      } else {
+        protocol->store_string("", 0, &my_charset_bin);
+      }
+    }
+
     if (protocol->end_row()) {
       error = 1;
       errmsg = "Failure in protocol write";

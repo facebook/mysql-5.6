@@ -1,0 +1,149 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_3;
+let $uuid3= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+connection server_1;
+show status like 'rpl_raft_role';
+
+connection server_2;
+show status like 'rpl_raft_role';
+
+connection server_3;
+show status like 'rpl_raft_role';
+
+connection server_1;
+create table t1 (a int primary key);
+
+# Case 1: Simple insert on leader and query raft logs on both leader and follower
+echo "Case 1: Simple insert and verify raft logs";
+echo "Inserting rows into t1 on leader: server_1";
+--let $j = 1
+--disable_query_log
+while ($j <= 20)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Verifying table t1 data on follower: server_2";
+select count(*) from t1;
+
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+# Case 2: Flush logs on leader which will induce a rotate of raft logs on leader
+# and follower. Insert some rows on leader and verify logs on leader and
+# follower
+echo "Case 2: Flush logs and verify raft logs";
+connection server_1;
+echo "Inserting more rows into t1 on leader: server_1";
+flush logs;
+--disable_query_log
+while ($j <= 40)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+--enable_query_log
+select count(*) from t1;
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Verifying table t1 data on follower: server_2";
+select count(*) from t1;
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+# Case 3: Stop slave sql thread and insert some rows and flush logs repeatedly
+# on leader. This will induce multiple rotates of raft logs on leader and
+# follower. Verify logs on leaders and follower. Followers sql appliers will be
+# left behind and should be able to apply trxs correctly once sql thread is
+# started
+echo "Case 3: stop slave sql_thread, flush logs and verify raft logs";
+connection server_2;
+echo "Stopping sql_thread on follower: server_2";
+stop replica sql_thread;
+
+connection server_1;
+echo "Inserting more rows into t1 and flusing logs on leader: server_1";
+--disable_query_log
+while ($j <= 60)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+flush logs;
+while ($j <= 80)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+flush logs;
+while ($j <= 100)
+{
+  eval insert into t1 values($j);
+  --inc $j
+}
+flush logs;
+--enable_query_log
+select sleep(10);
+
+select count(*) from t1;
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+connection server_2;
+echo "Verifying table t1 data on follower: server_2";
+select count(*) from t1;
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+start replica sql_thread;
+
+connection server_1;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+echo "Verifying table t1 data on follower: server_2";
+select count(*) from t1;
+echo "show raft logs with gtid should show correct gtids";
+replace_result $uuid1 uuid1; replace_column 2 #;
+show raft logs with gtid;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

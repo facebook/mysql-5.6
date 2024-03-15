@@ -13910,7 +13910,7 @@ show_binary_logs_stmt:
         ;
 
 show_raft_logs_stmt:
-          SHOW RAFT_SYM LOGS_SYM
+          SHOW RAFT_SYM LOGS_SYM gtid_bool
           {
             $$ = NEW_PTN PT_show_raft_logs(@$);
           }

@@ -1,0 +1,127 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key);
+"Case 1: Simple insert and verify raft logs"
+"Inserting rows into t1 on leader: server_1"
+select count(*) from t1;
+count(*)
+20
+show raft logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+binary-logs-13000.000001	#	No	# [empty]
+binary-logs-13000.000002	#	No	# [empty]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying table t1 data on follower: server_2"
+select count(*) from t1;
+count(*)
+20
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Prev_gtid_set
+binary-logs-13001.000001	#	# [empty]
+binary-logs-13001.000002	#	# [empty]
+"Case 2: Flush logs and verify raft logs"
+"Inserting more rows into t1 on leader: server_1"
+flush logs;
+select count(*) from t1;
+count(*)
+40
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+binary-logs-13000.000001	#	No	# [empty]
+binary-logs-13000.000002	#	No	# [empty]
+binary-logs-13000.000003	#	No	# uuid1:1-21
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying table t1 data on follower: server_2"
+select count(*) from t1;
+count(*)
+40
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Prev_gtid_set
+binary-logs-13001.000001	#	# [empty]
+binary-logs-13001.000002	#	# [empty]
+binary-logs-13001.000003	#	# uuid1:1-21
+"Case 3: stop slave sql_thread, flush logs and verify raft logs"
+"Stopping sql_thread on follower: server_2"
+stop replica sql_thread;
+"Inserting more rows into t1 and flusing logs on leader: server_1"
+select sleep(10);
+sleep(10)
+0
+select count(*) from t1;
+count(*)
+100
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+binary-logs-13000.000001	#	No	# [empty]
+binary-logs-13000.000002	#	No	# [empty]
+binary-logs-13000.000003	#	No	# uuid1:1-21
+binary-logs-13000.000004	#	No	# uuid1:1-61
+binary-logs-13000.000005	#	No	# uuid1:1-81
+binary-logs-13000.000006	#	No	# uuid1:1-101
+"Verifying table t1 data on follower: server_2"
+select count(*) from t1;
+count(*)
+40
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Prev_gtid_set
+binary-logs-13001.000001	#	# [empty]
+binary-logs-13001.000002	#	# [empty]
+binary-logs-13001.000003	#	# uuid1:1-21
+binary-logs-13001.000004	#	# uuid1:1-61
+binary-logs-13001.000005	#	# uuid1:1-81
+binary-logs-13001.000006	#	# uuid1:1-101
+start replica sql_thread;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Verifying table t1 data on follower: server_2"
+select count(*) from t1;
+count(*)
+100
+"show raft logs with gtid should show correct gtids"
+show raft logs with gtid;
+Log_name	File_size	Prev_gtid_set
+binary-logs-13001.000001	#	# [empty]
+binary-logs-13001.000002	#	# [empty]
+binary-logs-13001.000003	#	# uuid1:1-21
+binary-logs-13001.000004	#	# uuid1:1-61
+binary-logs-13001.000005	#	# uuid1:1-81
+binary-logs-13001.000006	#	# uuid1:1-101
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

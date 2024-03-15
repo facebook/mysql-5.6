@@ -722,7 +722,7 @@ bool Sql_cmd_show_raft_logs::check_privileges(THD *) {
 }
 
 bool Sql_cmd_show_raft_logs::execute_inner(THD *thd) {
-  return show_raft_logs(thd);
+  return show_raft_logs(thd, lex->with_gtid);
 }
 
 bool Sql_cmd_show_raft_status::check_privileges(THD *thd) {
