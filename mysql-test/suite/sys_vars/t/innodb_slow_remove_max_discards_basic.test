@@ -1,0 +1,24 @@
+--source include/load_sysvars.inc
+
+SET @old_val = @@global.innodb_slow_remove_max_discards;
+SELECT @old_val;
+
+SET @@global.innodb_slow_remove_max_discards = 1;
+SELECT @@global.innodb_slow_remove_max_discards;
+
+SET @@global.innodb_slow_remove_max_discards = 1000;
+SELECT @@global.innodb_slow_remove_max_discards;
+
+SET @@global.innodb_slow_remove_max_discards = DEFAULT;
+SELECT @@global.innodb_slow_remove_max_discards;
+
+#--warning 1292
+SET @@global.innodb_slow_remove_max_discards = -1;
+SELECT @@global.innodb_slow_remove_max_discards;
+
+#--warning 1292
+SET @@global.innodb_slow_remove_max_discards = 1001;
+SELECT @@global.innodb_slow_remove_max_discards;
+
+SET @@global.innodb_slow_remove_max_discards = @old_val;
+SELECT @@global.innodb_slow_remove_max_discards;

@@ -810,6 +810,23 @@ extern bool srv_redo_log;
 /* big_file_slow_removal speed */
 extern ulong srv_slowrm_speed_mbps;
 
+/* slow_remove_small_files */
+extern bool srv_slowrm_small_files;
+
+/* configurable param to reduce discards load on XFS
+ * A default value of 0 will preserve current behavior
+ * A value of 100 means that we will only process 100 discards at a time
+ * And then come back later to pick up where we left */
+extern uint srv_slowrm_max_discards;
+
+/* configurable param to slowdown the slow removal of
+ * small files. The slowrm thread will sleep for this duration
+ * between each unlink(small file) and fsync(slowrm dir).
+ * For reference, the large files are slow removed with a
+ * backoff of 100 ms afer each file.
+ */
+extern uint srv_slowrm_sleep_in_ms;
+
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 

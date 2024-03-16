@@ -23498,6 +23498,28 @@ static MYSQL_SYSVAR_ULONG(big_file_slow_removal_speed, srv_slowrm_speed_mbps,
                           "second.",
                           NULL, NULL, 100, 0, 100000, 0);
 
+static MYSQL_SYSVAR_BOOL(slow_remove_small_files, srv_slowrm_small_files,
+                         PLUGIN_VAR_RQCMDARG,
+                         "When set to true, small files are queued up for "
+                         "slow removal. ",
+                         nullptr, nullptr, false);
+
+static MYSQL_SYSVAR_UINT(slow_remove_max_discards, srv_slowrm_max_discards,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Number of big and small files to be slowrm-ed in "
+                         "one loop, before backing off for 10 seconds. "
+                         "Default value of 0 implies that all files are "
+                         "removed at the configured speed in one loop.",
+                         NULL, NULL, 0, 0, 1000, 0);
+
+static MYSQL_SYSVAR_UINT(slow_remove_small_files_backoff_in_ms, srv_slowrm_sleep_in_ms,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Backoff in ms for slowrm thread between unlinking "
+                         "small files and fsync of slowrm dir "
+                         "Default value of 0 implies that all small files are "
+                         "removed without any backoff.",
+                         NULL, NULL, 0, 0, 1000, 0);
+
 #ifdef UNIV_DEBUG
 /** Use this variable innodb_interpreter to execute debug code within InnoDB.
 The output is stored in the innodb_interpreter_output variable. */
@@ -23761,6 +23783,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(lra_sleep),
     MYSQL_SYSVAR(lra_n_spaces),
     MYSQL_SYSVAR(big_file_slow_removal_speed),
+    MYSQL_SYSVAR(slow_remove_small_files),
+    MYSQL_SYSVAR(slow_remove_max_discards),
+    MYSQL_SYSVAR(slow_remove_small_files_backoff_in_ms),
     nullptr};
 
 mysql_declare_plugin(innobase){

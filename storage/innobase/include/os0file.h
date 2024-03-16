@@ -770,7 +770,7 @@ for each entry.
 @param[in]      is_drop         attempt to drop the directory after scan
 @return true if call succeeds, false on error */
 bool os_file_scan_directory(const char *path, os_dir_cbk_t scan_cbk,
-                            bool handle_nodir, bool is_drop);
+                            bool handle_nodir, bool is_drop, uint max_loop = 0);
 
 /** NOTE! Use the corresponding macro os_file_create_simple(), not directly
 this function!
@@ -1615,6 +1615,19 @@ bool os_file_status(const char *path, bool *exists, os_file_type_t *type);
 @retval false if the path does not exist or if the path is
 unusable to get to a possibly existing file or directory. */
 bool os_file_exists(const char *path);
+
+/** Return the parent directory component of a null-terminated path.
+Return a new buffer containing the string up to, but not including,
+the final component of the path.
+The path returned will not contain a trailing separator.
+Do not return a root path, return NULL instead.
+The final component trimmed off may be a filename or a directory name.
+If the final component is the only component of the path, return NULL.
+It is the caller's responsibility to free the returned string after it
+is no longer needed.
+@param[in]      path            Path name
+@return own: parent directory of the path */
+char *os_file_get_parent_dir(const char *path);
 
 /** Create all missing subdirectories along the given path.
 @return DB_SUCCESS if OK, otherwise error code. */

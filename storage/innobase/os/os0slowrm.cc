@@ -27,6 +27,7 @@
 
 #include <algorithm> /* std::basic_string */
 
+#include "my_sys.h"
 #include "os0file.h"
 #include "sql_thd_internal_api.h"
 #include "srv0srv.h"
@@ -74,12 +75,16 @@ int slowfileremove(const char *filename) {
   struct timeval tv;
   struct stat statinfo;
   ut::string filetoremove, fname{filename};
+  char *parentdir = nullptr;
+  int fd = -1;
 
   if (!srv_slowrm_speed_mbps) goto out;
 
-  /* If file is not regular or smaller then chunk size, just delete it. */
+  /* If file is not regular or smaller then chunk size, just delete it.
+   * Accept smaller files for slowrm if slowrm_small_files is set */
+
   if (stat(filename, &statinfo) || !S_ISREG(statinfo.st_mode) ||
-      statinfo.st_size < chunk_size_for_slow_rm())
+      (statinfo.st_size < chunk_size_for_slow_rm() && !srv_slowrm_small_files))
     goto out;
 
   /* Files submitted for removal may contain directory name convert path to
@@ -118,6 +123,22 @@ int slowfileremove(const char *filename) {
     goto out;
   }
 
+  /* Now that the slowrm candidates have been moved out, let's fsync
+   * the parent dir here */
+
+  parentdir = os_file_get_parent_dir(filename);
+
+  if (parentdir) {
+     /* open parent dir */
+     fd = open(parentdir, O_RDONLY);
+     if (fd >= 0) {
+        /* fsync parent dir */
+        fsync(fd);
+        close(fd);
+     }
+     ut::free(parentdir);
+  }
+
   return 0;
 
 out:
@@ -129,6 +150,43 @@ static void slowrm(const ut::string &path, off_t size) {
   int fd = open(path.c_str(), O_RDWR);
 
   if (fd < 0) return;
+
+  if (size < chunk_size_for_slow_rm()) {
+    DBUG_SIGNAL_WAIT_FOR(current_thd, "ib_os_small_file_slow_removal_start",
+                         "ib_os_small_file_slow_removal_pause",
+                         "ib_os_small_file_slow_removal_continue");
+
+    /* we admitted this file to slowrm due to slowrm_small_file_factor
+     * Just need to unlink it and fsync the parent dir */
+
+    /* remove file */
+    unlink(path.c_str());
+    close(fd);
+
+    /* Having admitted potentially a lot of small files for slowrm, it
+     * might be useful to fsync the slowrm dir, to prevent too many
+     * pending changes on slowrm dir, which could again trigger XFS
+     * stalls if a potentially large fsync on slowrm dir gets triggered */
+
+    /* open parent dir */
+    fd = open(slowrm_dir, O_RDONLY);
+
+    if (fd < 0) return;
+
+    /* fsync parent dir */
+    fsync(fd);
+    close(fd);
+
+    /* take a breath */
+    usleep(srv_slowrm_sleep_in_ms);
+
+    DBUG_EXECUTE_IF(
+        "ib_os_small_file_slow_removal",
+        ut_ad(!debug_sync_set_action(
+            current_thd, STRING_WITH_LEN("now SIGNAL small_file_removed"))););
+
+    return;
+  }
 
   while (size > chunk_size_for_slow_rm() &&
          srv_shutdown_state == SRV_SHUTDOWN_NONE) {
@@ -212,7 +270,9 @@ void srv_slowrm_thread() {
 
     if (srv_shutdown_state != SRV_SHUTDOWN_NONE) break;
 
-    os_file_scan_directory(slowrm_dir, remove_file_cb, false, false);
+    os_file_scan_directory(slowrm_dir, remove_file_cb, false, false,
+                           srv_slowrm_max_discards ? /* add 2 for . and .. */
+                           srv_slowrm_max_discards + 2 : 0);
 
   } while (srv_shutdown_state == SRV_SHUTDOWN_NONE);
 }

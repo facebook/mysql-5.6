@@ -60,6 +60,175 @@ DROP TABLE t1;
 --error 1
 --file_exists $slowrmdir
 
+# new tests below to test the slow removal of small files
+
+# configure slow removal of small files
+SET GLOBAL innodb_slow_remove_small_files = 1;
+
+# activate debug synchronization point in slowrm thread
+# so that it waits while we verify file creation in slowrm
+# directory below
+--let $debug_point=ib_os_small_file_slow_removal_start
+--source include/add_debug_point.inc
+
+# activate debug synchronization point in the special background
+# thread intended for slow removal
+SET GLOBAL debug = '+d,ib_os_small_file_slow_removal';
+
+# create a small table 
+CREATE TABLE t1_small (x VARCHAR(100)) ENGINE=InnoDB;
+
+# check that file exists
+--echo -> t1_small should be present below
+--echo ls <MYSQLD_DATADIR>/test:
+--replace_regex /(test.*)_[0-9]+(.*ibd).*/\1<NUM>\2/
+--list_files $MYSQLD_DATADIR/test
+
+# delete table file
+DROP TABLE t1_small;
+
+# check that file was deleted
+--echo -> t1_small should not be present below
+--echo ls <MYSQLD_DATADIR>/test:
+--replace_regex /(test.*ibd).*/\1/
+--list_files $MYSQLD_DATADIR/test
+
+# if $slowrmdir exists then slowrm create hardlink
+--file_exists $slowrmdir
+
+# now wait for the file deletion to kick in, which should move the
+# small file to the slowrm directory. Wait till control has reached
+# this point before checking for moved file
+SET DEBUG_SYNC='now WAIT_FOR ib_os_small_file_slow_removal_pause';
+
+# check that file exists in slowrm dir
+--echo -> t1_small should be moved to slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(test.*ibd).*/\1/
+--list_files $slowrmdir
+
+# now, remove the debug sync point, so that slowrm can proceed with 
+# deleting this small file
+--let $debug_point=ib_os_small_file_slow_removal_start
+--source include/remove_debug_point.inc
+
+# trigger sync point to signal slowrm thread to continue with small
+# file deletion
+SET DEBUG_SYNC='now SIGNAL ib_os_small_file_slow_removal_continue';
+
+# now, wait for slowrm thread to signal that the small file was deleted
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+
+# check that file was deleted
+--echo -> t1_small should be REMOVED from slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(test.*ibd).*/\1/
+--list_files $slowrmdir 
+
+# Test the max_discards logic with the lowest setting possible to 
+# make sure all files get deleted. 
+
+set global innodb_slow_remove_max_discards = 1;
+
+# create a few small tables
+CREATE TABLE t1_small_1 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_2 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_3 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_4 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_5 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_6 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_7 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_8 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_9 (x VARCHAR(100)) ENGINE=InnoDB;
+CREATE TABLE t1_small_10 (x VARCHAR(100)) ENGINE=InnoDB;
+
+# check that corresponding files exists
+--echo -> t1_small_* should be present below
+--echo ls <MYSQLD_DATADIR>/test:
+--replace_regex /(.*t1_small[._]?)[0-9]{1,2}([._]?ibd).*/\1<NUM>\2/
+--list_files $MYSQLD_DATADIR/test
+
+# activate debug synchronization point in slowrm thread
+# so that it waits while we verify file creation in slowrm
+# directory below
+--let $debug_point=ib_os_small_file_slow_removal_start
+--source include/add_debug_point.inc
+
+# delete all tables
+DROP TABLE t1_small_1;
+DROP TABLE t1_small_2;
+DROP TABLE t1_small_3;
+DROP TABLE t1_small_4;
+DROP TABLE t1_small_5;
+DROP TABLE t1_small_6;
+DROP TABLE t1_small_7;
+DROP TABLE t1_small_8;
+DROP TABLE t1_small_9;
+DROP TABLE t1_small_10;
+
+# check that files were deleted
+--echo -> t1_small_* should not be present below
+--echo ls <MYSQLD_DATADIR>/test:
+--replace_regex /(.*t1_small[._]?)[0-9]{1,2}([._]?ibd).*/\1<NUM>\2.<TS>/
+--list_files $MYSQLD_DATADIR/test
+
+# if $slowrmdir exists then slowrm create hardlink
+--file_exists $slowrmdir
+
+# now wait for the file deletion to kick in, which should move the
+# small files to the slowrm directory. Wait till control has reached
+# this point before checking for moved file
+SET DEBUG_SYNC='now WAIT_FOR ib_os_small_file_slow_removal_pause';
+
+# check that all the files are now present in slowrm dir
+--echo -> t1_small should be moved to slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(.*t1_small[._]?)[0-9]{1,2}([._]?ibd).*/\1<NUM>\2.<TS>/
+--list_files $slowrmdir
+
+# now, remove the debug sync point, so that slowrm can proceed with 
+# deleting this small file
+--let $debug_point=ib_os_small_file_slow_removal_start
+--source include/remove_debug_point.inc
+
+# trigger sync point to signal slowrm thread to continue with small
+# file deletion
+SET DEBUG_SYNC='now SIGNAL ib_os_small_file_slow_removal_continue';
+
+# now, wait for slowrm thread to signal that the small file was deleted
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+
+# check that 1 file was deleted
+--echo -> 1 (out of 10) t1_smalli_* should be REMOVED from slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(.*t1_small[._]?)[0-9]{1,2}([._]?ibd).*/\1<NUM>\2.<TS>/
+--list_files $slowrmdir 
+
+# now, wait for slowrm thread to signal that the small file was deleted
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+
+# check that files are being deleted
+--echo -> By now 5 (out of 10) t1_smalli_* should be REMOVED from slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(.*t1_small[._]?)[0-9]{1,2}([._]?ibd).*/\1<NUM>\2.<TS>/
+--list_files $slowrmdir 
+
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+SET DEBUG_SYNC='now WAIT_FOR small_file_removed';
+
+# check that all files were deleted
+--echo -> All 10 t1_smalli_* should be REMOVED from slowrm dir:
+--echo ls <slowrmdir>:
+--replace_regex /(test.*ibd).*/\1/
+--list_files $slowrmdir 
+
+
 # Check that bg thread does not prevent server shutdown
 # Restart the server
 --source include/restart_mysqld.inc

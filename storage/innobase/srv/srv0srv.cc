@@ -658,6 +658,23 @@ FILE *srv_misc_tmpfile;
 /* big_file_slow_removal speed */
 ulong srv_slowrm_speed_mbps = 0;
 
+/* slow_remove_small_files */
+bool srv_slowrm_small_files = 0;
+
+/* configurable param to reduce discards load on XFS
+ * A default value of 0 will preserve current behavior
+ * A value of 100 means that we will only process 100 discards at a time
+ * And then come back later to pick up where we left */
+uint srv_slowrm_max_discards = 0;
+
+/* configurable param to slowdown the slow removal of
+ * small files. The slowrm thread will sleep for this duration
+ * between each unlink(small file) and fsync(slowrm dir).
+ * For reference, the large files are slow removed with a
+ * backoff of 100 ms afer each file.
+ */
+uint srv_slowrm_sleep_in_ms = 0;
+
 #ifndef UNIV_HOTBACKUP
 static ulint srv_main_thread_process_no = 0;
 static std::thread::id srv_main_thread_id{};
