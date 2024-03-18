@@ -2011,6 +2011,15 @@ uint find_shortest_key(TABLE *table, const Key_map *usable_keys) {
     uint min_length = (uint)~0;
     for (uint nr = 0; nr < table->s->keys; nr++) {
       if (nr == usable_clustered_pk) continue;
+
+      /*
+         Do not consider the vector index for table scans in situations
+         where a shorter key heuristic might select the vector index because
+         it is technically shorter in length than a clustered primary index
+       */
+      if (table->key_info[nr].is_fb_vector_index())
+         continue;
+
       if (usable_keys->is_set(nr)) {
         /*
           Can not do full index scan on rtree index because it is not

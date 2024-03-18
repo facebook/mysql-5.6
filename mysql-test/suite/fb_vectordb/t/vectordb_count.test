@@ -1,0 +1,176 @@
+
+CREATE TABLE t1 (
+  id BIGINT NOT NULL PRIMARY KEY,   
+  a int, 
+  b int, 
+  vector1 JSON,   
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 3 
+);
+
+insert into t1 values (1, 2, 2, '[1,2,3]'), (2, 1, 2, '[2,22,31]');
+insert into t1 values (3, 1, 1, '[1,2,4]'), (4, 2, 1, '[2,22,33]');
+insert into t1 values (5, 3, 1, '[11,22,4]'), (6, 2, 3, '[7,22,33]');
+insert into t1 values (7, 3, 2, '[10,20,40]'), (8, 2, 1, '[20,22,41]');
+insert into t1 values (9, 1, 1, '[20,10,30]'), (10, 1, 2, '[25,25,41]');
+
+disable_warnings;
+
+--echo
+--echo 1. Verify basic COUNT(*) on the table 
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain select COUNT(*) from t1; 
+
+--echo 
+
+SELECT COUNT(*) from t1;
+
+--echo
+--echo 2. Verify COUNT(*) with WHERE clause with REF
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain select COUNT(*) from t1 WHERE id = 2; 
+
+--echo 
+
+SELECT COUNT(*) from t1 WHERE id = 2;
+
+--echo
+--echo 3. Verify COUNT(*) with WHERE clause with RANGE
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain select COUNT(*) from t1 WHERE id > 2 and id < 10; 
+
+--echo 
+
+SELECT COUNT(*) from t1 WHERE id = 2 > 2 and id < 10;
+
+
+--echo
+--echo 4. Verify COUNT(*) with WHERE clause - other columns
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain select COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4; 
+
+--echo 
+
+SELECT COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4;
+
+enable_warnings;
+
+--echo
+--echo 5. Verify COUNT(*) with GROUP BY on non-key column 
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree select a, COUNT(*) from t1 group by a;
+
+--echo 
+
+SELECT a, COUNT(*) from t1 GROUP BY a;
+
+--echo
+--echo 6. Verify COUNT(*) with GROUP BY on multiple non-key columns
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree select a, b, COUNT(*) from t1 group by a, b;
+
+--echo 
+
+SELECT a, b, COUNT(*) FROM t1 GROUP BY a, b;
+
+--echo
+--echo 7. Verify COUNT(*) with GROUP BY on non-key column, PK
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT a, id, COUNT(*) FROM t1 GROUP BY a, id;
+
+--echo 
+
+SELECT a, id, COUNT(*) FROM t1 GROUP BY a, id;
+
+--echo
+--echo 8. Verify COUNT(*) with GROUP BY on PK, non-key column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT id, a, COUNT(*) from t1 GROUP BY id, a;
+
+--echo 
+
+SELECT id, a, COUNT(*) from t1 GROUP BY id, a;
+
+--echo
+--echo 9. Verify COUNT(*) with GROUP BY on non-key column, vector column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT a, vector1, COUNT(*) FROM t1 GROUP BY a, vector1;
+
+--echo 
+
+SELECT a, vector1, COUNT(*) FROM t1 GROUP BY a, vector1;
+
+--echo
+--echo 10. Verify COUNT(*) with GROUP BY on vecror column, non-key column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT vector1, a,  COUNT(*) FROM t1 GROUP BY vector1, a;
+
+--echo 
+
+SELECT vector1, a,  COUNT(*) FROM t1 GROUP BY vector1, a;
+
+--echo
+--echo 11. Verify COUNT(*) with GROUP BY on vector column, PK
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT vector1, id,  COUNT(*) FROM t1 GROUP BY vector1, id;
+
+--echo 
+
+SELECT vector1, id,  COUNT(*) FROM t1 GROUP BY vector1, id;
+
+--echo
+--echo 12. Verify COUNT(*) with GROUP BY on PK, vector column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT id, vector1, COUNT(*) FROM t1 GROUP BY id, vector1;
+
+--echo 
+
+SELECT id, vector1, COUNT(*) FROM t1 GROUP BY id, vector1;
+
+--echo
+--echo 13. Verify COUNT(*) with GROUP BY on vector column, PK, non-key column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT vector1, id, a, COUNT(*) FROM t1 GROUP BY vector1, id, a;
+
+--echo 
+
+SELECT vector1, id, a, COUNT(*) FROM t1 GROUP BY vector1, id, a;
+
+--echo
+--echo 14. Verify COUNT(*) with GROUP BY on PK, vector column, non-key column
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
+
+--echo 
+
+SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
+
+
+drop table t1;
