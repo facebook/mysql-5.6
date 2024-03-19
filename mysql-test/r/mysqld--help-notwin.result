@@ -1723,6 +1723,11 @@ The following options may be given as the first argument:
  thread on this replica encounters one of these errors
  while applying a Query_log_event, it will ignore the
  error, rather than stop.
+ --replica-sql-thread-os-priority[=#] 
+ Set OS priority for replication SQL threads. This is a
+ global variable. New SQL threads pick the value after
+ changing it. The values are in the range -20 to 19,
+ similar to nice.
  --replica-sql-verify-checksum 
  Force checksum verification of replication events after
  reading them from relay log. Note: The replica always
@@ -3731,6 +3736,7 @@ replica-parallel-workers 4
 replica-pending-jobs-size-max 134217728
 replica-preserve-commit-order TRUE
 replica-skip-errors (No default value)
+replica-sql-thread-os-priority 0
 replica-sql-verify-checksum TRUE
 replica-transaction-retries 10
 replica-type-conversions 

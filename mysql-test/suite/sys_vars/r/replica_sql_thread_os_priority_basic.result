@@ -1,0 +1,25 @@
+SET @orig = @@global.replica_sql_thread_os_priority;
+SELECT @orig;
+@orig
+0
+SET @@global.replica_sql_thread_os_priority = 2;
+SET @new = @@global.replica_sql_thread_os_priority;
+SELECT @new;
+@new
+2
+SET @@global.replica_sql_thread_os_priority = -200;
+Warnings:
+Warning	1292	Truncated incorrect replica_sql_thread_os_priority value: '-200'
+SET @new = @@global.replica_sql_thread_os_priority;
+SELECT @new;
+@new
+-20
+SET @@global.replica_sql_thread_os_priority = 15;
+SELECT @@global.replica_sql_thread_os_priority;
+@@global.replica_sql_thread_os_priority
+15
+SET @@global.replica_sql_thread_os_priority = 0;
+SELECT @@global.replica_sql_thread_os_priority;
+@@global.replica_sql_thread_os_priority
+0
+SET @@global.replica_sql_thread_os_priority = @orig;

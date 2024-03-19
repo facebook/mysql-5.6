@@ -1352,6 +1352,7 @@ long lz4f_net_compression_level = 0;
 extern ulonglong compress_ctx_reset;
 extern ulonglong compress_input_bytes;
 extern ulonglong compress_output_bytes;
+long replica_sql_thread_os_priority = 0;
 uint default_password_lifetime = 0;
 bool password_require_current = false;
 std::atomic<bool> partial_revokes;

@@ -163,6 +163,7 @@ SET PERSIST replica_pending_jobs_size_max = @@GLOBAL.replica_pending_jobs_size_m
 SET PERSIST replica_preserve_commit_order = @@GLOBAL.replica_preserve_commit_order;
 SET PERSIST replica_skip_errors = @@GLOBAL.replica_skip_errors;
 ERROR HY000: Variable 'replica_skip_errors' is a read only variable
+SET PERSIST replica_sql_thread_os_priority = @@GLOBAL.replica_sql_thread_os_priority;
 SET PERSIST replica_sql_verify_checksum = @@GLOBAL.replica_sql_verify_checksum;
 SET PERSIST replica_transaction_retries = @@GLOBAL.replica_transaction_retries;
 SET PERSIST replica_type_conversions = @@GLOBAL.replica_type_conversions;
@@ -437,6 +438,7 @@ RESET PERSIST IF EXISTS replica_preserve_commit_order;
 RESET PERSIST IF EXISTS replica_skip_errors;
 Warnings:
 Warning	3615	Variable replica_skip_errors does not exist in persisted config file
+RESET PERSIST IF EXISTS replica_sql_thread_os_priority;
 RESET PERSIST IF EXISTS replica_sql_verify_checksum;
 RESET PERSIST IF EXISTS replica_transaction_retries;
 RESET PERSIST IF EXISTS replica_type_conversions;

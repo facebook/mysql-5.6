@@ -532,6 +532,7 @@ extern long lz4f_net_compression_level;
 extern bool enable_blind_replace;
 extern bool set_read_only_on_shutdown;
 extern bool show_binlogs_encryption;
+extern long replica_sql_thread_os_priority;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;

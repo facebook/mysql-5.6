@@ -9936,6 +9936,16 @@ static Sys_var_long Sys_thread_priority(
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(update_thread_priority));
 
+static Sys_var_long Sys_replica_sql_thread_os_priority(
+    "replica_sql_thread_os_priority",
+    "Set OS priority for replication SQL threads. "
+    "This is a global variable. New SQL threads pick the value after changing "
+    "it. "
+    "The values are in the range -20 to 19, similar to nice.",
+    GLOBAL_VAR(replica_sql_thread_os_priority), CMD_LINE(OPT_ARG),
+    VALID_RANGE(-20, 19), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 /*
 ** sql_maximum_duplicate_executions
 */
