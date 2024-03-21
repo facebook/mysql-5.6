@@ -69,6 +69,7 @@
 #endif
 
 #include "mysql/psi/mysql_socket.h"
+#include "mysys/mysys_priv.h"
 
 int vio_errno(Vio *vio [[maybe_unused]]) {
 /* These transport types are not Winsock based. */
@@ -858,26 +859,33 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, timeout_t timeout) {
   }
 #endif
 
-  /*
-    Wait for the I/O event and return early in case of
-    error or timeout.
-  */
-  do {
-#ifdef USE_PPOLL_IN_VIO
+  // Scope for thd wait.
+  {
+    // No actual wait if timeout is zero.
+    My_thd_wait_scope wait(MY_THD_WAIT_NET_IO, timeout_is_nonzero(timeout));
+
     /*
-      thread_id is only set to std::nullopt or a non-zero value for servers, so
-      signal_mask is unused for client libraries. A valid value for thread_id
-      is not assigned until there is attempt to shut down the connection.
+      Wait for the I/O event and return early in case of
+      error or timeout.
     */
-    ret = ppoll(&pfd, 1, ts_ptr,
-                !vio->thread_id.has_value() || (vio->thread_id.value() != 0)
-                    ? &vio->signal_mask
-                    : nullptr);
+    do {
+#ifdef USE_PPOLL_IN_VIO
+      /*
+        thread_id is only set to std::nullopt or a non-zero value for servers,
+        so signal_mask is unused for client libraries. A valid value for
+        thread_id is not assigned until there is attempt to shut down the
+        connection.
+      */
+      ret = ppoll(&pfd, 1, ts_ptr,
+                  !vio->thread_id.has_value() || (vio->thread_id.value() != 0)
+                      ? &vio->signal_mask
+                      : nullptr);
 #else
-    ret = poll(&pfd, 1, timeout);
+      ret = poll(&pfd, 1, timeout);
 #endif
-  } while (ret < 0 && vio_should_retry(vio) &&
-           (retry_count++ < vio->retry_count));
+    } while (ret < 0 && vio_should_retry(vio) &&
+             (retry_count++ < vio->retry_count));
+  }
 
 #ifdef USE_PPOLL_IN_VIO
   vio->poll_shutdown_flag.clear();

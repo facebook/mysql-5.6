@@ -7182,6 +7182,7 @@ static int init_server_components() {
   wait_end_hook = thd_wait_end_check;
 
   // Validate that mysys wait constants are as they should be.
+  static_assert(MY_THD_WAIT_NET_IO == THD_WAIT_NET_IO);
   static_assert(MY_THD_WAIT_WS_IO == THD_WAIT_WS_IO);
 
   xa::Transaction_cache::initialize();

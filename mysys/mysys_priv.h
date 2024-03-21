@@ -175,8 +175,12 @@ void MyWSFileEnd();
 */
 class My_thd_wait_scope {
  public:
-  My_thd_wait_scope(int wait_type);
+  My_thd_wait_scope(int wait_type, bool wait = true);
   ~My_thd_wait_scope();
+
+ private:
+  // Was wait started?
+  bool m_wait;
 };
 
 #endif /* MYSYS_PRIV_INCLUDED */

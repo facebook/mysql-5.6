@@ -1034,14 +1034,12 @@ static bool net_write_raw_loop(NET *net, const uchar *buf, size_t count) {
   unsigned int retry_count = 0;
 
   while (count) {
-    thd_wait_begin(thd_get_current_thd(), THD_WAIT_NET_IO);
     DBUG_EXECUTE_IF("simulate_net_write_delay", {
       // Sleep for 10 seconds.
       my_sleep(10 * 1000 * 1000);
     });
 
     ssize_t sentcnt = vio_write(net->vio, buf, count);
-    thd_wait_end(thd_get_current_thd());
 
     if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
         sentcnt == VIO_SOCKET_WRITE_TIMEOUT) {

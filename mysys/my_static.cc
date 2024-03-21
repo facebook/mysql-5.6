@@ -226,10 +226,16 @@ void (*wait_end_hook)(void *opaque_thd) = wait_end_dummy;
 /**
   Mark a scope as thd_wait_begin/thd_wait_end.
 */
-My_thd_wait_scope::My_thd_wait_scope(int wait_type) {
-  wait_begin_hook(nullptr, wait_type);
+My_thd_wait_scope::My_thd_wait_scope(int wait_type, bool wait) : m_wait(wait) {
+  if (m_wait) {
+    wait_begin_hook(nullptr, wait_type);
+  }
 }
-My_thd_wait_scope::~My_thd_wait_scope() { wait_end_hook(nullptr); }
+My_thd_wait_scope::~My_thd_wait_scope() {
+  if (m_wait) {
+    wait_end_hook(nullptr);
+  }
+}
 
 #if defined(ENABLED_DEBUG_SYNC)
 /**
