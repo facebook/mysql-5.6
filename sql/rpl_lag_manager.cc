@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "mutex_lock.h"  // MUTEX_LOCK
 #include "sql/log.h"
 #include "sql/mysqld.h"
 #include "sql/rpl_lag_manager.h"
@@ -556,6 +557,7 @@ WRITE_MONITORED_ENTITY currently_monitored_entity;
 */
 void static update_monitoring_status_for_entity(std::string name,
                                                 enum_wtr_dimension dimension) {
+  assert(dimension != WTR_DIM_UNKNOWN);
   if (currently_monitored_entity.dimension == dimension &&
       currently_monitored_entity.name == name) {
     // increment monitor hits counter
@@ -651,16 +653,21 @@ void check_lag_and_throttle(time_t time_now) {
           "Starting to release throttled entites",
           lag);
     }
+
+    // Protect access to global_write_throttling_rules and
+    // currently_throttled_entities.
+    MUTEX_LOCK(guard, &LOCK_global_write_throttling_rules);
+
     // Replication lag below safe threshold, reduce throttle rate or release
     // at most one throttled entity. If releasing, erase corresponding
     // throttling rule.
     if (currently_throttled_entities.empty()) return;
+
     const auto &throttled_entity = currently_throttled_entities.front();
 
     const enum_wtr_dimension wtr_dim = throttled_entity.second;
     const std::string &name = throttled_entity.first;
 
-    mysql_mutex_lock(&LOCK_global_write_throttling_rules);
     auto &rules_map = global_write_throttling_rules[wtr_dim];
     auto iter = rules_map.find(name);
     if (iter != rules_map.end()) {
@@ -688,7 +695,6 @@ void check_lag_and_throttle(time_t time_now) {
         }
       }
     }
-    mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
   }
 
   if (lag > write_start_throttle_lag_milliseconds) {
@@ -700,28 +706,33 @@ void check_lag_and_throttle(time_t time_now) {
     } else {
       sql_print_information("[Write Throttling]Lag continues (%u ms).", lag);
     }
-    // Replication lag above threshold, Check if we can increase throttle rate
-    // for last throttled entity
-    if (!currently_throttled_entities.empty()) {
-      auto last_throttled_entity = currently_throttled_entities.back();
-      enum_wtr_dimension wtr_dim = last_throttled_entity.second;
-      std::string &name = last_throttled_entity.first;
 
-      bool throttle_rate_increased = false;
-      mysql_mutex_lock(&LOCK_global_write_throttling_rules);
-      auto &rules_map = global_write_throttling_rules[wtr_dim];
-      auto iter = rules_map.find(name);
-      if (iter != rules_map.end() && iter->second.throttle_rate < 100) {
-        iter->second.throttle_rate = std::min(
-            (uint)100, iter->second.throttle_rate + write_throttle_rate_step);
-        throttle_rate_increased = true;
-        sql_print_information(
-            "[Write Throttling]Rule updated. dim:%s, name:%s, rate:%d",
-            WRITE_STATS_TYPE_STRING[wtr_dim].c_str(), name.c_str(),
-            iter->second.throttle_rate);
+    // Protect access to global_write_throttling_rules and
+    // currently_throttled_entities.
+    {
+      MUTEX_LOCK(guard, &LOCK_global_write_throttling_rules);
+
+      // Replication lag above threshold, Check if we can increase throttle rate
+      // for last throttled entity
+      if (!currently_throttled_entities.empty()) {
+        auto last_throttled_entity = currently_throttled_entities.back();
+        enum_wtr_dimension wtr_dim = last_throttled_entity.second;
+        std::string &name = last_throttled_entity.first;
+
+        bool throttle_rate_increased = false;
+        auto &rules_map = global_write_throttling_rules[wtr_dim];
+        auto iter = rules_map.find(name);
+        if (iter != rules_map.end() && iter->second.throttle_rate < 100) {
+          iter->second.throttle_rate = std::min(
+              (uint)100, iter->second.throttle_rate + write_throttle_rate_step);
+          throttle_rate_increased = true;
+          sql_print_information(
+              "[Write Throttling]Rule updated. dim:%s, name:%s, rate:%d",
+              WRITE_STATS_TYPE_STRING[wtr_dim].c_str(), name.c_str(),
+              iter->second.throttle_rate);
+        }
+        if (throttle_rate_increased) return;
       }
-      mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
-      if (throttle_rate_increased) return;
     }
 
     // Replication lag above threshold, find an entity to throttle
@@ -767,13 +778,19 @@ void check_lag_and_throttle(time_t time_now) {
         // significant gap in time since we last did culprit analysis. It is
         // outdated.
         currently_monitored_entity.resetHits();
-        sql_print_information(
-            "[Write Throttling]Resetting monitored entity hit count. "
-            "dim:%s, name:%s, count:%u",
-            WRITE_STATS_TYPE_STRING[currently_monitored_entity.dimension]
-                .c_str(),
-            currently_monitored_entity.name.c_str(),
-            currently_monitored_entity.hits);
+        if (currently_monitored_entity.dimension > WTR_DIM_UNKNOWN) {
+          sql_print_information(
+              "[Write Throttling]Resetting monitored entity hit count. "
+              "dim:%s, name:%s, count:%u",
+              WRITE_STATS_TYPE_STRING[currently_monitored_entity.dimension]
+                  .c_str(),
+              currently_monitored_entity.name.c_str(),
+              currently_monitored_entity.hits);
+        } else {
+          sql_print_information(
+              "[Write Throttling]Resetting monitored entity hit count. "
+              "Entity has been previously reset.");
+        }
         mysql_mutex_unlock(&LOCK_global_write_statistics);
         return;
       }

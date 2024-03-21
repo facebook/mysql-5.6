@@ -9603,8 +9603,15 @@ static bool update_write_throttling_patterns(sys_var *, THD *, enum_var_type) {
 
   if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
     free_global_write_throttling_rules();
+
+    mysql_mutex_lock(&LOCK_global_write_throttling_rules);
     currently_throttled_entities.clear();
+    mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
     currently_monitored_entity.reset();
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+
     return false;  // success
   }
   return store_write_throttling_rules();
@@ -9718,8 +9725,14 @@ static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
 static bool update_write_auto_throttle_frequency(sys_var *, THD *,
                                                  enum_var_type) {
   if (write_auto_throttle_frequency == 0) {
+    mysql_mutex_lock(&LOCK_global_write_throttling_rules);
     currently_throttled_entities.clear();
+    mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+
+    mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
     currently_monitored_entity.reset();
+    mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+
     free_global_write_auto_throttling_rules();
   }
   return false;  // success
