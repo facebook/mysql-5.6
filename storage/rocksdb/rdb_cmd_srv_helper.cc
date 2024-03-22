@@ -212,8 +212,9 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::get_json_column(
 
   if (dom_ptr->json_type() != expected_type) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-                    "expect json type %u, but got %u", expected_type,
-                    dom_ptr->json_type());
+                    "expect json type %d, but got %d",
+                    static_cast<int>(expected_type),
+                    static_cast<int>(dom_ptr->json_type()));
     return Rdb_cmd_srv_status("Unexpected json type for column " +
                               std::to_string(col));
   }
