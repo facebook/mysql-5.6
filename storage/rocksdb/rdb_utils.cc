@@ -220,17 +220,18 @@ const std::vector<std::string> parse_into_tokens(const std::string &s,
   return tokens;
 }
 
-static const std::size_t rdb_hex_bytes_per_char = 2;
-static const std::array<char, 16> rdb_hexdigit = {{'0', '1', '2', '3', '4', '5',
-                                                   '6', '7', '8', '9', 'a', 'b',
-                                                   'c', 'd', 'e', 'f'}};
+constexpr std::size_t rdb_hex_bytes_per_char = 2;
+constexpr std::array<char, 16> rdb_hexdigit = {{'0', '1', '2', '3', '4', '5',
+                                                '6', '7', '8', '9', 'a', 'b',
+                                                'c', 'd', 'e', 'f'}};
 
 /*
-  Convert data into a hex string with optional maximum length.
-  If the data is larger than the maximum length trancate it and append "..".
+  Convert data into a hex string. If the data is larger than the maximum length
+  trancate it and append "..". If maxsize is zero, the output length is
+  unlimited.
 */
-std::string rdb_hexdump(const char *data, const std::size_t data_len,
-                        const std::size_t maxsize) {
+std::string rdb_hexdump(const char *data, std::size_t data_len,
+                        std::size_t maxsize) {
   // Count the elements in the string
   std::size_t elems = data_len;
   // Calculate the amount of output needed
