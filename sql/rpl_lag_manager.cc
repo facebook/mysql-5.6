@@ -735,120 +735,121 @@ void check_lag_and_throttle(time_t time_now) {
       }
     }
 
-    // Replication lag above threshold, find an entity to throttle
-    mysql_mutex_lock(&LOCK_global_write_statistics);
-    if (global_write_statistics_map.size() == 0) {
-      // no stats collected so far
-      mysql_mutex_unlock(&LOCK_global_write_statistics);
-      sql_print_information("[Write Throttling]No write statistics.");
-      return;
-    }
-
-    // write_stats_frequency may be updated dynamically. Caching it for the
-    // logic below
-    ulong write_stats_frequency_cached = write_stats_frequency;
-    if (write_stats_frequency_cached == 0) {
-      return;
-    }
-
-    // Find latest write_statistics time bucket that is complete.
-    // Example - For write_stats_frequency=6s, At t=8s, this method should
-    // return write_stats bucket for stats between t=0 to t=6 i.e. bucket_key=0
-    // and not bucket_key=6 which is incomplete and only has 2s worth of
-    // write_stats data;
-    int time_bucket_key = time_now - (time_now % write_stats_frequency_cached) -
-                          write_stats_frequency_cached;
-    auto latest_write_stats_iter = global_write_statistics_map.begin();
-
-    // For testing purpose, force use the latest write stats bucket for culprit
-    // analysis
-    bool dbug_skip_last_complete_bucket_check = false;
-    DBUG_EXECUTE_IF("dbug.skip_last_complete_bucket_check",
-                    { dbug_skip_last_complete_bucket_check = true; });
-
-    if (!dbug_skip_last_complete_bucket_check) {
-      if (latest_write_stats_iter->first != time_bucket_key) {
-        // move to the second from front time bucket
-        ++latest_write_stats_iter;
-      }
-      if (latest_write_stats_iter == global_write_statistics_map.end() ||
-          latest_write_stats_iter->first != time_bucket_key) {
-        // no complete write statistics bucket for analysis
-        // reset currently monitored entity, if any, as there's been a
-        // significant gap in time since we last did culprit analysis. It is
-        // outdated.
-        currently_monitored_entity.resetHits();
-        if (currently_monitored_entity.dimension > WTR_DIM_UNKNOWN) {
-          sql_print_information(
-              "[Write Throttling]Resetting monitored entity hit count. "
-              "dim:%s, name:%s, count:%u",
-              WRITE_STATS_TYPE_STRING[currently_monitored_entity.dimension]
-                  .c_str(),
-              currently_monitored_entity.name.c_str(),
-              currently_monitored_entity.hits);
-        } else {
-          sql_print_information(
-              "[Write Throttling]Resetting monitored entity hit count. "
-              "Entity has been previously reset.");
-        }
-        mysql_mutex_unlock(&LOCK_global_write_statistics);
-        return;
-      }
-    }
-    TIME_BUCKET_STATS &latest_write_stats = latest_write_stats_iter->second;
-
-    std::vector<enum_wtr_dimension> &dimensions =
-        write_throttle_permissible_dimensions_in_order;
-
     bool is_fallback_entity_set = false;
     std::pair<std::string, enum_wtr_dimension> fallback_entity;
     bool is_entity_to_throttle_set = false;
     std::pair<std::string, enum_wtr_dimension> entity_to_throttle;
 
-    for (auto dim_iter = dimensions.begin(); dim_iter != dimensions.end();
-         ++dim_iter) {
-      enum_wtr_dimension dim = *dim_iter;
-      auto &dim_stats = latest_write_stats[dim];
-      std::pair<std::string, std::string> top_entities =
-          get_top_two_entities(dim_stats);
-
-      // Set the fallback entity as the top entity in the highest cardinality
-      // dimension This entity is throttled if there is no conclusive entity
-      // causing the lag.
-      if (!is_fallback_entity_set && !dim_stats.empty()) {
-        fallback_entity = std::make_pair(top_entities.first, dim);
-        is_fallback_entity_set = true;
+    // Scope for LOCK_global_write_statistics.
+    {
+      // Replication lag above threshold, find an entity to throttle
+      MUTEX_LOCK(guard, &LOCK_global_write_statistics);
+      if (global_write_statistics_map.size() == 0) {
+        // no stats collected so far
+        sql_print_information("[Write Throttling]No write statistics.");
+        return;
       }
 
-      // For testing purpose, skip to throttle fallback entity
-      bool dbug_simulate_fallback_sql_throttling = false;
-      DBUG_EXECUTE_IF("dbug.simulate_fallback_sql_throttling",
-                      { dbug_simulate_fallback_sql_throttling = true; });
+      // write_stats_frequency may be updated dynamically. Caching it for the
+      // logic below
+      ulong write_stats_frequency_cached = write_stats_frequency;
+      if (write_stats_frequency_cached == 0) {
+        return;
+      }
 
-      if (dim_stats.empty() || dbug_simulate_fallback_sql_throttling) {
-        // move on to the next dimension
-        continue;
-      } else if (dim_stats.size() == 1) {
-        // throttle the first entity
-        entity_to_throttle = std::make_pair(top_entities.first, dim);
-        is_entity_to_throttle_set = true;
-        break;
-      } else {
-        // compare the top two entities in this dimension
-        auto first_bytes_written =
-            dim_stats[top_entities.first].binlog_bytes_written;
-        auto second_bytes_written =
-            dim_stats[top_entities.second].binlog_bytes_written;
-        if (first_bytes_written >
-            second_bytes_written * write_throttle_min_ratio) {
-          // first entity can be throttled
+      // Find latest write_statistics time bucket that is complete.
+      // Example - For write_stats_frequency=6s, At t=8s, this method should
+      // return write_stats bucket for stats between t=0 to t=6 i.e.
+      // bucket_key=0 and not bucket_key=6 which is incomplete and only has 2s
+      // worth of write_stats data;
+      int time_bucket_key = time_now -
+                            (time_now % write_stats_frequency_cached) -
+                            write_stats_frequency_cached;
+      auto latest_write_stats_iter = global_write_statistics_map.begin();
+
+      // For testing purpose, force use the latest write stats bucket for
+      // culprit analysis
+      bool dbug_skip_last_complete_bucket_check = false;
+      DBUG_EXECUTE_IF("dbug.skip_last_complete_bucket_check",
+                      { dbug_skip_last_complete_bucket_check = true; });
+
+      if (!dbug_skip_last_complete_bucket_check) {
+        if (latest_write_stats_iter->first != time_bucket_key) {
+          // move to the second from front time bucket
+          ++latest_write_stats_iter;
+        }
+        if (latest_write_stats_iter == global_write_statistics_map.end() ||
+            latest_write_stats_iter->first != time_bucket_key) {
+          // no complete write statistics bucket for analysis
+          // reset currently monitored entity, if any, as there's been a
+          // significant gap in time since we last did culprit analysis. It is
+          // outdated.
+          currently_monitored_entity.resetHits();
+          if (currently_monitored_entity.dimension > WTR_DIM_UNKNOWN) {
+            sql_print_information(
+                "[Write Throttling]Resetting monitored entity hit count. "
+                "dim:%s, name:%s, count:%u",
+                WRITE_STATS_TYPE_STRING[currently_monitored_entity.dimension]
+                    .c_str(),
+                currently_monitored_entity.name.c_str(),
+                currently_monitored_entity.hits);
+          } else {
+            sql_print_information(
+                "[Write Throttling]Resetting monitored entity hit count. "
+                "Entity has been previously reset.");
+          }
+          return;
+        }
+      }
+      TIME_BUCKET_STATS &latest_write_stats = latest_write_stats_iter->second;
+
+      std::vector<enum_wtr_dimension> &dimensions =
+          write_throttle_permissible_dimensions_in_order;
+
+      for (auto dim_iter = dimensions.begin(); dim_iter != dimensions.end();
+           ++dim_iter) {
+        enum_wtr_dimension dim = *dim_iter;
+        auto &dim_stats = latest_write_stats[dim];
+        std::pair<std::string, std::string> top_entities =
+            get_top_two_entities(dim_stats);
+
+        // Set the fallback entity as the top entity in the highest cardinality
+        // dimension This entity is throttled if there is no conclusive entity
+        // causing the lag.
+        if (!is_fallback_entity_set && !dim_stats.empty()) {
+          fallback_entity = std::make_pair(top_entities.first, dim);
+          is_fallback_entity_set = true;
+        }
+
+        // For testing purpose, skip to throttle fallback entity
+        bool dbug_simulate_fallback_sql_throttling = false;
+        DBUG_EXECUTE_IF("dbug.simulate_fallback_sql_throttling",
+                        { dbug_simulate_fallback_sql_throttling = true; });
+
+        if (dim_stats.empty() || dbug_simulate_fallback_sql_throttling) {
+          // move on to the next dimension
+          continue;
+        } else if (dim_stats.size() == 1) {
+          // throttle the first entity
           entity_to_throttle = std::make_pair(top_entities.first, dim);
           is_entity_to_throttle_set = true;
           break;
+        } else {
+          // compare the top two entities in this dimension
+          auto first_bytes_written =
+              dim_stats[top_entities.first].binlog_bytes_written;
+          auto second_bytes_written =
+              dim_stats[top_entities.second].binlog_bytes_written;
+          if (first_bytes_written >
+              second_bytes_written * write_throttle_min_ratio) {
+            // first entity can be throttled
+            entity_to_throttle = std::make_pair(top_entities.first, dim);
+            is_entity_to_throttle_set = true;
+            break;
+          }
         }
       }
     }
-    mysql_mutex_unlock(&LOCK_global_write_statistics);
 
     if (is_entity_to_throttle_set) {
       // throttle the culprit entity if set
