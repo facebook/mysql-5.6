@@ -15057,6 +15057,7 @@ int ha_rocksdb::extra(enum ha_extra_function operation) {
       break;
     case HA_EXTRA_NO_READ_LOCKING:
       m_no_read_locking = true;
+      break;
     default:
       break;
   }
