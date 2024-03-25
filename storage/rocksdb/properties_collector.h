@@ -164,9 +164,8 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
  public:
   uint64_t GetMaxDeletedRows() const { return m_max_deleted_rows; }
 
-  static void read_stats_from_tbl_props(
-      const std::shared_ptr<const rocksdb::TableProperties> &table_props,
-      std::vector<Rdb_index_stats> *out_stats_vector);
+  [[nodiscard]] static std::vector<Rdb_index_stats> read_stats_from_tbl_props(
+      const rocksdb::TableProperties &table_props);
 
  private:
   static std::string GetReadableStats(const Rdb_index_stats &it);

@@ -2428,11 +2428,11 @@ bool INLINE_ATTR select_exec::run_pk_point_query() {
 
 bool INLINE_ATTR select_exec::setup_iterator(THD *thd) {
   if (m_key_def->is_partial_index()) {
-    m_iterator.reset(new Rdb_iterator_partial(thd, m_key_def, m_pk_def,
+    m_iterator.reset(new Rdb_iterator_partial(thd, *m_key_def, *m_pk_def,
                                               m_tbl_def, m_table, m_dd_table));
   } else {
     m_iterator.reset(
-        new Rdb_iterator_base(thd, nullptr, m_key_def, m_pk_def, m_tbl_def));
+        new Rdb_iterator_base(thd, nullptr, *m_key_def, *m_pk_def, m_tbl_def));
   }
 
   return m_iterator == nullptr;
@@ -2490,7 +2490,7 @@ bool INLINE_ATTR select_exec::eval_cond() {
 bool INLINE_ATTR select_exec::unpack_for_pk(const rocksdb::Slice &rkey,
                                             const rocksdb::Slice &rvalue) {
   // decode will handle key/value decoding for PK
-  int rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue);
+  int rc = m_converter->decode(*m_key_def, m_table->record[0], &rkey, &rvalue);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
@@ -2542,7 +2542,7 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
     return true;
   }
 
-  rc = m_converter->decode(m_pk_def, m_table->record[0], &pk_key, &m_pk_value);
+  rc = m_converter->decode(*m_pk_def, m_table->record[0], &pk_key, &m_pk_value);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
