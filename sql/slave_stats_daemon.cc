@@ -230,7 +230,7 @@ static void *handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused))) {
 bool start_handle_slave_stats_daemon() {
   DBUG_ENTER("start_handle_slave_stats_daemon");
 
-  channel_map.rdlock();
+  channel_map.assert_some_lock();
   if (channel_map.get_num_instances() != 1) {
     // more than one channels exists for this slave. We only support
     // single source slave topologies for now. Skip creating the thread.
@@ -238,10 +238,8 @@ bool start_handle_slave_stats_daemon() {
         "Number of channels = %lu. There should be only one channel"
         " with slave_stats_daemon. Not creating the thread.",
         channel_map.get_num_instances());
-    channel_map.unlock();
     DBUG_RETURN(false);
   }
-  channel_map.unlock();
 
   my_thread_handle thread_handle;
   slave_stats_daemon_thread_counter++;
