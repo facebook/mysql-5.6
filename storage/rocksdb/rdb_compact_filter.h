@@ -189,8 +189,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     Rdb_string_reader reader(&existing_value);
     if (!reader.read(m_ttl_offset) || reader.read_uint64(&ttl_timestamp)) {
       std::string buf;
-      buf = rdb_hexdump(existing_value.data(), existing_value.size(),
-                        RDB_MAX_HEXDUMP_LEN);
+      buf = rdb_hexdump(existing_value.data(), existing_value.size());
       rdb_fatal_error(
           "Decoding ttl from PK value failed in compaction filter, "
           "for index (%u,%u), val: %s",

@@ -1764,7 +1764,7 @@ void Rdb_key_def::report_checksum_mismatch(const bool is_key,
                   "Checksum mismatch in %s of key-value pair for index 0x%x",
                   is_key ? "key" : "value", get_index_number());
 
-  const std::string buf = rdb_hexdump(data, data_size, RDB_MAX_HEXDUMP_LEN);
+  const auto buf = rdb_hexdump(data, data_size);
   // NO_LINT_DEBUG
   LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                   "Data with incorrect checksum (%" PRIu64 " bytes): %s",
