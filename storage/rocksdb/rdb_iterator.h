@@ -85,7 +85,9 @@ class Rdb_iterator_base : public Rdb_iterator {
   int read_after_key(const rocksdb::Slice &key_slice);
   void release_scan_iterator();
   void setup_scan_iterator(const rocksdb::Slice *const slice,
-                           const uint eq_cond_len, bool read_current);
+                           const rocksdb::Slice *const end_slice,
+                           const uint eq_cond_len, bool read_current,
+                           enum ha_rkey_function find_flag);
   int calc_eq_cond_len(enum ha_rkey_function find_flag,
                        const rocksdb::Slice &start_key,
                        const int bytes_changed_by_succ,

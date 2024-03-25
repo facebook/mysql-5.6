@@ -148,9 +148,10 @@ void Rdb_iterator_base::release_scan_iterator() {
   }
 }
 
-void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
-                                            const uint eq_cond_len,
-                                            bool read_current) {
+void Rdb_iterator_base::setup_scan_iterator(
+    const rocksdb::Slice *const slice, const rocksdb::Slice *const end_slice,
+    const uint eq_cond_len, bool read_current,
+    enum ha_rkey_function find_flag) {
   assert(slice->size() >= eq_cond_len);
 
   bool skip_bloom = true;
@@ -166,11 +167,8 @@ void Rdb_iterator_base::setup_scan_iterator(const rocksdb::Slice *const slice,
   // See setup_iterator_bounds on how the bound_len parameter is
   // used.
   if (ha_rocksdb::check_bloom_and_set_bounds(
-          m_thd, m_kd, eq_cond,
-          std::max(eq_cond_len, (uint)Rdb_key_def::INDEX_NUMBER_SIZE),
-          m_scan_it_lower_bound, m_scan_it_upper_bound,
-          &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice,
-          &m_check_iterate_bounds)) {
+          m_thd, m_kd, eq_cond, slice, end_slice, m_scan_it_lower_bound, m_scan_it_upper_bound,
+          &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice, &m_check_iterate_bounds, find_flag)) {
     skip_bloom = false;
   }
 
@@ -372,7 +370,8 @@ int Rdb_iterator_base::seek(enum ha_rkey_function find_flag,
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_scan_iterator(&start_key, eq_cond_len, read_current);
+  setup_scan_iterator(&start_key, &end_key, eq_cond_len, read_current,
+                      find_flag);
 
   /*
     Once we are positioned on from above, move to the position we really

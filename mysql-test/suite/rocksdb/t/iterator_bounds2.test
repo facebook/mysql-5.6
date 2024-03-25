@@ -1,0 +1,205 @@
+
+CREATE TABLE t (
+  a int unsigned NOT NULL,
+  b int unsigned NOT NULL,
+  c int unsigned NOT NULL,
+  d varchar(20) NOT NULL,
+  PRIMARY KEY (a),
+  KEY b_fwd (b),
+  KEY b_rev (b) COMMENT 'rev:b',
+  KEY d_fwd (d),
+  KEY d_rev (d) COMMENT 'rev:d',
+  KEY bc_fwd (b,c),
+  KEY bc_rev (b,c) COMMENT 'rev:bc',
+  KEY cb_fwd (c,b),
+  KEY cb_rev (c,b) COMMENT 'rev:cb',
+  KEY bcd_fwd (b,c,d),
+  KEY bcd_rev (b,c,d) COMMENT 'rev:bcd',
+  KEY bdc_fwd (b,d,c),
+  KEY bdc_rev (b,d,c) COMMENT 'rev:bdc',
+  KEY dcb_fwd (d,c,b),
+  KEY dcb_rev (d,c,b) COMMENT 'rev:dcb'
+) ENGINE=ROCKSDB;
+
+
+set @tmp1="A";
+set @tmp2="B";
+set @tmp3="C";
+set @tmp4="D";
+set @tmp5="E";
+
+let $i=1;
+
+--disable_query_log
+while ($i <= 10) {
+   eval insert into t values ($i,    10 - $i, $i % 5, @tmp1);
+   eval insert into t values ($i+10, 20 - $i, $i % 5, @tmp2);
+   eval insert into t values ($i+20, 30 - $i, $i % 5, @tmp3);
+   eval insert into t values ($i+30, 40 - $i, $i % 5, @tmp4);
+   eval insert into t values ($i+40, 50 - $i, $i % 5, @tmp5);
+   set @tmp1=CONCAT(@tmp1, "A");
+   set @tmp2=CONCAT(@tmp2, "B");
+   set @tmp3=CONCAT(@tmp3, "C");
+   set @tmp4=CONCAT(@tmp4, "D");
+   set @tmp5=CONCAT(@tmp5, "E");
+   inc $i;
+}
+--enable_query_log
+
+select * from t order by a;
+
+--echo
+--echo checking interator bounds in forward CFs
+--echo
+
+--echo iterator bounds with single column integer key
+select min(a) from t force index (b_fwd) where b > 9 ; # should be 11
+select min(a) from t force index (b_fwd) where b >= 9 ; # should be 1
+select max(a) from t force index (b_fwd) where b < 10 ; # should be 10
+select max(a) from t force index (b_fwd) where b <= 10 ; # should be 20
+
+--echo
+--echo iterator bounds with single column VARCHAR key with and without wildcard
+
+select c, min(a), max(a) from t force index (d_fwd) where d > 'aaa' group by c;
+select c, min(a), max(a) from t force index (d_fwd) where d >= 'aaa' group by c;
+select c, min(a), max(a) from t force index (d_fwd) where d like 'aaaaa%' group by c;
+select c, min(a), max(a) from t force index (d_fwd) where d < 'aaaaaaa' group by c;
+select c, min(a), max(a) from t force index (d_fwd) where d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with multi column integer key with prefix keypart
+
+select c, min(b), max(b) from t force index (bc_fwd) where c > 2 group by c;
+select c, min(b), max(b) from t force index (bc_fwd) where c >= 2 group by c;
+select c, min(b), max(b) from t force index (bc_fwd) where c < 2 group by c;
+select c, min(b), max(b) from t force index (bc_fwd) where c <= 2 group by c;
+
+--echo
+--echo iterator bounds with multi column integer key with nonprefix keypart
+
+select c, min(b), max(b) from t force index (cb_fwd) where c > 2 group by c;
+select c, min(b), max(b) from t force index (cb_fwd) where c >= 2 group by c;
+select c, min(b), max(b) from t force index (cb_fwd) where c < 2 group by c;
+select c, min(b), max(b) from t force index (cb_fwd) where c <= 2 group by c;
+
+--echo
+--echo iterator bounds with (int, int, VARCHAR) key (b, c, d)
+
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with (int, VARCHAR, int) key (b, d, c)
+
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with (VARCHAR, int, int) key (d, c, b)
+
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo checking interator bounds in reverse CFs
+--echo
+
+--echo iterator bounds with single column integer key
+select min(a) from t force index (b_rev) where b > 9 ; # should be 11
+select min(a) from t force index (b_rev) where b >= 9 ; # should be 1
+select max(a) from t force index (b_rev) where b < 10 ; # should be 10
+select max(a) from t force index (b_rev) where b <= 10 ; # should be 20
+
+--echo
+--echo iterator bounds with single column VARCHAR key with and without wildcard
+
+select c, min(a), max(a) from t force index (d_rev) where d > 'aaa' group by c;
+select c, min(a), max(a) from t force index (d_rev) where d >= 'aaa' group by c;
+select c, min(a), max(a) from t force index (d_rev) where d like 'aaaaa%' group by c;
+select c, min(a), max(a) from t force index (d_rev) where d < 'aaaaaaa' group by c;
+select c, min(a), max(a) from t force index (d_rev) where d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with multi column integer key with prefix keypart
+
+select c, min(b), max(b) from t force index (bc_rev) where c > 2 group by c;
+select c, min(b), max(b) from t force index (bc_rev) where c >= 2 group by c;
+select c, min(b), max(b) from t force index (bc_rev) where c < 2 group by c;
+select c, min(b), max(b) from t force index (bc_rev) where c <= 2 group by c;
+
+--echo
+--echo iterator bounds with multi column integer key with nonprefix keypart
+
+select c, min(b), max(b) from t force index (cb_rev) where c > 2 group by c;
+select c, min(b), max(b) from t force index (cb_rev) where c >= 2 group by c;
+select c, min(b), max(b) from t force index (cb_rev) where c < 2 group by c;
+select c, min(b), max(b) from t force index (cb_rev) where c <= 2 group by c;
+
+--echo
+--echo iterator bounds with (int, int, VARCHAR) key (b, c, d)
+
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with (int, VARCHAR, int) key (b, d, c)
+
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo iterator bounds with (VARCHAR, int, int) key (d, c, b)
+
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d > 'aaa' group by c;
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d >= 'aaa' group by c;
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d like 'aaaaa%' group by c;
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+
+--echo
+--echo test order by, ranges and in lists with fwd CF indexes
+
+SELECT * from t force index (dcb_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (bcd_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (bdc_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (dcb_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+SELECT * from t force index (bcd_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+SELECT * from t force index (bdc_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+--echo
+--echo test order by, ranges and in lists with rev CF indexes
+
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (bdc_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a; 
+
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+SELECT * from t force index (bcd_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+SELECT * from t force index (bdc_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc; 
+
+drop table t;

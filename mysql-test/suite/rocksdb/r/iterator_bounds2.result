@@ -1,0 +1,535 @@
+CREATE TABLE t (
+a int unsigned NOT NULL,
+b int unsigned NOT NULL,
+c int unsigned NOT NULL,
+d varchar(20) NOT NULL,
+PRIMARY KEY (a),
+KEY b_fwd (b),
+KEY b_rev (b) COMMENT 'rev:b',
+KEY d_fwd (d),
+KEY d_rev (d) COMMENT 'rev:d',
+KEY bc_fwd (b,c),
+KEY bc_rev (b,c) COMMENT 'rev:bc',
+KEY cb_fwd (c,b),
+KEY cb_rev (c,b) COMMENT 'rev:cb',
+KEY bcd_fwd (b,c,d),
+KEY bcd_rev (b,c,d) COMMENT 'rev:bcd',
+KEY bdc_fwd (b,d,c),
+KEY bdc_rev (b,d,c) COMMENT 'rev:bdc',
+KEY dcb_fwd (d,c,b),
+KEY dcb_rev (d,c,b) COMMENT 'rev:dcb'
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1831	Duplicate index 'b_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'd_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'bc_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'cb_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'bcd_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'bdc_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+Warning	1831	Duplicate index 'dcb_rev' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+set @tmp1="A";
+set @tmp2="B";
+set @tmp3="C";
+set @tmp4="D";
+set @tmp5="E";
+select * from t order by a;
+a	b	c	d
+1	9	1	A
+2	8	2	AA
+3	7	3	AAA
+4	6	4	AAAA
+5	5	0	AAAAA
+6	4	1	AAAAAA
+7	3	2	AAAAAAA
+8	2	3	AAAAAAAA
+9	1	4	AAAAAAAAA
+10	0	0	AAAAAAAAAA
+11	19	1	B
+12	18	2	BB
+13	17	3	BBB
+14	16	4	BBBB
+15	15	0	BBBBB
+16	14	1	BBBBBB
+17	13	2	BBBBBBB
+18	12	3	BBBBBBBB
+19	11	4	BBBBBBBBB
+20	10	0	BBBBBBBBBB
+21	29	1	C
+22	28	2	CC
+23	27	3	CCC
+24	26	4	CCCC
+25	25	0	CCCCC
+26	24	1	CCCCCC
+27	23	2	CCCCCCC
+28	22	3	CCCCCCCC
+29	21	4	CCCCCCCCC
+30	20	0	CCCCCCCCCC
+31	39	1	D
+32	38	2	DD
+33	37	3	DDD
+34	36	4	DDDD
+35	35	0	DDDDD
+36	34	1	DDDDDD
+37	33	2	DDDDDDD
+38	32	3	DDDDDDDD
+39	31	4	DDDDDDDDD
+40	30	0	DDDDDDDDDD
+41	49	1	E
+42	48	2	EE
+43	47	3	EEE
+44	46	4	EEEE
+45	45	0	EEEEE
+46	44	1	EEEEEE
+47	43	2	EEEEEEE
+48	42	3	EEEEEEEE
+49	41	4	EEEEEEEEE
+50	40	0	EEEEEEEEEE
+
+checking interator bounds in forward CFs
+
+iterator bounds with single column integer key
+select min(a) from t force index (b_fwd) where b > 9 ;
+min(a)
+11
+select min(a) from t force index (b_fwd) where b >= 9 ;
+min(a)
+1
+select max(a) from t force index (b_fwd) where b < 10 ;
+max(a)
+10
+select max(a) from t force index (b_fwd) where b <= 10 ;
+max(a)
+20
+
+iterator bounds with single column VARCHAR key with and without wildcard
+select c, min(a), max(a) from t force index (d_fwd) where d > 'aaa' group by c;
+c	min(a)	max(a)
+4	4	49
+0	5	50
+1	6	46
+2	7	47
+3	8	48
+select c, min(a), max(a) from t force index (d_fwd) where d >= 'aaa' group by c;
+c	min(a)	max(a)
+3	3	48
+4	4	49
+0	5	50
+1	6	46
+2	7	47
+select c, min(a), max(a) from t force index (d_fwd) where d like 'aaaaa%' group by c;
+c	min(a)	max(a)
+0	5	10
+1	6	6
+2	7	7
+3	8	8
+4	9	9
+select c, min(a), max(a) from t force index (d_fwd) where d < 'aaaaaaa' group by c;
+c	min(a)	max(a)
+1	1	6
+2	2	2
+3	3	3
+4	4	4
+0	5	5
+select c, min(a), max(a) from t force index (d_fwd) where d <= 'aaaaaaa' group by c;
+c	min(a)	max(a)
+1	1	6
+2	2	7
+3	3	3
+4	4	4
+0	5	5
+
+iterator bounds with multi column integer key with prefix keypart
+select c, min(b), max(b) from t force index (bc_fwd) where c > 2 group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bc_fwd) where c >= 2 group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+2	3	48
+select c, min(b), max(b) from t force index (bc_fwd) where c < 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+select c, min(b), max(b) from t force index (bc_fwd) where c <= 2 group by c;
+c	min(b)	max(b)
+0	0	45
+2	3	48
+1	4	49
+
+iterator bounds with multi column integer key with nonprefix keypart
+select c, min(b), max(b) from t force index (cb_fwd) where c > 2 group by c;
+c	min(b)	max(b)
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (cb_fwd) where c >= 2 group by c;
+c	min(b)	max(b)
+2	3	48
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (cb_fwd) where c < 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+select c, min(b), max(b) from t force index (cb_fwd) where c <= 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+2	3	48
+
+iterator bounds with (int, int, VARCHAR) key (b, c, d)
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+4	1	1
+3	2	2
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (bcd_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+3	7	7
+
+iterator bounds with (int, VARCHAR, int) key (b, d, c)
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+4	1	1
+3	2	2
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (bdc_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+3	7	7
+
+iterator bounds with (VARCHAR, int, int) key (d, c, b)
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+3	2	2
+4	1	1
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (dcb_fwd) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+3	7	7
+4	6	6
+
+checking interator bounds in reverse CFs
+
+iterator bounds with single column integer key
+select min(a) from t force index (b_rev) where b > 9 ;
+min(a)
+11
+select min(a) from t force index (b_rev) where b >= 9 ;
+min(a)
+1
+select max(a) from t force index (b_rev) where b < 10 ;
+max(a)
+10
+select max(a) from t force index (b_rev) where b <= 10 ;
+max(a)
+20
+
+iterator bounds with single column VARCHAR key with and without wildcard
+select c, min(a), max(a) from t force index (d_rev) where d > 'aaa' group by c;
+c	min(a)	max(a)
+4	4	49
+0	5	50
+1	6	46
+2	7	47
+3	8	48
+select c, min(a), max(a) from t force index (d_rev) where d >= 'aaa' group by c;
+c	min(a)	max(a)
+3	3	48
+4	4	49
+0	5	50
+1	6	46
+2	7	47
+select c, min(a), max(a) from t force index (d_rev) where d like 'aaaaa%' group by c;
+c	min(a)	max(a)
+0	5	10
+1	6	6
+2	7	7
+3	8	8
+4	9	9
+select c, min(a), max(a) from t force index (d_rev) where d < 'aaaaaaa' group by c;
+c	min(a)	max(a)
+1	1	6
+2	2	2
+3	3	3
+4	4	4
+0	5	5
+select c, min(a), max(a) from t force index (d_rev) where d <= 'aaaaaaa' group by c;
+c	min(a)	max(a)
+1	1	6
+2	2	7
+3	3	3
+4	4	4
+0	5	5
+
+iterator bounds with multi column integer key with prefix keypart
+select c, min(b), max(b) from t force index (bc_rev) where c > 2 group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bc_rev) where c >= 2 group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+2	3	48
+select c, min(b), max(b) from t force index (bc_rev) where c < 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+select c, min(b), max(b) from t force index (bc_rev) where c <= 2 group by c;
+c	min(b)	max(b)
+0	0	45
+2	3	48
+1	4	49
+
+iterator bounds with multi column integer key with nonprefix keypart
+select c, min(b), max(b) from t force index (cb_rev) where c > 2 group by c;
+c	min(b)	max(b)
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (cb_rev) where c >= 2 group by c;
+c	min(b)	max(b)
+2	3	48
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (cb_rev) where c < 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+select c, min(b), max(b) from t force index (cb_rev) where c <= 2 group by c;
+c	min(b)	max(b)
+0	0	45
+1	4	49
+2	3	48
+
+iterator bounds with (int, int, VARCHAR) key (b, c, d)
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+4	1	1
+3	2	2
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (bcd_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+3	7	7
+
+iterator bounds with (int, VARCHAR, int) key (b, d, c)
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+4	1	1
+3	2	2
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (bdc_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+3	7	7
+
+iterator bounds with (VARCHAR, int, int) key (d, c, b)
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d > 'aaa' group by c;
+c	min(b)	max(b)
+4	1	46
+3	2	47
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d >= 'aaa' group by c;
+c	min(b)	max(b)
+3	2	47
+4	1	46
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d like 'aaaaa%' group by c;
+c	min(b)	max(b)
+3	2	2
+4	1	1
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d > 'aaa' and d < 'aaaaaaa' group by c;
+c	min(b)	max(b)
+4	6	6
+select c, min(b), max(b) from t force index (dcb_rev) where c > 2 and d >= 'aaa' and d <= 'aaaaaaa' group by c;
+c	min(b)	max(b)
+3	7	7
+4	6	6
+
+test order by, ranges and in lists with fwd CF indexes
+SELECT * from t force index (dcb_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (bcd_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (bdc_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (dcb_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+SELECT * from t force index (bcd_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+SELECT * from t force index (bdc_fwd) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+
+test order by, ranges and in lists with rev CF indexes
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (bdc_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a;
+a	b	c	d
+4	6	4	AAAA
+7	3	2	AAAAAAA
+9	1	4	AAAAAAAAA
+12	18	2	BB
+22	28	2	CC
+24	26	4	CCCC
+27	23	2	CCCCCCC
+29	21	4	CCCCCCCCC
+32	38	2	DD
+SELECT * from t force index (dcb_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+SELECT * from t force index (bcd_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+SELECT * from t force index (bdc_rev) where ((d > 'AA' and d < 'BB%') or (d >= 'CC' and d <= 'DD')) and c in (2, 4, 2) order by a desc;
+a	b	c	d
+32	38	2	DD
+29	21	4	CCCCCCCCC
+27	23	2	CCCCCCC
+24	26	4	CCCC
+22	28	2	CC
+12	18	2	BB
+9	1	4	AAAAAAAAA
+7	3	2	AAAAAAA
+4	6	4	AAAA
+drop table t;

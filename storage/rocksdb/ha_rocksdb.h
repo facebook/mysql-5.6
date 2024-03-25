@@ -694,9 +694,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   static bool check_bloom_and_set_bounds(
       THD *thd, const Rdb_key_def &kd, const rocksdb::Slice &eq_cond,
-      size_t bound_len, uchar *const lower_bound, uchar *const upper_bound,
+      const rocksdb::Slice *const slice, const rocksdb::Slice *const end_slice,
+      uchar *const lower_bound, uchar *const upper_bound,
       rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice,
-      bool *check_iterate_bounds);
+      bool *check_iterate_bounds, enum ha_rkey_function find_flag);
   static bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
                                    const rocksdb::Slice &eq_cond);
 

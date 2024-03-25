@@ -13458,36 +13458,109 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
  0x0000b3eb003f65c5e78857, and lower bound would be
  0x0000b3eb003f65c5e78859. These cover given eq condition range.
 */
-static void setup_iterator_bounds(const Rdb_key_def &kd,
-                                  const rocksdb::Slice &eq_cond,
-                                  size_t bound_len, uchar *const lower_bound,
-                                  uchar *const upper_bound,
-                                  rocksdb::Slice *lower_bound_slice,
-                                  rocksdb::Slice *upper_bound_slice) {
-  // If eq_cond is shorter than Rdb_key_def::INDEX_NUMBER_SIZE, we should be
-  // able to get better bounds just by using index id directly.
-  if (eq_cond.size() <= Rdb_key_def::INDEX_NUMBER_SIZE) {
-    assert(bound_len == Rdb_key_def::INDEX_NUMBER_SIZE);
-    uint size;
-    kd.get_infimum_key(lower_bound, &size);
-    assert(size == Rdb_key_def::INDEX_NUMBER_SIZE);
-    kd.get_supremum_key(upper_bound, &size);
-    assert(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+static void setup_iterator_bounds(
+    const Rdb_key_def &kd, const rocksdb::Slice &eq_cond,
+    const rocksdb::Slice *const slice, const rocksdb::Slice *const end_slice,
+    uchar *const lower_bound, uchar *const upper_bound,
+    rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice,
+    enum ha_rkey_function find_flag) {
+  uint lower_bound_size, upper_bound_size;
+
+  /* In order to create tighter iterator bounds, we need to know the
+     direction that the SQL layer iterator has been set up with
+     (forward or backward) depending on the query requirements.
+
+     For a backward query, SQL layer will seek to the last key in
+     the range, and then seek backwards. The end of the range in this
+     case will be the smallest key.
+
+     We set up rocksDB iterators with the smallest key in the range
+     as the lower bound, and the largest key as the upper bound. So,
+     based on the direction, we may need to flip lower/upper bound,
+     in translating SQL layer iterator range to rocksDB iterator bounds.
+
+     For non range queries, when SQL layer sends down HA_READ_KEY_EXACT
+     or HA_READ_PREFIX_LAST, the rocksDB iterator bound can be set up
+     using the seek key and its successor (or predecessor).
+
+     There are other case, like open ranges, where the end_range is not
+     provided by SQL layer. In such cases, we rely on the eq_cond slice
+     calculated earlier, and this will serve as the open range bound,
+     typically the same as the index infimum (or supremum) keys.
+   */
+
+  bool direction = (find_flag == HA_READ_KEY_EXACT) ||
+                   (find_flag == HA_READ_AFTER_KEY) ||
+                   (find_flag == HA_READ_KEY_OR_NEXT);
+
+  if (end_slice->size() > 0) {
+    if (direction) {
+      memcpy(lower_bound, slice->data(), slice->size());
+      lower_bound_size = slice->size();
+      memcpy(upper_bound, end_slice->data(), end_slice->size());
+      upper_bound_size = end_slice->size();
+    } else {
+      memcpy(upper_bound, slice->data(), slice->size());
+      upper_bound_size = slice->size();
+      memcpy(lower_bound, end_slice->data(), end_slice->size());
+      lower_bound_size = end_slice->size();
+    }
+    kd.predecessor(lower_bound, lower_bound_size);
+    kd.successor(upper_bound, upper_bound_size);
+  } else if (find_flag == HA_READ_KEY_EXACT) {
+    memcpy(lower_bound, slice->data(), slice->size());
+    lower_bound_size = slice->size();
+    memcpy(upper_bound, slice->data(), slice->size());
+    upper_bound_size = slice->size();
+    kd.successor(upper_bound, upper_bound_size);
+  } else if (find_flag == HA_READ_PREFIX_LAST) {
+    memcpy(lower_bound, slice->data(), slice->size());
+    lower_bound_size = slice->size();
+    kd.predecessor(lower_bound, lower_bound_size);
+    memcpy(upper_bound, slice->data(), slice->size());
+    upper_bound_size = slice->size();
   } else {
-    assert(bound_len <= eq_cond.size());
-    memcpy(upper_bound, eq_cond.data(), bound_len);
-    kd.successor(upper_bound, bound_len);
-    memcpy(lower_bound, eq_cond.data(), bound_len);
-    kd.predecessor(lower_bound, bound_len);
+    if (direction) {
+      memcpy(lower_bound, slice->data(), slice->size());
+      lower_bound_size = slice->size();
+      memcpy(upper_bound, eq_cond.data(), eq_cond.size());
+      upper_bound_size = eq_cond.size();
+    } else {
+      memcpy(lower_bound, eq_cond.data(), eq_cond.size());
+      lower_bound_size = eq_cond.size();
+      memcpy(upper_bound, slice->data(), slice->size());
+      upper_bound_size = slice->size();
+    }
+    kd.predecessor(lower_bound, lower_bound_size);
+    kd.successor(upper_bound, upper_bound_size);
   }
 
   if (kd.m_is_reverse_cf) {
-    *upper_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
-    *lower_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
+    *upper_bound_slice =
+        rocksdb::Slice((const char *)lower_bound, lower_bound_size);
+    *lower_bound_slice =
+        rocksdb::Slice((const char *)upper_bound, upper_bound_size);
+    /* For rocksdb iterator bounds, the upper and lower bounds are absolute
+       and the scan direction has no bearing on them. Their values will depend
+       only on whether the CF is fwd or rev. So we can assert here that the
+       lower bound is not less than the upper bound, for reverse CF
+    */
+    assert(lower_bound_slice->compare(*upper_bound_slice ) >= 0);
+
   } else {
-    *upper_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
-    *lower_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
+    *upper_bound_slice =
+        rocksdb::Slice((const char *)upper_bound, upper_bound_size);
+    *lower_bound_slice =
+        rocksdb::Slice((const char *)lower_bound, lower_bound_size);
+    /* Just like for the reverse CF case above, we can assert here that the
+       lower bound is not greater than the upper bound, for fwd CF
+    */
+    assert(lower_bound_slice->compare(*upper_bound_slice ) <= 0);
   }
+
+  assert(lower_bound_size >= Rdb_key_def::INDEX_NUMBER_SIZE);
+
+  assert(upper_bound_size >= Rdb_key_def::INDEX_NUMBER_SIZE);
 }
 
 /**
@@ -18302,13 +18375,15 @@ bool ha_rocksdb::can_assume_tracked(THD *thd) {
 
 bool ha_rocksdb::check_bloom_and_set_bounds(
     THD *thd, const Rdb_key_def &kd, const rocksdb::Slice &eq_cond,
-    size_t bound_len, uchar *const lower_bound, uchar *const upper_bound,
+    const rocksdb::Slice *const slice, const rocksdb::Slice *const end_slice,
+    uchar *const lower_bound, uchar *const upper_bound,
     rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice,
-    bool *check_iterate_bounds) {
+    bool *check_iterate_bounds, enum ha_rkey_function find_flag) {
   bool can_use_bloom = can_use_bloom_filter(thd, kd, eq_cond);
   if (!can_use_bloom && (THDVAR(thd, enable_iterate_bounds))) {
-    setup_iterator_bounds(kd, eq_cond, bound_len, lower_bound, upper_bound,
-                          lower_bound_slice, upper_bound_slice);
+    setup_iterator_bounds(kd, eq_cond, slice, end_slice, lower_bound,
+                          upper_bound, lower_bound_slice, upper_bound_slice,
+                          find_flag);
     *check_iterate_bounds = THDVAR(thd, check_iterate_bounds);
   } else {
     // when bloom filter is used or iterate bound isn't used,

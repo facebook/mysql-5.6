@@ -105,7 +105,7 @@ HAVING
 DIFF>0;
 variable_name	DIFF
 rocksdb_number_db_next	15
-rocksdb_number_db_next_found	15
+rocksdb_number_db_next_found	14
 rocksdb_number_db_seek	4
 rocksdb_number_db_seek_found	1
 rocksdb_rows_read	15
@@ -425,7 +425,7 @@ HAVING
 DIFF>0;
 variable_name	DIFF
 rocksdb_number_db_next	22
-rocksdb_number_db_next_found	22
+rocksdb_number_db_next_found	21
 rocksdb_number_db_seek	1
 rocksdb_number_db_seek_found	1
 rocksdb_number_multiget_bytes_read	330
@@ -491,7 +491,7 @@ HAVING
 DIFF>0;
 variable_name	DIFF
 rocksdb_number_db_next	102
-rocksdb_number_db_next_found	102
+rocksdb_number_db_next_found	101
 rocksdb_number_db_seek	1
 rocksdb_number_db_seek_found	1
 rocksdb_number_multiget_bytes_read	1572
@@ -866,7 +866,7 @@ HAVING
 DIFF>0;
 variable_name	DIFF
 rocksdb_number_db_next	80
-rocksdb_number_db_next_found	78
+rocksdb_number_db_next_found	76
 rocksdb_number_db_seek	4
 rocksdb_number_db_seek_found	4
 rocksdb_rows_read	80
