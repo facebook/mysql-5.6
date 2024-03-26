@@ -137,6 +137,9 @@ IF (INSTALL_EXTRA_HEADERS)
   SET(HEADERS_MYSQL_DIR
     ${HEADERS_MYSQL_DIR}
     mysql/com_data.h
+    mysql/raft_listener_queue_if.h
+    mysql/raft_optype.h
+    mysql/raft_replication.h
     mysql/service_command.h
     mysql/service_cpu_scheduler.h
     mysql/service_locking.h
