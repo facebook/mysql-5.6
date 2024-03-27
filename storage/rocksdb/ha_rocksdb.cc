@@ -4938,10 +4938,6 @@ class Rdb_transaction {
 };
 
 #ifndef NDEBUG
-// simulate that RocksDB has reported corrupted data
-static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
-  *status = rocksdb::Status::Corruption();
-}
 static void dbug_change_status_to_io_error(rocksdb::Status *status) {
   *status = rocksdb::Status::IOError();
 }
@@ -8775,27 +8771,6 @@ static int rocksdb_init_func(void *const p) {
   return ret;
 }
 
-// If the iterator is not valid it might be because of EOF but might be due
-// to IOError or corruption. The good practice is always check it.
-// https://github.com/facebook/rocksdb/wiki/Iterator#error-handling
-bool is_valid_iterator(rocksdb::Iterator *scan_it) {
-  if (scan_it == nullptr) return false;
-  if (scan_it->Valid()) {
-    return true;
-  } else {
-    rocksdb::Status s = scan_it->status();
-    DBUG_EXECUTE_IF("rocksdb_return_status_corrupted",
-                    dbug_change_status_to_corrupted(&s););
-    if (s.IsIOError() || s.IsCorruption()) {
-      if (s.IsCorruption()) {
-        rdb_persist_corruption_marker();
-      }
-      rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
-    }
-    return false;
-  }
-}
-
 /**
   @brief
   Example of simple lock controls. The "table_handler" it creates is a
@@ -9197,11 +9172,11 @@ bool ha_rocksdb::init_with_fields() {
 */
 bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
                              const rocksdb::Slice *const ttl_rec_val,
-                             Rdb_transaction *tx) {
+                             Rdb_transaction &tx) {
   assert(kd.has_ttl());
   assert(kd.m_ttl_rec_offset != UINT_MAX);
-  THD *thd = tx->get_thd();
-  uint64_t read_filtering_ts = tx->get_or_create_ttl_read_filtering_ts();
+  auto *const thd = tx.get_thd();
+  auto read_filtering_ts = tx.get_or_create_ttl_read_filtering_ts();
 #ifndef NDEBUG
   assert(static_cast<int64_t>(read_filtering_ts) >=
          rdb_dbug_set_ttl_read_filter_ts());
@@ -15377,7 +15352,7 @@ static int calculate_cardinality_table_scan(
     uint64_t rows_scanned = 0ul;
     cardinality_collector
         .Reset(); /* reset m_last_key for each key definition */
-    for (it->Seek(first_index_key); is_valid_iterator(it.get()); it->Next()) {
+    for (it->Seek(first_index_key); is_valid_rdb_iterator(*it); it->Next()) {
       if (killed && *killed) {
         // NO_LINT_DEBUG
         LogPluginErrMsg(
@@ -19412,10 +19387,10 @@ void rdb_tx_multi_get(Rdb_transaction *tx,
                 sorted_input);
 }
 
-int rdb_tx_set_status_error(Rdb_transaction *tx, const rocksdb::Status &s,
+int rdb_tx_set_status_error(Rdb_transaction &tx, const rocksdb::Status &s,
                             const Rdb_key_def &kd,
                             const Rdb_tbl_def *const tbl_def) {
-  return tx->set_status_error(tx->get_thd(), s, kd, tbl_def, nullptr);
+  return tx.set_status_error(tx.get_thd(), s, kd, tbl_def, nullptr);
 }
 
 /****************************************************************************
@@ -19899,7 +19874,7 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
     return handler::multi_range_read_next(range_info);
   }
 
-  Rdb_transaction *tx = get_tx_from_thd(table->in_use);
+  auto &tx = *get_tx_from_thd(table->in_use);
   int rc;
 
   while (true) {

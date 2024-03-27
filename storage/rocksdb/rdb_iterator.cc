@@ -27,6 +27,24 @@
 
 namespace myrocks {
 
+// If the iterator is not valid it might be because of EOF but might be due
+// to IOError or corruption. The good practice is always check it.
+// https://github.com/facebook/rocksdb/wiki/Iterator#error-handling
+// This function should be used directly when MyRocks transaction object and
+// MySQL thread handle are not available for error setting, i.e. a background
+// thread without them. Otherwise one of the Rdb_iterator hierarchy classes
+// should be used, and this function is also a helper utility for them.
+bool is_valid_rdb_iterator(const rocksdb::Iterator &it) {
+  if (it.Valid()) return true;
+
+  const auto s = DBUG_EVALUATE_IF("rocksdb_return_status_corrupted",
+                                  rocksdb::Status::Corruption(), it.status());
+  if (s.IsIOError() || s.IsCorruption()) {
+    rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
+  }
+  return false;
+}
+
 Rdb_iterator::~Rdb_iterator() {}
 
 Rdb_iterator_base::Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
@@ -85,7 +103,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
   */
   rocksdb_smart_seek(!m_kd.m_is_reverse_cf, m_scan_it, key_slice);
 
-  while (is_valid_iterator(m_scan_it)) {
+  while (is_valid_rdb_iterator(*m_scan_it)) {
     if (!m_ignore_killed && thd_killed(m_thd)) {
       return HA_ERR_QUERY_INTERRUPTED;
     }
@@ -101,7 +119,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
     return HA_EXIT_SUCCESS;
   }
 
-  return HA_ERR_END_OF_FILE;
+  return convert_iterator_status();
 }
 
 int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
@@ -116,7 +134,7 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
   */
   rocksdb_smart_seek(m_kd.m_is_reverse_cf, m_scan_it, key_slice);
 
-  return is_valid_iterator(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_END_OF_FILE;
+  return convert_iterator_status();
 }
 
 void Rdb_iterator_base::release_scan_iterator() {
@@ -251,10 +269,10 @@ int Rdb_iterator_base::calc_eq_cond_len(enum ha_rkey_function find_flag,
 }
 
 int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
-  int rc = 0;
-  Rdb_transaction *const tx = get_tx_from_thd(m_thd);
-
   if (!m_valid) return HA_ERR_END_OF_FILE;
+
+  int rc = 0;
+  auto &tx = *get_tx_from_thd(m_thd);
   const rocksdb::Comparator *kd_comp = m_kd.get_cf()->GetComparator();
 
   for (;;) {
@@ -280,8 +298,8 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
       }
     }
 
-    if (!is_valid_iterator(m_scan_it)) {
-      rc = HA_ERR_END_OF_FILE;
+    if (!is_valid_rdb_iterator(*m_scan_it)) {
+      rc = convert_iterator_status();
       break;
     }
 
@@ -378,10 +396,10 @@ int Rdb_iterator_base::seek(enum ha_rkey_function find_flag,
   return rc;
 }
 
-int Rdb_iterator_base::convert_get_status(myrocks::Rdb_transaction *tx,
+int Rdb_iterator_base::convert_get_status(myrocks::Rdb_transaction &tx,
                                           const rocksdb::Status &s,
                                           rocksdb::PinnableSlice *value,
-                                          bool skip_ttl_check) {
+                                          bool skip_ttl_check) const {
   int rc = HA_EXIT_SUCCESS;
   if (!s.IsNotFound() && !s.ok()) {
     return rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
@@ -396,6 +414,19 @@ int Rdb_iterator_base::convert_get_status(myrocks::Rdb_transaction *tx,
   }
 
   return rc;
+}
+
+// Processes RocksDB iterator status for success or any errors. If there is no
+// MyRocks transaction object and MySQL thread handle available,
+// is_valid_rdb_iterator should be used instead.
+int Rdb_iterator_base::convert_iterator_status() const {
+  if (m_scan_it->Valid()) return HA_EXIT_SUCCESS;
+
+  auto s = m_scan_it->status();
+  if (s.ok() || s.IsNotFound()) return HA_ERR_END_OF_FILE;
+
+  auto &tx = *get_tx_from_thd(m_thd);
+  return rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
 }
 
 int Rdb_iterator_base::get(const rocksdb::Slice *key,
@@ -417,7 +448,7 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
         s = rocksdb::Status::Corruption();
       });
 
-  return convert_get_status(tx, s, value, skip_ttl_check);
+  return convert_get_status(*tx, s, value, skip_ttl_check);
 }
 
 void Rdb_iterator_base::multi_get(
@@ -431,7 +462,7 @@ void Rdb_iterator_base::multi_get(
                    value_slices.data(), m_table_type, statuses.data(),
                    sorted_input);
   for (std::size_t i = 0; i < size; i++) {
-    rtn_codes[i] = convert_get_status(tx, statuses[i], &value_slices[i],
+    rtn_codes[i] = convert_get_status(*tx, statuses[i], &value_slices[i],
                                       /*skip_ttl_check*/ false);
   }
 }
@@ -703,7 +734,7 @@ int Rdb_iterator_partial::materialize_prefix() {
     return HA_EXIT_SUCCESS;
   } else if (!s.IsNotFound()) {
     thd_proc_info(m_thd, old_proc_info);
-    return rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
+    return rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
   }
 
   rocksdb::WriteOptions options;
@@ -715,7 +746,7 @@ int Rdb_iterator_partial::materialize_prefix() {
   // Write sentinel key with empty value.
   s = wb->Put(m_kd.get_cf(), cur_prefix_key, rocksdb::Slice());
   if (!s.ok()) {
-    rc = rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
+    rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
     rdb_tx_release_lock(tx, m_kd, cur_prefix_key, true /* force */);
     thd_proc_info(m_thd, old_proc_info);
     return rc;
@@ -757,7 +788,7 @@ int Rdb_iterator_partial::materialize_prefix() {
                 rocksdb::Slice((const char *)m_sk_tails.ptr(),
                                m_sk_tails.get_current_pos()));
     if (!s.ok()) {
-      rc = rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
+      rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
       goto exit;
     }
 
@@ -770,7 +801,7 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   s = rdb_get_rocksdb_db()->Write(options, optimize, wb.get());
   if (!s.ok()) {
-    rc = rdb_tx_set_status_error(tx, s, m_kd, m_tbl_def);
+    rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
     goto exit;
   }
 
