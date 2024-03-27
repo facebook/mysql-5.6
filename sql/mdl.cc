@@ -2021,6 +2021,11 @@ void MDL_lock::reschedule_waiters() {
             continue;
           }
         }
+
+        if (key.mdl_namespace() == MDL_key::MUTEX) {
+          // No point in going through the rest of the waiters.
+          break;
+        }
       }
       /*
         If we could not update the wait slot of the waiter,
