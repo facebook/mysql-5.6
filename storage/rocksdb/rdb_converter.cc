@@ -627,15 +627,15 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
+int Rdb_converter::decode(const Rdb_key_def &key_def,
                           uchar *dst,  // address to fill data
                           const rocksdb::Slice *key_slice,
                           const rocksdb::Slice *value_slice,
                           bool decode_value) {
   // Currently only support decode primary key, Will add decode secondary
   // later
-  assert(key_def->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
-         key_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
+  assert(key_def.m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
+         key_def.m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
 
   const rocksdb::Slice *updated_key_slice = key_slice;
 #ifndef NDEBUG
@@ -659,11 +659,11 @@ int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::decode_value_header_for_pk(
-    Rdb_string_reader *reader, const std::shared_ptr<Rdb_key_def> &pk_def,
-    rocksdb::Slice *unpack_slice) {
+int Rdb_converter::decode_value_header_for_pk(Rdb_string_reader *reader,
+                                              const Rdb_key_def &pk_def,
+                                              rocksdb::Slice *unpack_slice) {
   /* If it's a TTL record, skip the 8 byte TTL value */
-  if (pk_def->has_ttl()) {
+  if (pk_def.has_ttl()) {
     const char *ttl_bytes;
     if ((ttl_bytes = reader->read(ROCKSDB_SIZEOF_TTL_RECORD))) {
       memcpy(m_ttl_bytes, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
@@ -707,8 +707,7 @@ int Rdb_converter::decode_value_header_for_pk(
     other  HA_ERR error code (can be SE-specific)
 */
 int Rdb_converter::convert_record_from_storage_format(
-    const std::shared_ptr<Rdb_key_def> &pk_def,
-    const rocksdb::Slice *const key_slice,
+    const Rdb_key_def &pk_def, const rocksdb::Slice *const key_slice,
     const rocksdb::Slice *const value_slice, uchar *const dst,
     bool decode_value = true) {
   bool skip_value = !decode_value || get_decode_fields()->size() == 0;
@@ -729,9 +728,9 @@ int Rdb_converter::convert_record_from_storage_format(
     Decode PK fields from the key
   */
   if (m_key_requested) {
-    err = pk_def->unpack_record(m_table, dst, key_slice,
-                                !unpack_slice.empty() ? &unpack_slice : nullptr,
-                                false /* verify_checksum */);
+    err = pk_def.unpack_record(m_table, dst, key_slice,
+                               !unpack_slice.empty() ? &unpack_slice : nullptr,
+                               false /* verify_checksum */);
     if (err != HA_EXIT_SUCCESS) {
       return err;
     }
@@ -771,9 +770,10 @@ int Rdb_converter::convert_record_from_storage_format(
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::verify_row_debug_checksum(
-    const std::shared_ptr<Rdb_key_def> &pk_def, Rdb_string_reader *reader,
-    const rocksdb::Slice *key, const rocksdb::Slice *value) {
+int Rdb_converter::verify_row_debug_checksum(const Rdb_key_def &pk_def,
+                                             Rdb_string_reader *reader,
+                                             const rocksdb::Slice *key,
+                                             const rocksdb::Slice *value) {
   if (reader->remaining_bytes() == RDB_CHECKSUM_CHUNK_SIZE &&
       reader->read(1)[0] == RDB_CHECKSUM_DATA_TAG) {
     uint32_t stored_key_chksum =
@@ -790,13 +790,13 @@ int Rdb_converter::verify_row_debug_checksum(
     DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1", stored_key_chksum++;);
 
     if (stored_key_chksum != computed_key_chksum) {
-      pk_def->report_checksum_mismatch(true, key->data(), key->size());
+      pk_def.report_checksum_mismatch(true, key->data(), key->size());
       return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
     }
 
     DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum2", stored_val_chksum++;);
     if (stored_val_chksum != computed_val_chksum) {
-      pk_def->report_checksum_mismatch(false, value->data(), value->size());
+      pk_def.report_checksum_mismatch(false, value->data(), value->size());
       return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
     }
 
@@ -822,18 +822,17 @@ int Rdb_converter::verify_row_debug_checksum(
   @param value_slice          OUT       Data slice with record data.
 */
 int Rdb_converter::encode_value_slice(
-    const std::shared_ptr<Rdb_key_def> &pk_def,
-    const rocksdb::Slice &pk_packed_slice, Rdb_string_writer *pk_unpack_info,
-    bool is_update_row, bool store_row_debug_checksums, char *ttl_bytes,
-    bool *is_ttl_bytes_updated, rocksdb::Slice *const value_slice) {
-  assert(pk_def != nullptr);
+    const Rdb_key_def &pk_def, const rocksdb::Slice &pk_packed_slice,
+    Rdb_string_writer *pk_unpack_info, bool is_update_row,
+    bool store_row_debug_checksums, char *ttl_bytes, bool *is_ttl_bytes_updated,
+    rocksdb::Slice *const value_slice) {
   // Currently only primary key will store value slice
-  assert(pk_def->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
-         pk_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
+  assert(pk_def.m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
+         pk_def.m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
   assert_IMP(m_maybe_unpack_info, pk_unpack_info);
 
-  bool has_ttl = pk_def->has_ttl();
-  bool has_ttl_column = !pk_def->m_ttl_column.empty();
+  const auto has_ttl = pk_def.has_ttl();
+  const auto has_ttl_column = !pk_def.m_ttl_column.empty();
 
   m_storage_record.length(0);
 
@@ -848,8 +847,8 @@ int Rdb_converter::encode_value_slice(
     *is_ttl_bytes_updated = false;
     char *const data = const_cast<char *>(m_storage_record.ptr());
     if (has_ttl_column) {
-      assert(pk_def->get_ttl_field_index() != UINT_MAX);
-      Field *const field = m_table->field[pk_def->get_ttl_field_index()];
+      assert(pk_def.get_ttl_field_index() != UINT_MAX);
+      const auto *const field = m_table->field[pk_def.get_ttl_field_index()];
       assert(field->real_type() == MYSQL_TYPE_LONGLONG ||
              field->type() == MYSQL_TYPE_TIMESTAMP);
 

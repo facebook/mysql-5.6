@@ -338,17 +338,17 @@ std::string Rdb_tbl_prop_coll::GetReadableStats(const Rdb_index_stats &it) {
   Given the properties of an SST file, reads the stats from it and returns it.
 */
 
-void Rdb_tbl_prop_coll::read_stats_from_tbl_props(
-    const std::shared_ptr<const rocksdb::TableProperties> &table_props,
-    std::vector<Rdb_index_stats> *const out_stats_vector) {
-  assert(out_stats_vector != nullptr);
-  const auto &user_properties = table_props->user_collected_properties;
+std::vector<Rdb_index_stats> Rdb_tbl_prop_coll::read_stats_from_tbl_props(
+    const rocksdb::TableProperties &table_props) {
+  std::vector<Rdb_index_stats> res;
+  const auto &user_properties = table_props.user_collected_properties;
   const auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
   if (it2 != user_properties.end()) {
-    auto result MY_ATTRIBUTE((__unused__)) =
-        Rdb_index_stats::unmaterialize(it2->second, out_stats_vector);
+    const auto result [[maybe_unused]] =
+        Rdb_index_stats::unmaterialize(it2->second, &res);
     assert(result == 0);
   }
+  return res;
 }
 
 /*

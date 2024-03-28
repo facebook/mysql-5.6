@@ -2071,8 +2071,8 @@ static int rdb_i_s_index_file_map_fill_table(
           sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<Rdb_index_stats> stats;
-      Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second, &stats);
+      const auto stats =
+          Rdb_tbl_prop_coll::read_stats_from_tbl_props(*props.second);
 
       if (stats.empty()) {
         field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(-1, true);
