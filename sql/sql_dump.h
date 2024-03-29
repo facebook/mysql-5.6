@@ -39,8 +39,9 @@ class Table_ref;
 
 class Sql_cmd_dump_table final : public Sql_cmd {
  public:
-  Sql_cmd_dump_table(Table_ident *table, const LEX_STRING &filename)
-      : m_table(table), m_filename(filename) {}
+  Sql_cmd_dump_table(Table_ident *table, const LEX_STRING &filename,
+                     PT_item_list *item_list)
+      : m_table(table), m_filename(filename), m_item_list(item_list) {}
 
   enum_sql_command sql_command_code() const override { return SQLCOM_DUMP; }
 
@@ -144,12 +145,13 @@ class Sql_cmd_dump_table final : public Sql_cmd {
   bool start_threads(THD *thd, TABLE_SHARE *share, ulonglong snapshot_id,
                      int nthreads, my_thread_handle *handles,
                      Dump_worker_args *args);
-  bool dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
+  bool dump_chunk(Table_ref *tr, mem_root_deque<Item *> *list,
                   Dump_work_item *work);
   uchar *enqueue_chunk(THD *thd, TABLE *table, uchar *start_ref, uchar *end_row,
                        int64_t chunk_id, int64_t chunk_rows);
   Table_ident *const m_table;
   LEX_STRING m_filename;
+  PT_item_list *m_item_list;
   Work_queue<Dump_work_item> m_work_queue;
 
   // Number of dump worker threads to create.

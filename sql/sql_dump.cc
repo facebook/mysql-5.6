@@ -27,10 +27,11 @@
 #include "auth/auth_acls.h"
 #include "mysql/components/services/log_builtins.h"
 #include "sql/debug_sync.h"
+#include "sql/item.h"
 #include "sql/log.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"
-#include "sql/parser_yystype.h"
+#include "sql/parse_tree_helpers.h"
 #include "sql/protocol_classic.h"
 #include "sql/query_result.h"
 #include "sql/snapshot.h"
@@ -49,7 +50,7 @@
 
   @return true on error, false otherwise.
 */
-bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
+bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> *list,
                                     Dump_work_item *work) {
   DBUG_TRACE;
 
@@ -85,7 +86,7 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
   // TODO: add grammar to customize field/line sep options.
   Query_result_export result(&exchange);
 
-  if (result.prepare(thd, list, nullptr /* query expression */)) {
+  if (result.prepare(thd, *list, nullptr /* query expression */)) {
     is_err = true;
     goto exit;
   }
@@ -125,12 +126,11 @@ bool Sql_cmd_dump_table::dump_chunk(Table_ref *tr, mem_root_deque<Item *> &list,
     thd->check_yield();
 
     ++numrows;
-    (void)numrows;  // for release builds.
     DBUG_PRINT("verbose",
                ("read row %d in chunk %" PRId64, numrows, work->chunk_id));
 
     // send rowbuf to result (which will be the chunk file).
-    result.send_data(thd, list);
+    result.send_data(thd, *list);
 
     // See if we've dumped all the rows for this chunk.
     if (numrows == work->nrows) {
@@ -178,6 +178,17 @@ exit:
 }
 
 /**
+  Helper to set the PK fields into the table's read_set.
+*/
+static void set_pk_fields(TABLE *table) {
+  KEY *pk = &table->key_info[table->s->primary_key];
+  for (unsigned int i = 0; i < pk->actual_key_parts; ++i) {
+    KEY_PART_INFO *key_part = &pk->key_part[i];
+    bitmap_set_bit(table->read_set, key_part->fieldnr - 1);
+  }
+}
+
+/**
   Dump worker entry point. Processes chunk work items from a queue and writes
   them to storage.
 */
@@ -189,7 +200,7 @@ exit:
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   bool thd_inited = false;
   // List of fields (or expressions) to dump.
-  mem_root_deque<Item *> list(nullptr);
+  mem_root_deque<Item *> field_list(nullptr);
   TABLE *table = nullptr;
   Table_ref *tr = nullptr;
   handlerton *hton = nullptr;
@@ -240,7 +251,7 @@ exit:
   DBUG_PRINT("dump", ("Dump worker started"));
 
   // Now that we have a thd, set the mem root for the list.
-  list.set_mem_root(thd->mem_root);
+  field_list.set_mem_root(thd->mem_root);
 
   query_block = thd->lex->query_block;
 
@@ -254,6 +265,13 @@ exit:
   // This is needed for insert_fields() below to iterate the fields of the
   // table.
   query_block->context.resolve_in_table_list_only(tr);
+
+  // Grant SELECT_ACL on the table ref so that insert_fields or setup_fields is
+  // able to access the columns. The access check has already been performed in
+  // the main thread (see the call to check_table_access()). This is an internal
+  // thread spawned on behalf of the main one, so we do not need to re-validate
+  // permissions.
+  tr->set_privileges(SELECT_ACL);
 
   if (open_and_lock_tables(thd, tr, 0)) {
     args->is_err = true;
@@ -276,29 +294,48 @@ exit:
     snapshot_attached = true;
   }
 
-  // Set SELECT_ACL on the table ref so that insert_fields is able to access
-  // all the columns.
-  // TODO: what is the right way to handle this?
-  tr->set_privileges(SELECT_ACL);
-
-  // TODO: allow select-list with arbitrary expressions.
-  table->use_all_columns();
-
-  {
-    // TEMP: Add a hardcoded "*" expression as the item select list for now, and
-    // expand it to all the fields in the table ref. Later we will take the
-    // select list in the grammar itself.
-
+  if (!args->cmd->m_item_list) {
+    // If no item list provided, add a select-all "*" expression as the item
+    // list and expand it to all the fields in the table ref.
     Item_field star_field(&query_block->context, nullptr, nullptr, "*");
-    list.push_back(&star_field);
-    auto list_it = list.begin();
+    field_list.push_back(&star_field);
+    auto list_it = field_list.begin();
 
-    // Expand the "*" select expression into fields. Later replace with grammar.
-    if (insert_fields(thd, query_block, tr->db, tr->alias, &list, &list_it,
-                      false /* any_privileges */)) {
+    // Expand the "*" select expression into fields.
+    if (insert_fields(thd, query_block, tr->db, tr->alias, &field_list,
+                      &list_it, false /* any_privileges */)) {
       args->is_err = true;
       goto exit;
     }
+  } else {
+    // Build a list of fields based on those captured in the parse and
+    // resolve/bind them to this thread's TABLE.
+    // Note that we can't just use args->cmd->m_item_list as is because it is
+    // already bound to the main thread's TABLE object. We need to create our
+    // own list.
+    for (Item *item : args->cmd->m_item_list->value) {
+      Item_field *field = new (thd->mem_root) Item_field(
+          &query_block->context, nullptr, nullptr, item->item_name.ptr());
+      if (!field) {
+        my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR), sizeof(Item_field));
+        args->is_err = true;
+        goto exit;
+      }
+      field_list.push_back(field);
+    }
+
+    // Resolve the columns in field_list and add them to the read_set.
+    if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                     /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                     /*column_update=*/false, /*typed_items=*/nullptr,
+                     &field_list, Ref_item_array())) {
+      args->is_err = true;
+      goto exit;
+    }
+
+    // Ensure all PK columns are retrieved since we want precise positioning
+    // when we iterate chunks.
+    set_pk_fields(table);
   }
 
   // Dequeue work items until killed.
@@ -312,7 +349,7 @@ exit:
       // No more work and THD killed.
       break;
     }
-    if (args->cmd->dump_chunk(tr, list, work)) {
+    if (args->cmd->dump_chunk(tr, &field_list, work)) {
       args->is_err = true;
       goto exit;
     }
@@ -463,14 +500,27 @@ exit:
 }
 
 /**
-  Helper to get the actual (not max) size of a row, taking into account variable
-  length fields.
+  Helper to get the actual (not max) size of a row that will be output to the
+  chunk file, taking into account variable length fields and actual column
+  list if provided, or all the fields in `table` otherwise.
 */
-static int get_row_actual_size(Field **fields, int nfields) {
+static int get_row_actual_size(TABLE *table,
+                               const mem_root_deque<Item *> *field_list) {
   int sum = 0;
-  for (int i = 0; i < nfields; i++) {
-    Field *field = fields[i];
-    sum += field->data_length();
+  if (field_list) {
+    for (Item *item : *field_list) {
+      assert(item->type() == Item::FIELD_ITEM);
+      Item_field *item_field = down_cast<Item_field *>(item);
+      Field *field = item_field->field;
+      sum += field->data_length();
+    }
+  } else {
+    // No field list given, assume all the fields in the table.
+    for (uint i = 0; i < table->s->fields; i++) {
+      assert(bitmap_is_set(table->read_set, i));
+      Field *field = table->field[i];
+      sum += field->data_length();
+    }
   }
   return sum;
 }
@@ -537,6 +587,8 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   handler *ha = nullptr;
   uchar *rowbuf = nullptr;
   handlerton *hton = nullptr;
+  mem_root_deque<Item *> *item_list =
+      m_item_list ? &m_item_list->value : nullptr;
   assert(m_nthreads > 0);
   DBUG_PRINT("dump", ("Dumping table '%s' with %d threads. Chunk size: %d %s.",
                       table_ref->table_name, m_nthreads, m_chunk_size,
@@ -552,16 +604,16 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
 
   // Used to count the number of rows in each chunk. With row count based
   // chunking, this is a constant. But with size-based, we will need to know
-  // how many we scanned before creating the chunk work item, to avoid checking
-  // the end key each time.
+  // how many we scanned before creating the chunk work item, to avoid
+  // checking the end key each time.
   int64_t last_rownum = 0;
   int64_t chunk_id = 0;
   bool snapshot_created = false;
   bool scan_started = false;
 
   // Row based chunking variables.
-  int nrows =
-      m_chunk_size;  // number of rows per chunk if row-based chunking is used.
+  int nrows = m_chunk_size;  // number of rows per chunk if row-based chunking
+                             // is used.
 
   // Size-based chunking variables.
   uint64_t chunk_size_bytes = 0;  // if byte-based chunking is used.
@@ -573,6 +625,11 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   std::vector<Dump_worker_args> worker_args(m_nthreads);
   snapshot_info_st snapshot_info;
 
+  if (check_table_access(thd, SELECT_ACL, table_ref, false, UINT_MAX, false)) {
+    is_err = true;
+    goto exit;
+  }
+
   if (open_and_lock_tables(thd, table_ref, 0)) {
     is_err = true;
     goto exit;
@@ -582,6 +639,14 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
   ha = table->file;
   rowbuf = table->record[0];
   hton = table->s->db_type();
+
+  if (table->s->is_missing_primary_key()) {
+    // Table must have a primary key to use DUMP TABLE since we need to position
+    // cursors efficiently to arbitrary points.
+    my_error(ER_REQUIRES_PRIMARY_KEY, MYF(0));
+    is_err = true;
+    goto exit;
+  }
 
   if (m_consistent) {
     // Create a shared snapshot of the data for all worker threads to use.
@@ -595,15 +660,30 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
     DEBUG_SYNC(thd, "dump_snapshot_created");
   }
 
+  if (item_list) {
+    // Resolve the columns in m_item_list and add them to the read_set.
+    if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                     /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                     /*column_update=*/false, /*typed_items=*/nullptr,
+                     item_list, Ref_item_array())) {
+      is_err = true;
+      goto exit;
+    }
+
+    // Ensure all PK columns are retrieved since we want precise positioning
+    // when we iterate chunks.
+    set_pk_fields(table);
+  } else {
+    // Add all columns to the read_set.
+    table->use_all_columns();
+  }
+
   // Start worker threads.
   if (start_threads(thd, table->s, m_consistent ? snapshot_info.snapshot_id : 0,
                     m_nthreads, handles.data(), worker_args.data())) {
     is_err = true;
     goto exit;
   }
-
-  // TODO: allow select-list with arbitrary expressions.
-  table->use_all_columns();
 
   // Start main scan over base table, looking for chunk boundaries.
   error = ha->ha_rnd_init(true);
@@ -686,7 +766,7 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
 
     // Track bytes if needed.
     if (m_chunk_unit != Chunk_unit::ROWS) {
-      bytes_so_far += get_row_actual_size(table->field, table->s->fields);
+      bytes_so_far += get_row_actual_size(table, item_list);
     }
 
     DBUG_EXECUTE_IF("verbose", {
@@ -694,13 +774,15 @@ bool Sql_cmd_dump_table::execute(THD *thd) {
       std::string tuple;
 
       for (uint i = 0; i < table->s->fields; i++) {
-        Field *field = table->field[i];
-        String tmp(buf, thd->charset());
-        String *str = field->val_str(&tmp);
-        tuple += field->field_name;
-        tuple += ": ";
-        tuple.append(str->c_ptr());
-        tuple += ", ";
+        if (bitmap_is_set(table->read_set, i)) {
+          Field *field = table->field[i];
+          String tmp(buf, thd->charset());
+          String *str = field->val_str(&tmp);
+          tuple += field->field_name;
+          tuple += ": ";
+          tuple.append(str->c_ptr());
+          tuple += ", ";
+        }
       }
       DBUG_PRINT("verbose", ("tuple read: %s: ", tuple.c_str()));
     });

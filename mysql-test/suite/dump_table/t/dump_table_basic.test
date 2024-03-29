@@ -20,16 +20,13 @@ source suite/dump_table/include/populate_table.inc;
 SELECT COUNT(*) INTO @numrows FROM t1;
 SELECT @numrows;
 
-# Default chunk size.
-let $chunk_size_rows=128;
-let $numrows = `select @numrows`;
-expr $num_chunks = $numrows / $chunk_size_rows;
 let $chunk_prefix=t1dump;
 
 # Positive tests.
 source suite/dump_table/include/dump_stmt.inc;
 source suite/dump_table/include/load_and_verify_chunks.inc;
 
+# Thread variations.
 let $dump_opts=WITH ( THREADS = 1 );
 source suite/dump_table/include/dump_stmt.inc;
 source suite/dump_table/include/load_and_verify_chunks.inc;
@@ -113,5 +110,15 @@ eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = 0 ROWS );
 --error ER_PARSE_ERROR
 eval DUMP TABLE t1 INTO '$chunk_prefix' WITH ( CHUNK_SIZE = 1 TB );
 
+--echo Test PK requirement
+CREATE TABLE t2_nopk (
+  a int not null,
+  b int not null
+);
+
+--error ER_REQUIRES_PRIMARY_KEY
+eval DUMP TABLE t2_nopk INTO '$chunk_prefix';
+
 # Cleanup
+DROP TABLE t2_nopk;
 DROP TABLE t1;

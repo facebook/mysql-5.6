@@ -1,0 +1,51 @@
+# Tests for DUMP TABLE statement with select-list.
+
+use test;
+
+CREATE TABLE t1 (
+  a int not null auto_increment,
+  b int not null,
+  c int not null,
+  d varchar(2000),
+  e varchar(2000),
+  primary key (a, b, c),
+  key c_idx (c)
+);
+
+# Insert some dummy data.
+source suite/dump_table/include/populate_table.inc;
+
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+
+let $chunk_prefix=t1dump;
+let $select_list=a,b,c;
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_chunks.inc;
+--echo Compare t1 and t1load
+SELECT * FROM t1 LIMIT 5;
+SELECT * FROM t1load LIMIT 5;
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t1load;
+DROP TABLE t1load;
+
+let $select_list=a,b;
+source suite/dump_table/include/dump_stmt.inc;
+source suite/dump_table/include/load_chunks.inc;
+--echo Compare t1 and t1load
+SELECT * FROM t1 LIMIT 5;
+SELECT * FROM t1load LIMIT 5;
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t1load;
+DROP TABLE t1load;
+
+# Negative tests with select-list
+--error ER_BAD_FIELD_ERROR
+eval DUMP TABLE t1 (a, b, z) INTO '$chunk_prefix';
+--error ER_PARSE_ERROR
+eval DUMP TABLE t1 (a, b+1) INTO '$chunk_prefix';
+--error ER_PARSE_ERROR
+eval DUMP TABLE t1 (*) INTO '$chunk_prefix';
+
+# Cleanup
+DROP TABLE t1;

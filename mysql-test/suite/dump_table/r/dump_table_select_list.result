@@ -1,0 +1,71 @@
+use test;
+CREATE TABLE t1 (
+a int not null auto_increment,
+b int not null,
+c int not null,
+d varchar(2000),
+e varchar(2000),
+primary key (a, b, c),
+key c_idx (c)
+);
+SELECT COUNT(*) INTO @numrows FROM t1;
+SELECT @numrows;
+@numrows
+1024
+DUMP TABLE t1( a,b,c ) INTO 't1dump' 
+Num chunks dumped: 8
+CREATE TABLE t1load AS SELECT a,b,c FROM t1 LIMIT 0;
+Compare t1 and t1load
+SELECT * FROM t1 LIMIT 5;
+a	b	c	d	e
+1	1	2	aaa	bbb
+2	1	2	aaa	bbb
+3	1	2	aaa	bbb
+4	1	2	aaa	bbb
+5	1	2	aaa	bbb
+SELECT * FROM t1load LIMIT 5;
+a	b	c
+1	1	2
+2	1	2
+3	1	2
+4	1	2
+5	1	2
+SELECT count(*) FROM t1;
+count(*)
+1024
+SELECT count(*) FROM t1load;
+count(*)
+1024
+DROP TABLE t1load;
+DUMP TABLE t1( a,b ) INTO 't1dump' 
+Num chunks dumped: 8
+CREATE TABLE t1load AS SELECT a,b FROM t1 LIMIT 0;
+Compare t1 and t1load
+SELECT * FROM t1 LIMIT 5;
+a	b	c	d	e
+1	1	2	aaa	bbb
+2	1	2	aaa	bbb
+3	1	2	aaa	bbb
+4	1	2	aaa	bbb
+5	1	2	aaa	bbb
+SELECT * FROM t1load LIMIT 5;
+a	b
+1	1
+2	1
+3	1
+4	1
+5	1
+SELECT count(*) FROM t1;
+count(*)
+1024
+SELECT count(*) FROM t1load;
+count(*)
+1024
+DROP TABLE t1load;
+DUMP TABLE t1 (a, b, z) INTO 't1dump';
+ERROR 42S22: Unknown column 'z' in 'field list'
+DUMP TABLE t1 (a, b+1) INTO 't1dump';
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '+1) INTO 't1dump'' at line 1
+DUMP TABLE t1 (*) INTO 't1dump';
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '*) INTO 't1dump'' at line 1
+DROP TABLE t1;

@@ -5,9 +5,14 @@
 # - t1 (source table) to exist.
 
 let $dumpdir=`SELECT CONCAT(@@datadir, database())`;
+let $_select_cols = $select_list;
+if (!$select_list)
+{
+    let $_select_cols = *;
+}
 
-# Create the load table with the same schema as t1.
-CREATE TABLE t1load AS SELECT * FROM t1 LIMIT 0;
+# Create the load table with the same schema as t1 (or a subset)
+eval CREATE TABLE t1load AS SELECT $_select_cols FROM t1 LIMIT 0;
 
 --disable_query_log
 let $i = 0;

@@ -131,4 +131,12 @@ DUMP TABLE t1 INTO 't1dump' WITH ( CHUNK_SIZE = 0 ROWS );
 ERROR HY000: Incorrect arguments to CHUNK_SIZE
 DUMP TABLE t1 INTO 't1dump' WITH ( CHUNK_SIZE = 1 TB );
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'TB )' at line 1
+Test PK requirement
+CREATE TABLE t2_nopk (
+a int not null,
+b int not null
+);
+DUMP TABLE t2_nopk INTO 't1dump';
+ERROR 42000: This table type requires a primary key
+DROP TABLE t2_nopk;
 DROP TABLE t1;

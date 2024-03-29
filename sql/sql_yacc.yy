@@ -1628,6 +1628,7 @@ void warn_about_deprecated_binary(THD *thd)
         fields_or_vars
         opt_field_or_var_spec
         row_value_explicit
+        opt_dump_columns
 
 %type <var_type>
         option_type opt_var_type opt_rvalue_system_variable_type opt_set_var_ident_type
@@ -14945,17 +14946,31 @@ dump_stmt:
           DUMP_SYM                      /*  1 */
           TABLE_SYM                     /*  2 */
           table_ident                   /*  3 */
-          INTO                          /*  4 */
-          TEXT_STRING_filesystem        /*  5 */
-          opt_dump_option_clause        /*  6 */
+          opt_dump_columns              /*  4 */
+          INTO                          /*  5 */
+          TEXT_STRING_filesystem        /*  6 */
+          opt_dump_option_clause        /*  7 */
           {
             $$= NEW_PTN PT_dump_table(
               $3 /* table_ident */,
-              $5 /* TEXT_STRING_filesystem */,
-              $6 /* opt_dump_option_clause */
+              $4 /* opt_dump_columns */,
+              $6 /* TEXT_STRING_filesystem */,
+              $7 /* opt_dump_option_clause */
             );
           }
         ;
+
+opt_dump_columns:
+  /* empty */
+  {
+    $$ = nullptr;
+  }
+  /* reuse insert_columns rule since we only want simple column refs */
+  | '(' insert_columns ')'
+  {
+    $$ = $2;
+  }
+  ;
 
 opt_dump_option_clause:
   /* empty */

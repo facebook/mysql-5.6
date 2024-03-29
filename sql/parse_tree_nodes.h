@@ -5289,15 +5289,18 @@ class PT_load_table final : public Parse_tree_root {
 
 class PT_dump_table final : public Parse_tree_root {
  public:
-  PT_dump_table(Table_ident *table, const LEX_STRING filename,
-                const Dump_table_opts &opts)
-      : m_cmd(table, filename), m_opts(opts) {}
+  PT_dump_table(Table_ident *table, PT_item_list *item_list,
+                const LEX_STRING filename, const Dump_table_opts &opts)
+      : m_cmd(table, filename, item_list),
+        m_opts(opts),
+        m_item_list(item_list) {}
 
   Sql_cmd *make_cmd(THD *thd) override;
 
  private:
   Sql_cmd_dump_table m_cmd;
   Dump_table_opts m_opts;
+  PT_item_list *m_item_list;
 };
 
 /**

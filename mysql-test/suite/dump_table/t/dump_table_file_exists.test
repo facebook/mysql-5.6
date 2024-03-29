@@ -36,4 +36,9 @@ eval DUMP TABLE t1 INTO '$chunk_prefix';
 eval DUMP TABLE t1 INTO '$chunk_prefix';
 
 # Cleanup
+
+# Remove the files created by DUMP TABLE.
+let $dumpdir=`SELECT CONCAT(@@datadir, database())`;
+remove_files_wildcard $dumpdir $chunk_prefix.*;
+
 DROP TABLE t1;

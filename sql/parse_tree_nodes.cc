@@ -3673,8 +3673,14 @@ Sql_cmd *PT_dump_table::make_cmd(THD *thd) {
   m_cmd.set_chunk_size(m_opts.chunk_size);
   m_cmd.set_chunk_unit(m_opts.chunk_unit);
   m_cmd.set_consistent(m_opts.consistent);
-  Query_block *const select = lex->current_query_block();
-  if (!select->add_table_to_list(thd, m_cmd.get_table(), nullptr, 0))
+
+  Query_block *const query_block = lex->current_query_block();
+  Parse_context pc(thd, query_block);
+  if (m_item_list && m_item_list->contextualize(&pc)) {
+    return nullptr;
+  }
+
+  if (!query_block->add_table_to_list(thd, m_cmd.get_table(), nullptr, 0))
     return nullptr;
   return &m_cmd;
 }
