@@ -1,7 +1,7 @@
 SET @start_global_value = @@global.ROCKSDB_FILE_CHECKSUMS;
 SELECT @start_global_value;
 @start_global_value
-0
+CHECKSUMS_OFF
 "Trying to set variable @@global.ROCKSDB_FILE_CHECKSUMS to 444. It should fail because it is readonly."
 SET @@global.ROCKSDB_FILE_CHECKSUMS   = 444;
 ERROR HY000: Variable 'rocksdb_file_checksums' is a read only variable

@@ -1,1 +1,1 @@
---rocksdb-file-checksums
+--rocksdb-file-checksums=checksums_write_only --rocksdb_default_cf_options=disable_auto_compactions=true

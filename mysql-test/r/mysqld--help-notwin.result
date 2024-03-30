@@ -2212,8 +2212,12 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-error-on-suboptimal-collation to disable.)
  --rocksdb-fault-injection-options=name 
  Fault injection options for running rocksdb tests
- --rocksdb-file-checksums 
- Whether to write and check RocksDB file-level checksums
+ --rocksdb-file-checksums[=name] 
+ Whether to write and check RocksDB file-level checksums.
+ CHECKSUMS_OFF: nothing, CHECKSUMS_WRITE_ONLY: write
+ checksums but skips verification,
+ CHECKSUMS_WRITE_AND_VERIFY: write checksums, and verify
+ on DB::open
  --rocksdb-flush-log-at-trx-commit=# 
  Sync on transaction commit. Similar to
  innodb_flush_log_at_trx_commit. 1: sync on commit, 0,2:
@@ -3857,7 +3861,7 @@ rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-error-on-suboptimal-collation TRUE
 rocksdb-fault-injection-options (No default value)
-rocksdb-file-checksums FALSE
+rocksdb-file-checksums CHECKSUMS_OFF
 rocksdb-flush-log-at-trx-commit 1
 rocksdb-force-compute-memtable-stats TRUE
 rocksdb-force-compute-memtable-stats-cachetime 60000000

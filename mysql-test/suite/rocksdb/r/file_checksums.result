@@ -12,4 +12,9 @@ a	b
 SET GLOBAL rocksdb_pause_background_work = 1;
 # Kill the server
 # restart
+set global rocksdb_compact_cf='cf1';
+# Kill the server
+# restart
+# Kill the server
+# restart
 DROP TABLE t1;
