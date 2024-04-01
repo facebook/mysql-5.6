@@ -3002,6 +3002,7 @@ static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
 */
 
 void JOIN::adjust_access_methods() {
+  uint best = MAX_KEY;
   ASSERT_BEST_REF_IN_JOIN_ORDER(this);
   for (uint i = const_tables; i < tables; i++) {
     JOIN_TAB *const tab = best_ref[i];
@@ -3034,10 +3035,15 @@ void JOIN::adjust_access_methods() {
           tab->index=find_shortest_key(table, & table->covering_keys);
         */
         if (tab->position()->sj_strategy != SJ_OPT_LOOSE_SCAN)
-          tab->set_index(
-              find_shortest_key(tab->table(), &tab->table()->covering_keys));
-        tab->set_type(JT_INDEX_SCAN);  // Read with index_first / index_next
-        // From table scan to index scan, thus filter effect needs no recalc.
+          best = find_shortest_key(tab->table(), &tab->table()->covering_keys);
+
+        if (best != MAX_KEY ||
+            tab->position()->sj_strategy == SJ_OPT_LOOSE_SCAN) {
+          tab->set_index(best);
+          tab->set_type(JT_INDEX_SCAN);  // Read with index_first / index_next
+                                         // From table scan to index scan, thus
+                                         // filter effect needs no recalc.
+        }
       }
     } else if (tab->type() == JT_REF) {
       const char *switch_reason =
