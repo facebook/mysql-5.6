@@ -735,7 +735,7 @@ int Server_Cbk::send_synchronization_coordinate(
   String_Key key(synchronization_coordinate.first);
   String_Key val(synchronization_coordinate.second);
   auto err = server->send_key_value(COM_RES_GTID_V4, key, val);
-  return (err);
+  return err;
 }
 
 // Perform the cross-engine synchronization: execute a

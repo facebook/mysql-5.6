@@ -711,7 +711,8 @@ class Client {
   @param[in]	buffer	serialized data descriptor
   @param[in]	length	length of serialized data
   @return error code */
-  int set_synchronization_coordinate(const uchar *buffer, size_t length);
+  [[nodiscard]] int set_synchronization_coordinate(const uchar *buffer,
+                                                   size_t length);
 
   /** Extract and set error mesg from remote server
   @param[in]	buffer	Remote error buffer

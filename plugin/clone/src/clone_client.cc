@@ -1672,8 +1672,7 @@ void Client::persist_synchronization_coordinate(
   mysql_mutex_unlock(&s_table_mutex);
 }
 
-[[nodiscard]] int Client::set_synchronization_coordinate(const uchar *packet,
-                                                         size_t length) {
+int Client::set_synchronization_coordinate(const uchar *packet, size_t length) {
   Key_Value synchronization_coordinate;
   const auto err =
       extract_key_value(packet, length, synchronization_coordinate);

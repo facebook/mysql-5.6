@@ -41,12 +41,12 @@ class Ha_clone_common_cbk : public Ha_clone_cbk {
     @param[in]	object_name the object name, used for debug printing
     @param[in]	json_wrapper json wrapper to be converted to be json object
     @return converted json object */
-  [[nodiscard]] const Json_object *get_json_object(std::string_view object_name,
-                                                   Json_wrapper &json_wrapper);
+  [[nodiscard]] static const Json_object &get_json_object(
+      std::string_view object_name, const Json_wrapper &json_wrapper);
 
   /** Extract key and values from local_repl_info.
-      local_repl_info has 3 pieces of information: gtid, binlog_file, offset.
-      We will also get gtid corresponding to the binlog_file and offset and
+    local_repl_info has 3 pieces of information: gtid, binlog_file, offset.
+    We will also get gtid corresponding to the binlog_file and offset and
     record that gtid as well. This is to sanity check that this gtid we get from
     binlog_file and offset is same as what we have in local_repl_info.
     @param[in]	local_repl_info the "local" column we get from log_status table

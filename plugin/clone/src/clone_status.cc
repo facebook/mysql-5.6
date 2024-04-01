@@ -428,17 +428,22 @@ int Status_pfs::read_column_value(PSI_field *field, uint32_t index) {
   return (0);
 }
 
-void Status_pfs::Data::write(bool write_error) {
-  std::string file_name;
+const std::string Status_pfs::Data::get_full_file_name(
+    std::string_view file_name) {
+  std::string tmp_file_name;
   /* Append data directory if cloning to different place. */
   if (!is_local()) {
-    file_name.assign(m_destination);
-    file_name.append(FN_DIRSEP);
-    file_name.append(CLONE_VIEW_STATUS_FILE);
+    tmp_file_name.assign(m_destination);
+    tmp_file_name.append(FN_DIRSEP);
+    tmp_file_name.append(file_name);
   } else {
-    file_name.assign(CLONE_VIEW_STATUS_FILE);
+    tmp_file_name.assign(file_name);
   }
+  return tmp_file_name;
+}
 
+void Status_pfs::Data::write(bool write_error) {
+  const std::string file_name = get_full_file_name(CLONE_VIEW_STATUS_FILE);
   std::ofstream status_file;
   status_file.open(file_name, std::ofstream::out | std::ofstream::trunc);
   if (!status_file.is_open()) {
@@ -471,35 +476,30 @@ void Status_pfs::Data::write(bool write_error) {
 }
 
 void Status_pfs::Data::write_synchronization_coordinate(
-    const Key_Value &coordinate, bool remove) {
-  std::string file_name;
-  /* Append data directory if cloning to different place. */
-  if (!is_local()) {
-    file_name.assign(m_destination);
-    file_name.append(FN_DIRSEP);
-    file_name.append(CLONE_SYNCHRONIZATION_COORDINATES_FILE);
-  } else {
-    file_name.assign(CLONE_SYNCHRONIZATION_COORDINATES_FILE);
-  }
-  if (remove) {
-    std::filesystem::remove(file_name);
-    return;
-  }
+    const Key_Value &coordinate) {
+  const std::string file_name =
+      get_full_file_name(CLONE_SYNCHRONIZATION_COORDINATES_FILE);
   m_synchronization_coordinates.push_back(coordinate);
   std::ofstream status_file;
   status_file.open(file_name, std::ofstream::out | std::ofstream::trunc);
   if (!status_file.is_open()) {
     char msg_buf[512];
-    snprintf(msg_buf, sizeof(msg_buf), "Cannot open %s for read",
+    snprintf(msg_buf, sizeof(msg_buf), "Cannot open %s for write",
              CLONE_SYNCHRONIZATION_COORDINATES_FILE);
     log_error(thd_get_current_thd(), true, ER_CANT_OPEN_FILE, msg_buf);
     return;
   }
-  for (auto &coordinate : m_synchronization_coordinates) {
+  for (const auto &coordinate : m_synchronization_coordinates) {
     status_file << coordinate.first << '\n';
     status_file << coordinate.second << '\n';
   }
   status_file.close();
+}
+
+void Status_pfs::Data::delete_synchronization_coordinate_file() {
+  const std::string file_name =
+      get_full_file_name(CLONE_SYNCHRONIZATION_COORDINATES_FILE);
+  std::filesystem::remove(file_name);
 }
 
 void Status_pfs::Data::read() {

@@ -19,7 +19,6 @@
 #include <filesystem>
 #include <string>
 #include <utility>
-#include "sql/binlog.h"
 
 #include "lex_string.h"
 #include "my_dbug.h"
@@ -27,6 +26,7 @@
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_status.h"
 #include "sql-common/json_dom.h"
+#include "sql/binlog.h"
 #include "sql/handler.h"
 #include "sql/sql_plugin_ref.h"
 #include "storage/perfschema/table_log_status.h"
@@ -64,8 +64,8 @@ int Ha_clone_common_cbk::precopy(THD *thd, uint task_id) {
   return 0;
 }
 
-const Json_object *Ha_clone_common_cbk::get_json_object(
-    std::string_view object_name, Json_wrapper &json_wrapper) {
+const Json_object &Ha_clone_common_cbk::get_json_object(
+    std::string_view object_name, const Json_wrapper &json_wrapper) {
   assert(json_wrapper.is_dom());
   const auto *const json_dom = json_wrapper.get_dom();
   // get_dom above returns only a const pointer, correctly. Json_wrapper only
@@ -81,12 +81,13 @@ const Json_object *Ha_clone_common_cbk::get_json_object(
   // Size reverse-engineered from ER_CLONE_SERVER_TRACE used by log_error. No
   // way to track it automatically, but very unlikely it would silently shrink.
   char msg_buf[512];
-  snprintf(msg_buf, sizeof(msg_buf), "%s: %.*s", object_name.data(),
+  snprintf(msg_buf, sizeof(msg_buf), "%.*s: %.*s",
+           static_cast<int>(object_name.size()), object_name.data(),
            static_cast<int>(json_str_buf.length()), json_str_buf.ptr());
   log_error(nullptr, false, 0, msg_buf);
 
   assert(json_dom->json_type() == enum_json_type::J_OBJECT);
-  return static_cast<const Json_object *>(json_dom);
+  return *static_cast<const Json_object *>(json_dom);
 }
 
 int Ha_clone_common_cbk::populate_synchronization_coordinates(
@@ -132,6 +133,9 @@ int Ha_clone_common_cbk::populate_synchronization_coordinates(
       {binary_log_position_key_str, std::to_string(binary_log_position_int)});
 
   // get gtid from binlog file/pos
+  // based on https://bugs.mysql.com/bug.php?id=102175, gtid from binlog
+  // file/pos and log_status are not guaranteed to be in sync, so we get those
+  // two values and downstream can decide what to do with them
   static const std::string gtid_from_binlog_file_offset_str =
       "gtid_from_binlog_file_offset";
   Sid_map sid_map(NULL);
@@ -148,10 +152,9 @@ int Ha_clone_common_cbk::populate_synchronization_coordinates(
            "Reading gtid from binlog %s offset %s", full_file_name,
            std::to_string(binary_log_position_int).c_str());
   log_error(nullptr, false, 0, info_mesg);
-  MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status ret =
-      mysql_bin_log.read_gtids_from_binlog(full_file_name, &gtid_executed, NULL,
-                                           NULL, &sid_map, false, false,
-                                           binary_log_position_int);
+  const auto ret = mysql_bin_log.read_gtids_from_binlog(
+      full_file_name, &gtid_executed, NULL, NULL, &sid_map, false, false,
+      binary_log_position_int);
   if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
     return ER_BINLOG_FILE_OPEN_FAILED;
   } else {
@@ -180,14 +183,11 @@ int Ha_clone_common_cbk::synchronize_logs(
   if (err != 0) return err;
 
   auto &log_status_row = table->get_row();
-  const Json_object *storage_engines =
+  const Json_object &storage_engines =
       get_json_object("w_storage_engines", log_status_row.w_storage_engines);
-  const Json_object *local_repl_info =
+  const Json_object &local_repl_info =
       get_json_object("w_local", log_status_row.w_local);
-  if (local_repl_info == nullptr || storage_engines == nullptr) {
-    return ER_KEY_NOT_FOUND;
-  }
-  err = populate_synchronization_coordinates(*local_repl_info,
+  err = populate_synchronization_coordinates(local_repl_info,
                                              synchronization_coordinates);
   if (err != 0) {
     return err;
@@ -195,7 +195,7 @@ int Ha_clone_common_cbk::synchronize_logs(
 
   DEBUG_SYNC_C("after_clone_se_sync");
 
-  for (const auto &json_se_pos : *storage_engines) {
+  for (const auto &json_se_pos : storage_engines) {
     const auto &se_name = json_se_pos.first;
     const LEX_CSTRING lex_c_se_name{.str = se_name.c_str(),
                                     .length = se_name.length()};

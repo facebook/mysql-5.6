@@ -400,7 +400,7 @@ int Local_Callback::apply_cbk(Ha_clone_file to_file, bool apply_file,
     return err;
   }
   auto client = get_clone_client();
-  for (auto &coordinate : synchronization_coordinates) {
+  for (const auto &coordinate : synchronization_coordinates) {
     client->persist_synchronization_coordinate(coordinate);
   }
   return 0;
