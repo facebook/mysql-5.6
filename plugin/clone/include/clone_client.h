@@ -580,6 +580,11 @@ class Client {
   /** Destroy PFS mutex for table. */
   static void uninit_pfs();
 
+  /** Write synchronization coordinate to a new file.
+  @param[in]	synchronization_coordinate	synchronization coordinate */
+  void persist_synchronization_coordinate(
+      const Key_Value &synchronization_coordinate);
+
  private:
   /** Connect to remote server
   @param[in]	is_restart	restarting clone after network failure
@@ -700,6 +705,13 @@ class Client {
   @param[in]	length	length of serialized data
   @return error code */
   int set_descriptor(const uchar *buffer, size_t length);
+
+  /** Set synchronization coordinate by recording that in a new file,
+  after extracting key and value from the buffer.
+  @param[in]	buffer	serialized data descriptor
+  @param[in]	length	length of serialized data
+  @return error code */
+  int set_synchronization_coordinate(const uchar *buffer, size_t length);
 
   /** Extract and set error mesg from remote server
   @param[in]	buffer	Remote error buffer
@@ -825,6 +837,9 @@ class Client_Cbk : public Ha_clone_common_cbk {
   /** Add to the data size estimate.
   @param[in]  estimate_delta  how many bytes to add to the estimate */
   void add_to_data_size_estimate(uint64_t estimate_delta) override;
+
+  /** Synchronize engines callback: Not used for client. */
+  [[nodiscard]] int synchronize_engines() override;
 
  private:
   /** Apply data to local file or buffer.

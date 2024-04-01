@@ -1,0 +1,9 @@
+# Test after remote clone command to replace data directory, synchronization_coordinates file is created
+
+--let $remote_clone = 1
+--let $any_donor_address = 1
+--let $HOST = 127.0.0.1
+--let $PORT =`select @@port`
+--let $USER = root
+
+--source local_create_synchronization_coordinates.test

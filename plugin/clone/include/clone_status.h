@@ -212,6 +212,12 @@ class Status_pfs : public Table_pfs {
     @param[in]	write_error	write error information. */
     void write(bool write_error);
 
+    /** Write to synchronization gtid file.
+    @param[in]	coordinate	synchronization coordinate sent from server.
+    @param[in]  remove      remove the file if exists */
+    void write_synchronization_coordinate(const Key_Value &coordinate,
+                                          bool remove = false);
+
     /* @return true, if destination is current database. */
     bool is_local() const {
       return (0 == strncmp(&m_destination[0], &g_local_string[0],
@@ -247,7 +253,9 @@ class Status_pfs : public Table_pfs {
       m_start_time = my_micro_time();
       m_end_time = 0;
       m_state = STATE_STARTED;
+      m_synchronization_coordinates.clear();
       write(false);
+      write_synchronization_coordinate({}, true);
     }
 
     /** Update PFS table data while ending clone operation.
@@ -316,6 +324,10 @@ class Status_pfs : public Table_pfs {
 
     /** Clone GTID set */
     std::string m_gtid_string;
+
+    /** Synchronization coordinates consisting of gtid, binlog file/offset from
+     * log_status. */
+    Key_Values m_synchronization_coordinates;
   };
 
  private:

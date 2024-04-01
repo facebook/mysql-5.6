@@ -409,7 +409,7 @@ int Server::send_key_value(Command_Response rcmd, String_Key &key_str,
   buf_len += 4;
 
   bool send_value = (rcmd == COM_RES_CONFIG || rcmd == COM_RES_PLUGIN_V2 ||
-                     rcmd == COM_RES_CONFIG_V3);
+                     rcmd == COM_RES_CONFIG_V3 || rcmd == COM_RES_GTID_V4);
 
   /** Add length for value. */
   if (send_value) {
@@ -728,6 +728,39 @@ int Server_Cbk::buffer_cbk(uchar *from_buffer, uint buf_len) {
       server->get_thd(), false, buf_ptr, total_len);
 
   return (err);
+}
+
+int Server_Cbk::send_synchronization_coordinate(
+    Server *server, const Key_Value &synchronization_coordinate) {
+  String_Key key(synchronization_coordinate.first);
+  String_Key val(synchronization_coordinate.second);
+  auto err = server->send_key_value(COM_RES_GTID_V4, key, val);
+  return (err);
+}
+
+// Perform the cross-engine synchronization: execute a
+// performance_schema.log_status query, and call set_log_stop for each storage
+// engine with its part of STORAGE_ENGINES column JSON object from that query.
+// If InnoDB is present, this is called between SST COPY and REDO COPY clone
+// stages. When MyRocks is the sole storage engine, it should be called after
+// creating the final checkpoint.
+// Also send the synchronization coordinates to client.
+int Server_Cbk::synchronize_engines() {
+  Key_Values synchronization_coordinates;
+  auto err = synchronize_logs(synchronization_coordinates);
+  if (err != 0) {
+    return err;
+  }
+  auto server = get_clone_server();
+  if (server->should_send_synchronization_coordinates()) {
+    for (const auto &coordinate : synchronization_coordinates) {
+      err = send_synchronization_coordinate(server, coordinate);
+      if (err != 0) {
+        return err;
+      }
+    }
+  }
+  return 0;
 }
 
 /* purecov: begin deadcode */

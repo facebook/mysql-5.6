@@ -127,6 +127,12 @@ class Server {
     return m_protocol_version < CLONE_PROTOCOL_VERSION_V3;
   }
 
+  /** @return true iff sending synchronization coordinates(gtid & binlog info)
+   */
+  [[nodiscard]] bool should_send_synchronization_coordinates() const {
+    return m_protocol_version >= CLONE_PROTOCOL_VERSION_V4;
+  }
+
  private:
   /** Extract client ddl timeout and backup lock flag.
   @param[in]	client_timeout	timeout value received from client */
@@ -286,9 +292,21 @@ class Server_Cbk : public Ha_clone_common_cbk {
   @param[in]  estimate_delta  how many bytes to add to the estimate */
   void add_to_data_size_estimate(std::uint64_t) override { assert(0); }
 
+  /** Synchronize engines callback: synchronize logs for every engine, then
+  send the synchronization coordinates to client.
+  @return error code */
+  [[nodiscard]] int synchronize_engines() override;
+
  private:
   /** Clone server object */
   Server *m_clone_server;
+
+  /** Send coordinate after engine synchronization
+   @param[in] server the server handle for the callback
+   @param[in] synchronization_coordinate synchronization coordinate
+   @return 0 if successful, non-zero if an error occurred. */
+  int send_synchronization_coordinate(
+      Server *server, const Key_Value &synchronization_coordinate);
 };
 
 }  // namespace myclone
