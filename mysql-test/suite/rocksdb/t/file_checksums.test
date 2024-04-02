@@ -87,6 +87,15 @@ exec $MYSQLD --defaults-group-suffix=.1 --defaults-file=$MYSQLTEST_VARDIR/my.cnf
 
 # rocksdb-file-checksums=checksums_write_only skips verification so instance starts on most user table corruptions
 --source include/start_mysqld.inc
+
+call mtr.add_suppression("Status: Corruption");
+call mtr.add_suppression("RocksDB: BackgroundErrorReason");
+call mtr.add_suppression("block checksum mismatch");
+
+# running with --rocksdb-io-error-action=ignore_error suppresses crash on i/o error
+set global rocksdb_io_error_action=ignore_error;
+--error 1815
+set global rocksdb_compact_cf='cf1';
 --source include/kill_mysqld.inc
 
 --remove_file $sst

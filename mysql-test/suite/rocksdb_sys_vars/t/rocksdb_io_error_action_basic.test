@@ -1,0 +1,14 @@
+--source include/have_rocksdb.inc
+
+SET GLOBAL rocksdb_io_error_action = ABORT_SERVER;
+SET GLOBAL rocksdb_io_error_action = IGNORE_ERROR;
+
+--echo == wrong argument type
+--error 1231
+SET GLOBAL rocksdb_io_error_action = "abc";
+
+--echo == wrong argument type
+--error 1231
+SET GLOBAL rocksdb_io_error_action = 4;
+
+SET GLOBAL rocksdb_io_error_action = default;

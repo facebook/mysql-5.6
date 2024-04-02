@@ -1,0 +1,9 @@
+SET GLOBAL rocksdb_io_error_action = ABORT_SERVER;
+SET GLOBAL rocksdb_io_error_action = IGNORE_ERROR;
+== wrong argument type
+SET GLOBAL rocksdb_io_error_action = "abc";
+ERROR 42000: Variable 'rocksdb_io_error_action' can't be set to the value of 'abc'
+== wrong argument type
+SET GLOBAL rocksdb_io_error_action = 4;
+ERROR 42000: Variable 'rocksdb_io_error_action' can't be set to the value of '4'
+SET GLOBAL rocksdb_io_error_action = default;

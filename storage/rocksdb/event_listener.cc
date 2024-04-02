@@ -117,8 +117,7 @@ void Rdb_event_listener::OnBackgroundError(
   LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                   "RocksDB: BackgroundErrorReason: %d", (int)reason);
   if (status->IsCorruption()) {
-    rdb_persist_corruption_marker();
-    abort();
+    rdb_handle_io_error(*status, RDB_IO_ERROR_BG_THREAD);
   }
 }
 }  // namespace myrocks
