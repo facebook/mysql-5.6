@@ -2430,8 +2430,11 @@ static int terminate_slave_thread(THD *thd, mysql_mutex_t *term_lock,
       ESRCH: thread already killed (can happen, should be ignored)
     */
 #ifndef _WIN32
-    int err [[maybe_unused]] = pthread_kill(thd->real_id, SIGALRM);
-    assert(err != EINVAL);
+    auto real_id = thd->real_id;
+    if (real_id != 0) {
+      int err [[maybe_unused]] = pthread_kill(real_id, SIGALRM);
+      assert(err != EINVAL);
+    }
 #endif
     if (force)
       thd->awake(THD::KILL_CONNECTION);
