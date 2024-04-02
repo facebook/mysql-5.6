@@ -1062,20 +1062,20 @@ uint Rdb_vector_db_handler::decode_value_to_buffer(
     Field *field, FB_vector_dimension dimension, std::vector<float> &buffer) {
   Field_json *field_json = down_cast<Field_json *>(field);
   if (field_json == nullptr) {
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "unexpected field type for vector index");
     return HA_EXIT_FAILURE;
   }
   Json_wrapper wrapper;
   field_json->val_json(&wrapper);
   if (parse_fb_vector(wrapper, buffer)) {
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "failed to parse vector for vector index");
     return HA_EXIT_FAILURE;
   }
 
   if (buffer.size() > dimension) {
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "vector dimension is too big for vector index");
     return HA_EXIT_FAILURE;
   }

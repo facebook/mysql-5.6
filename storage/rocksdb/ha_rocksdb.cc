@@ -16712,6 +16712,42 @@ int ha_rocksdb::inplace_populate_sk(
         DBUG_RETURN(res);
       }
 
+      // populate vector index
+      if (index->is_vector_index()) {
+        auto vector_db_handler = get_vector_db_handler();
+        auto field = index->get_table_field_for_part_no(new_table_arg, 0);
+        // field is from new_table_arg, but the data is in table->record[0]
+        ptrdiff_t ptrdiff = table->record[0] - new_table_arg->record[0];
+        uchar *save_record_0 = new_table_arg->record[0];
+        if (ptrdiff) {
+          new_table_arg->record[0] = table->record[0];
+          field->move_field_offset(ptrdiff);
+        }
+        auto grd = create_scope_guard([&]() {
+          if (ptrdiff) {
+            new_table_arg->record[0] = save_record_0;
+            field->move_field_offset(-ptrdiff);
+          }
+        });
+        res = vector_db_handler->decode_value(
+            field, index->get_vector_index_config().dimension());
+        if (res) {
+          ha_rnd_end();
+          DBUG_RETURN(res);
+        }
+        // pass an empty slice as old pk
+        rocksdb::Slice old_pk;
+        res = index->get_vector_index()->add_vector(
+            tx->get_indexed_write_batch(m_tbl_def->get_table_type()),
+            m_iterator->key(), vector_db_handler->get_buffer(), old_pk,
+            vector_db_handler->get_buffer2());
+        if (res) {
+          ha_rnd_end();
+          DBUG_RETURN(res);
+        }
+        continue;
+      }
+
       /* Create new secondary index entry */
       const int new_packed_size = index->pack_record(
           new_table_arg, m_pack_buffer, table->record[0], m_sk_packed_tuple,

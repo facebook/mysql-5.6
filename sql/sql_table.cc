@@ -14615,6 +14615,28 @@ static bool check_if_field_used_by_generated_column_or_default(
   return false;
 }
 
+// prepare vector key for alter and upgrade
+static void prepare_fb_vector_key(KEY *key_info,
+                                  KEY_CREATE_INFO &key_create_info) {
+  if (!key_info->is_fb_vector_index()) {
+    return;
+  }
+  std::string_view vector_index_type =
+      fb_vector_index_type_to_string(key_info->fb_vector_index_config.type());
+  key_create_info.m_fb_vector_index_type = LEX_CSTRING{
+      .str = vector_index_type.data(), .length = vector_index_type.length()};
+  key_create_info.m_fb_vector_dimension =
+      key_info->fb_vector_index_config.dimension();
+  if (key_info->fb_vector_index_config.trained_index_id().length > 0) {
+    key_create_info.m_fb_vector_trained_index_id =
+        key_info->fb_vector_index_config.trained_index_id();
+  }
+  if (key_info->fb_vector_index_config.trained_index_table().length > 0) {
+    key_create_info.m_fb_vector_trained_index_table =
+        key_info->fb_vector_index_config.trained_index_table();
+  }
+}
+
 // Prepare Create_field and Key_spec objects for ALTER and upgrade.
 bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
                              HA_CREATE_INFO *create_info,
@@ -15147,6 +15169,7 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
       else
         key_type = KEYTYPE_MULTIPLE;
 
+      prepare_fb_vector_key(key_info, key_create_info);
       /*
         If we have dropped a column associated with an index,
         this warrants a check for duplicate indexes

@@ -1,0 +1,67 @@
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+name varchar(16),
+vector1 JSON,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 8
+);
+insert into t1 values (1, 'val1', '[1,2,3,4,5,6,7,8]'), (2, 'val2', '[2,22,31]');
+
+alter table t1 COMMENT = 'some comment';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` bigint NOT NULL,
+  `name` varchar(16) DEFAULT NULL,
+  `vector1` json DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 8
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='some comment'
+select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	dis
+1	291
+2	996
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+1	8	flat
+
+alter table t1 drop index vector_key_1;
+select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	dis
+1	291
+2	996
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+
+alter table t1 add index vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 16;
+select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	dis
+1	291
+2	996
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+1	16	flat
+
+alter table t1 drop index vector_key_1;
+
+alter should fail when index dimension is less than existing value dimension
+alter table t1 add index vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 4;
+ERROR HY000: MyRocks failed populating secondary key during alter.
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+
+alter should fail when vector column is not valid
+alter table t1 add index vector_key_1(name) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 8;
+ERROR HY000: Incorrect arguments to fb_vector index only support json type
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0, 0, 0, 0, 0]');
+alter table t1 add index vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 8 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1';
+select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	dis
+1	291
+2	996
+SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT	DIMENSION	INDEX_TYPE
+1	8	ivfflat
+drop table t1;
