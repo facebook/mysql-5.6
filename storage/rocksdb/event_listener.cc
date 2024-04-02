@@ -39,8 +39,8 @@ static std::vector<Rdb_index_stats> extract_index_stats(
   for (const auto &fn : files) {
     const auto it = props.find(fn);
     assert(it != props.end());
-    std::vector<Rdb_index_stats> stats;
-    Rdb_tbl_prop_coll::read_stats_from_tbl_props(it->second, &stats);
+    const auto stats =
+        Rdb_tbl_prop_coll::read_stats_from_tbl_props(*it->second);
     ret.insert(ret.end(), stats.begin(), stats.end());
   }
   return ret;
@@ -49,11 +49,8 @@ static std::vector<Rdb_index_stats> extract_index_stats(
 void Rdb_event_listener::update_index_stats(
     const rocksdb::TableProperties &props) {
   assert(m_ddl_manager != nullptr);
-  const auto tbl_props =
-      std::make_shared<const rocksdb::TableProperties>(props);
 
-  std::vector<Rdb_index_stats> stats;
-  Rdb_tbl_prop_coll::read_stats_from_tbl_props(tbl_props, &stats);
+  const auto stats = Rdb_tbl_prop_coll::read_stats_from_tbl_props(props);
 
   // In the new approach cardinality and non-cardinality stats
   // for a table are calculated at the same time. That is,

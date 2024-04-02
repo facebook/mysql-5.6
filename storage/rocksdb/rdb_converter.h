@@ -130,8 +130,10 @@ class Rdb_converter {
   */
   Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def, TABLE *table,
                 const dd::Table *dd_table);
-  Rdb_converter(const Rdb_converter &decoder) = delete;
-  Rdb_converter &operator=(const Rdb_converter &decoder) = delete;
+  Rdb_converter(const Rdb_converter &) = delete;
+  Rdb_converter(Rdb_converter &&) = delete;
+  Rdb_converter &operator=(const Rdb_converter &) = delete;
+  Rdb_converter &operator=(Rdb_converter &&) = delete;
   ~Rdb_converter();
 
   void setup_field_decoders(const MY_BITMAP *field_map, uint active_index,
@@ -147,16 +149,16 @@ class Rdb_converter {
     }
   }
 
-  int decode(const std::shared_ptr<Rdb_key_def> &key_def, uchar *dst,
-             const rocksdb::Slice *key_slice, const rocksdb::Slice *value_slice,
-             bool decode_value = true);
+  [[nodiscard]] int decode(const Rdb_key_def &key_def, uchar *dst,
+                           const rocksdb::Slice *key_slice,
+                           const rocksdb::Slice *value_slice,
+                           bool decode_value = true);
 
-  int encode_value_slice(const std::shared_ptr<Rdb_key_def> &pk_def,
-                         const rocksdb::Slice &pk_packed_slice,
-                         Rdb_string_writer *pk_unpack_info, bool is_update_row,
-                         bool store_row_debug_checksums, char *ttl_bytes,
-                         bool *is_ttl_bytes_updated,
-                         rocksdb::Slice *const value_slice);
+  [[nodiscard]] int encode_value_slice(
+      const Rdb_key_def &pk_def, const rocksdb::Slice &pk_packed_slice,
+      Rdb_string_writer *pk_unpack_info, bool is_update_row,
+      bool store_row_debug_checksums, char *ttl_bytes,
+      bool *is_ttl_bytes_updated, rocksdb::Slice *const value_slice);
 
   my_core::ha_rows get_row_checksums_checked() const {
     return m_row_checksums_checked;
@@ -185,23 +187,22 @@ class Rdb_converter {
   const MY_BITMAP *get_lookup_bitmap() { return &m_lookup_bitmap; }
 
  private:
-  int decode_value_header_for_pk(Rdb_string_reader *reader,
-                                 const std::shared_ptr<Rdb_key_def> &pk_def,
-                                 rocksdb::Slice *unpack_slice);
+  [[nodiscard]] int decode_value_header_for_pk(Rdb_string_reader *reader,
+                                               const Rdb_key_def &pk_def,
+                                               rocksdb::Slice *unpack_slice);
 
   void setup_field_encoders(const dd::Table *dd_table);
 
   void get_storage_type(Rdb_field_encoder *const encoder, const uint kp);
 
-  int convert_record_from_storage_format(
-      const std::shared_ptr<Rdb_key_def> &pk_def,
-      const rocksdb::Slice *const key, const rocksdb::Slice *const value,
-      uchar *const buf, bool decode_value);
+  [[nodiscard]] int convert_record_from_storage_format(
+      const Rdb_key_def &pk_def, const rocksdb::Slice *const key,
+      const rocksdb::Slice *const value, uchar *const buf, bool decode_value);
 
-  int verify_row_debug_checksum(const std::shared_ptr<Rdb_key_def> &pk_def,
-                                Rdb_string_reader *reader,
-                                const rocksdb::Slice *key,
-                                const rocksdb::Slice *value);
+  [[nodiscard]] int verify_row_debug_checksum(const Rdb_key_def &pk_def,
+                                              Rdb_string_reader *reader,
+                                              const rocksdb::Slice *key,
+                                              const rocksdb::Slice *value);
 
  private:
   /*
