@@ -1539,13 +1539,12 @@ void Mts_submode_dependency::stop_dependency_workers(Relay_log_info *rli) {
     }
 
     w->running_status = Slave_worker::STOP_ACCEPTED;
+    mysql_mutex_unlock(&w->jobs_lock);
 
     // unblock workers waiting for new events or trxs
     mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
     w->info_thd->awake(w->info_thd->killed);
     mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
-
-    mysql_mutex_unlock(&w->jobs_lock);
   }
 
   thd_proc_info(thd, "Waiting for workers to exit");
