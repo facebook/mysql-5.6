@@ -44,13 +44,24 @@ update t1 set vector1 = '[1.0001, 1]' where id = 92;
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
-# 99 should disappear from query result
+echo;
+echo delete vector from centroid 0;
 delete from t1 where id = 99;
 
+echo 99 should disappear from query result;
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
-# test results from centroid 1
+echo;
+echo results from centroid 1;
+select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+echo;
+echo delete vector from centroid 1;
+delete from t1 where id = 1001;
+
+echo 1001 should disappear from query result;
 select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 

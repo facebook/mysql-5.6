@@ -698,7 +698,7 @@ class Rdb_vector_index_base : public Rdb_vector_index {
   uint delete_vector_from_list(rocksdb::WriteBatchBase *write_batch,
                                const uint64 list_id, const rocksdb::Slice &pk) {
     Rdb_string_writer key_writer;
-    write_inverted_list_item_key(key_writer, m_index_id, LIST_NUMBER_FLAT, pk);
+    write_inverted_list_item_key(key_writer, m_index_id, list_id, pk);
     auto status = write_batch->Delete(m_cf_handle.get(), key_writer.to_slice());
     if (!status.ok()) {
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
