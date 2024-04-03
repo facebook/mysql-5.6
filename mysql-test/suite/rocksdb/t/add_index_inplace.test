@@ -229,6 +229,10 @@ INSERT INTO t1 VALUES (1,1);
 
 # Disconnect connection 1, this starts the code path that will call
 # rocksdb_close_connection, ending the bulk load.
+# set rocksdb_bulk_load will trigger finish_bulk_load
+# finish_bulk_load in rocksdb_close_connection may not finished
+# before client sees connection closed
+set global rocksdb_bulk_load=1;
 --echo # Disconnecting on con1
 disconnect con1;
 
