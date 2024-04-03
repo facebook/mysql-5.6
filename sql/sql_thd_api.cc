@@ -636,6 +636,29 @@ int thd_killed(const void *v_thd) {
 }
 
 /**
+  Check and yield AC/CPU if necessary. This should be called often,
+  especially from CPU-intensive loops. Make sure to not hold any mutex or
+  RW lock when calling it.
+
+  @param thd  Current thread handle. If this is a child thread,
+              pass the child THD, not the parent or user connection THD!
+              THD::check_yield() updates thd and is not thread-safe.
+*/
+void thd_check_yield(MYSQL_THD thd) {
+  if (!thd) {
+    thd = current_thd;
+  }
+
+  if (thd) {
+    // Verify that thd is current thread. If this thread has THD it should call
+    // THD::store_globals() to set current_thd.
+    assert(thd == current_thd);
+
+    thd->check_yield();
+  }
+}
+
+/**
   Set the killed status of the current statement.
 
   @param thd  user thread connection handle

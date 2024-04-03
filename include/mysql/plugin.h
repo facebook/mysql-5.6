@@ -845,6 +845,17 @@ int thd_killed(const void *v_thd);
 void thd_set_kill_status(const MYSQL_THD thd);
 
 /**
+  Check and yield AC/CPU if necessary. This should be called often,
+  especially from CPU-intensive loops. Make sure to not hold any mutex or
+  RW lock when calling it.
+
+  @param thd  Current thread handle. If this is a child thread,
+              pass the child THD, not the parent or user connection THD!
+              THD::check_yield() updates thd and is not thread-safe.
+*/
+void thd_check_yield(MYSQL_THD thd);
+
+/**
   Get binary log position for latest written entry.
 
   @note The file variable will be set to a buffer holding the name of

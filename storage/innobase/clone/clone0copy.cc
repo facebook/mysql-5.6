@@ -1404,6 +1404,9 @@ int Clone_Handle::copy(uint task_id, Ha_clone_cbk *callback) {
     const auto in_sst_copy_state =
         snapshot->get_state() == CLONE_SNAPSHOT_SST_COPY;
 
+    // This loop can take a long time so make sure to yield.
+    thd_check_yield(nullptr);
+
     /* Reserve next chunk for current state from snapshot. */
     uint32_t current_chunk = 0;
     uint32_t current_block = 0;

@@ -3176,8 +3176,10 @@ bool HybridLogicalClock::DatabaseEntry::wait_for_hlc(THD *thd,
     if (sleeping) {
       const char *save_proc_info =
           thd_proc_info(thd, "Waiting for database applied HLC");
+      thd_wait_begin(thd, THD_WAIT_FOR_HLC);
       std::this_thread::sleep_for(
           std::chrono::milliseconds{remaining_timeout_ms});
+      thd_wait_end(thd);
       thd_proc_info(thd, save_proc_info);
     } else {
       struct timespec timeout;
