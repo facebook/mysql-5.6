@@ -1558,6 +1558,13 @@ static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          "Enables using SstFileWriter for bulk loading",
                          nullptr, nullptr, rocksdb_enable_bulk_load_api);
 
+static MYSQL_THDVAR_UINT(bulk_load_compression_parallel_threads,
+                         PLUGIN_VAR_RQCMDARG,
+                         "The number of parallel worker threads to compress "
+                         "SST data blocks during bulk load",
+                         nullptr, nullptr, /*default*/ 1, /*min*/ 1,
+                         /*max*/ 1024, 0);
+
 static MYSQL_SYSVAR_BOOL(enable_remove_orphaned_dropped_cfs,
                          rocksdb_enable_remove_orphaned_dropped_cfs,
                          PLUGIN_VAR_RQCMDARG,
@@ -3084,6 +3091,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load_fail_if_not_bottommost_level),
     MYSQL_SYSVAR(bulk_load_use_sst_partitioner),
     MYSQL_SYSVAR(bulk_load_enable_unique_key_check),
+    MYSQL_SYSVAR(bulk_load_compression_parallel_threads),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
@@ -4232,7 +4240,8 @@ class Rdb_transaction {
 
         auto sst_info = std::make_shared<Rdb_sst_info>(
             rdb, table_name, index_name, rdb_merge.get_cf(),
-            *rocksdb_db_options, THDVAR(get_thd(), trace_sst_api));
+            *rocksdb_db_options, THDVAR(get_thd(), trace_sst_api),
+            THDVAR(get_thd(), bulk_load_compression_parallel_threads));
 
         if (keydef->is_partial_index()) {
           if (!THDVAR(m_thd, bulk_load_partial_index)) continue;
@@ -12855,9 +12864,10 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
   // used to store the keys. It is still used to indicate when tables
   // are switched.
   if (m_sst_info == nullptr || m_sst_info->is_done()) {
-    m_sst_info.reset(new Rdb_sst_info(rdb, m_table_handler->m_table_name,
-                                      kd.get_name(), cf, *rocksdb_db_options,
-                                      THDVAR(ha_thd(), trace_sst_api)));
+    m_sst_info.reset(new Rdb_sst_info(
+        rdb, m_table_handler->m_table_name, kd.get_name(), cf,
+        *rocksdb_db_options, THDVAR(ha_thd(), trace_sst_api),
+        THDVAR(ha_thd(), bulk_load_compression_parallel_threads)));
     res = tx->start_bulk_load(this, m_sst_info);
     if (res != HA_EXIT_SUCCESS) {
       DBUG_RETURN(res);

@@ -46,13 +46,13 @@ class Rdb_sst_file_ordered {
     const std::string m_name;
     const bool m_tracing;
     const rocksdb::Comparator *m_comparator;
-
+    uint32_t m_compression_parallel_threads;
     std::string generateKey(const std::string &key);
 
    public:
     Rdb_sst_file(rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
                  const rocksdb::DBOptions &db_options, const std::string &name,
-                 const bool tracing);
+                 bool tracing, uint32_t compression_parallel_threads);
     ~Rdb_sst_file();
 
     rocksdb::Status open();
@@ -99,7 +99,7 @@ class Rdb_sst_file_ordered {
                        rocksdb::ColumnFamilyHandle *const cf,
                        const rocksdb::DBOptions &db_options,
                        const std::string &name, const bool tracing,
-                       size_t max_size);
+                       size_t max_size, uint32_t compression_parallel_threads);
 
   inline rocksdb::Status open() { return m_file.open(); }
   rocksdb::Status put(const rocksdb::Slice &key, const rocksdb::Slice &value);
@@ -129,9 +129,10 @@ class Rdb_sst_info {
   // List of committed SST files - we'll ingest them later in one single batch
   std::vector<std::string> m_committed_files;
 
-  const bool m_tracing;
+  bool m_tracing;
   bool m_print_client_error;
-
+  // num of parallel threads to compress data block
+  uint32_t m_compression_parallel_threads;
   int open_new_sst_file();
   void close_curr_sst_file();
   void commit_sst_file(Rdb_sst_file_ordered *sst_file);
@@ -143,7 +144,8 @@ class Rdb_sst_info {
   Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                const std::string &indexname,
                rocksdb::ColumnFamilyHandle *const cf,
-               const rocksdb::DBOptions &db_options, const bool tracing);
+               const rocksdb::DBOptions &db_options, bool tracing,
+               uint32_t compression_parallel_threads);
   ~Rdb_sst_info();
 
   /*

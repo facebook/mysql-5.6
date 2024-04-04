@@ -41,15 +41,16 @@ namespace myrocks {
 
 Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
     rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
-    const rocksdb::DBOptions &db_options, const std::string &name,
-    const bool tracing)
+    const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
+    uint32_t compression_parallel_threads)
     : m_db(db),
       m_cf(cf),
       m_db_options(db_options),
       m_sst_file_writer(nullptr),
       m_name(name),
       m_tracing(tracing),
-      m_comparator(cf->GetComparator()) {
+      m_comparator(cf->GetComparator()),
+      m_compression_parallel_threads(compression_parallel_threads) {
   assert(db != nullptr);
   assert(cf != nullptr);
 }
@@ -72,7 +73,9 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
 
   // Create an sst file writer with the current options and comparator
   const rocksdb::EnvOptions env_options(m_db_options);
-  const rocksdb::Options options(m_db_options, cf_descr.options);
+  rocksdb::Options options(m_db_options, cf_descr.options);
+  if (m_compression_parallel_threads > 1)
+    options.compression_opts.parallel_threads = m_compression_parallel_threads;
 
   m_sst_file_writer =
       new rocksdb::SstFileWriter(env_options, options, m_comparator, m_cf, true,
@@ -194,11 +197,11 @@ Rdb_sst_file_ordered::Rdb_sst_stack::top() {
 Rdb_sst_file_ordered::Rdb_sst_file_ordered(
     rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
     const rocksdb::DBOptions &db_options, const std::string &name,
-    const bool tracing, size_t max_size)
+    const bool tracing, size_t max_size, uint32_t compression_parallel_threads)
     : m_use_stack(false),
       m_first(true),
       m_stack(max_size),
-      m_file(db, cf, db_options, name, tracing) {
+      m_file(db, cf, db_options, name, tracing, compression_parallel_threads) {
   m_stack.reset();
 }
 
@@ -303,8 +306,8 @@ rocksdb::Status Rdb_sst_file_ordered::commit() {
 Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                            const std::string &indexname,
                            rocksdb::ColumnFamilyHandle *const cf,
-                           const rocksdb::DBOptions &db_options,
-                           const bool tracing)
+                           const rocksdb::DBOptions &db_options, bool tracing,
+                           uint32_t compression_parallel_threads)
     : m_db(db),
       m_cf(cf),
       m_db_options(db_options),
@@ -314,7 +317,8 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
       m_done(false),
       m_sst_file(nullptr),
       m_tracing(tracing),
-      m_print_client_error(true) {
+      m_print_client_error(true),
+      m_compression_parallel_threads(compression_parallel_threads) {
   m_prefix = db->GetName() + '/';
 
   std::string normalized_table;
@@ -371,8 +375,9 @@ int Rdb_sst_info::open_new_sst_file() {
   const std::string name = m_prefix + std::to_string(m_sst_count++) + m_suffix;
 
   // Create the new sst file object
-  m_sst_file = new Rdb_sst_file_ordered(m_db, m_cf, m_db_options, name,
-                                        m_tracing, m_max_size);
+  m_sst_file =
+      new Rdb_sst_file_ordered(m_db, m_cf, m_db_options, name, m_tracing,
+                               m_max_size, m_compression_parallel_threads);
 
   // Open the sst file
   const rocksdb::Status s = m_sst_file->open();
