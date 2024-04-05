@@ -24,6 +24,7 @@
 #include "rdb_buff.h"
 #include "rdb_cmd_srv_helper.h"
 #include "rdb_global.h"
+#include "rdb_iterator.h"
 #include "rdb_utils.h"
 #include "sql-common/json_dom.h"
 #include "sql/field.h"
@@ -176,8 +177,8 @@ class Rdb_faiss_inverted_list_write_context {
 class Rdb_vector_iterator : public faiss::InvertedListsIterator {
  public:
   Rdb_vector_iterator(Rdb_faiss_inverted_list_context *context,
-                      Index_id index_id, rocksdb::ColumnFamilyHandle *const cf,
-                      FB_vector_dimension dimension, const size_t list_id)
+                      Index_id index_id, rocksdb::ColumnFamilyHandle &cf,
+                      FB_vector_dimension dimension, size_t list_id)
       : m_context(context),
         m_index_id(index_id),
         m_list_id(list_id),
@@ -189,10 +190,10 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     Rdb_string_writer upper_key_writer;
     write_inverted_list_key(upper_key_writer, index_id, list_id + 1);
     m_iterator_upper_bound_key.PinSelf(upper_key_writer.to_slice());
-    m_iterator.reset(rdb_tx_get_iterator(
+    m_iterator = rdb_tx_get_iterator(
         context->m_thd, cf, /* skip_bloom_filter */ true,
         m_iterator_lower_bound_key, m_iterator_upper_bound_key,
-        /* snapshot */ nullptr, TABLE_TYPE::USER_TABLE));
+        /* snapshot */ nullptr, TABLE_TYPE::USER_TABLE);
     m_iterator->SeekToFirst();
   }
 
@@ -285,9 +286,9 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
 */
 class Rdb_faiss_inverted_list : public faiss::InvertedLists {
  public:
-  Rdb_faiss_inverted_list(Index_id index_id,
-                          rocksdb::ColumnFamilyHandle *const cf, uint nlist,
-                          FB_vector_dimension dimension, uint code_size)
+  Rdb_faiss_inverted_list(Index_id index_id, rocksdb::ColumnFamilyHandle &cf,
+                          uint nlist, FB_vector_dimension dimension,
+                          uint code_size)
       : InvertedLists(nlist, code_size),
         m_index_id(index_id),
         m_dimension(dimension),
@@ -295,6 +296,11 @@ class Rdb_faiss_inverted_list : public faiss::InvertedLists {
     use_iterator = true;
   }
   ~Rdb_faiss_inverted_list() override = default;
+
+  Rdb_faiss_inverted_list(const Rdb_faiss_inverted_list &) = delete;
+  Rdb_faiss_inverted_list &operator=(const Rdb_faiss_inverted_list &) = delete;
+  Rdb_faiss_inverted_list(Rdb_faiss_inverted_list &&) = delete;
+  Rdb_faiss_inverted_list &operator=(Rdb_faiss_inverted_list &&) = delete;
 
   size_t list_size(size_t list_no) const override {
     throw std::runtime_error(std::string("unexpected function call ") +
@@ -334,7 +340,7 @@ class Rdb_faiss_inverted_list : public faiss::InvertedLists {
 
     rocksdb::Slice value_slice(reinterpret_cast<const char *>(code), code_size);
     rocksdb::Status status =
-        context->m_write_batch->Put(m_cf, key_writer.to_slice(), value_slice);
+        context->m_write_batch->Put(&m_cf, key_writer.to_slice(), value_slice);
     if (!status.ok()) {
       LogPluginErrMsg(
           INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -368,7 +374,7 @@ class Rdb_faiss_inverted_list : public faiss::InvertedLists {
  private:
   Index_id m_index_id;
   FB_vector_dimension m_dimension;
-  rocksdb::ColumnFamilyHandle *const m_cf;
+  rocksdb::ColumnFamilyHandle &m_cf;
 };
 
 /**
@@ -742,7 +748,7 @@ class Rdb_vector_index_flat : public Rdb_vector_index_base {
     uint batch_size = std::max(2 * k, params.m_batch_size);
     const auto dimension = m_index_def.dimension();
     Rdb_faiss_inverted_list_context context(thd);
-    Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
+    Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle,
                                     dimension, get_list_id(query_vector));
     uint rtn;
     Rdb_vector_knn_computer computer(query_vector, k, dimension, metric,
@@ -771,7 +777,7 @@ class Rdb_vector_index_flat : public Rdb_vector_index_base {
   virtual uint analyze(THD *thd, uint64_t max_num_rows_scanned,
                        std::atomic<THD::killed_state> *killed) override {
     Rdb_faiss_inverted_list_context context(thd);
-    Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
+    Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle,
                                     m_index_def.dimension(), LIST_NUMBER_FLAT);
     uint64_t ntotal = 0;
     std::string pk;
@@ -878,7 +884,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
     for (std::size_t i = 0; i < m_list_size_stats.size(); i++) {
       std::size_t list_size = 0;
       Rdb_faiss_inverted_list_context context(thd);
-      Rdb_vector_iterator vector_iter(&context, m_index_id, m_cf_handle.get(),
+      Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle,
                                       m_index_def.dimension(), i);
       while (vector_iter.is_available()) {
         uint rtn = vector_iter.get_pk_and_codes(pk, codes);
@@ -938,7 +944,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index_base {
 
     // create inverted list
     m_inverted_list = std::make_unique<Rdb_faiss_inverted_list>(
-        m_index_id, m_cf_handle.get(), ncentroids, m_index_def.dimension(),
+        m_index_id, *m_cf_handle, ncentroids, m_index_def.dimension(),
         m_index_l2->code_size);
     m_index_l2->replace_invlists(m_inverted_list.get());
     m_index_ip->replace_invlists(m_inverted_list.get());

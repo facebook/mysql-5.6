@@ -1494,7 +1494,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
     field[RDB_DDL_FIELD::TTL_DURATION]->store(kd.m_ttl_duration, true);
     field[RDB_DDL_FIELD::INDEX_FLAGS]->store(kd.m_index_flags_bitmap, true);
 
-    std::string cf_name = kd.get_cf()->GetName();
+    const auto &cf_name = kd.get_cf().GetName();
     field[RDB_DDL_FIELD::CF]->store(cf_name.c_str(), cf_name.size(),
                                     system_charset_info);
     ulonglong auto_incr;

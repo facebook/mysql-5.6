@@ -247,10 +247,10 @@ class Rdb_bulk_load_index_registry {
   // cf -> indexes
   std::map<rocksdb::ColumnFamilyHandle *, std::set<Index_id>> m_cf_indexes;
 
-  void add_cf_index_map(rocksdb::ColumnFamilyHandle *cf, Index_id index_id) {
-    auto find_result = m_cf_indexes.find(cf);
+  void add_cf_index_map(rocksdb::ColumnFamilyHandle &cf, Index_id index_id) {
+    auto find_result = m_cf_indexes.find(&cf);
     if (find_result == m_cf_indexes.end()) {
-      m_cf_indexes.emplace(cf, std::set<Index_id>{index_id});
+      m_cf_indexes.emplace(&cf, std::set<Index_id>{index_id});
     } else {
       find_result->second.insert(index_id);
     }
@@ -264,24 +264,25 @@ class Rdb_bulk_load_index_registry {
    * not already registered.
    * returns true when success.
    */
-  bool add_index(rocksdb::TransactionDB *rdb, rocksdb::ColumnFamilyHandle *cf,
-                 Index_id index_id) {
+  [[nodiscard]] bool add_index(rocksdb::TransactionDB *rdb,
+                               rocksdb::ColumnFamilyHandle &cf,
+                               Index_id index_id) {
     if (m_partitioner_factories.count(index_id) != 0) {
       // already processed this index, return
       return true;
     }
 
-    auto sst_partitioner_factory = rdb->GetOptions(cf).sst_partitioner_factory;
-    auto rdb_sst_partitioner_factory =
-        dynamic_cast<Rdb_sst_partitioner_factory *>(
-            sst_partitioner_factory.get());
+    auto *const sst_partitioner_factory =
+        rdb->GetOptions(&cf).sst_partitioner_factory.get();
+    auto *const rdb_sst_partitioner_factory =
+        dynamic_cast<Rdb_sst_partitioner_factory *>(sst_partitioner_factory);
     if (rdb_sst_partitioner_factory == nullptr) {
       // should never happen
       // NO_LINT_DEBUG
       LogPluginErrMsg(
           WARNING_LEVEL, ER_LOG_PRINTF_MSG,
           "MyRocks: Rdb_sst_partitioner_factory not registered for cf %s ",
-          cf->GetName().c_str());
+          cf.GetName().c_str());
       return false;
     }
 

@@ -374,7 +374,7 @@ struct Rdb_cf_scanner : public Rdb_tables_scanner {
     for (uint i = 0; i < tdef->m_key_count; i++) {
       const Rdb_key_def &kd = *tdef->m_key_descr_arr[i];
 
-      if (kd.get_cf()->GetID() == m_cf_id) {
+      if (kd.get_cf().GetID() == m_cf_id) {
         return HA_EXIT_FAILURE;
       }
     }

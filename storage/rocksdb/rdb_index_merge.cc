@@ -31,11 +31,11 @@
 
 namespace myrocks {
 
-Rdb_index_merge::Rdb_index_merge(const char *const tmpfile_path,
+Rdb_index_merge::Rdb_index_merge(const char *tmpfile_path,
                                  const ulonglong merge_buf_size,
                                  const ulonglong merge_combine_read_size,
                                  const ulonglong merge_tmp_file_removal_delay,
-                                 rocksdb::ColumnFamilyHandle *cf)
+                                 rocksdb::ColumnFamilyHandle &cf)
     : m_tmpfile_path(tmpfile_path),
       m_merge_buf_size(merge_buf_size),
       m_merge_combine_read_size(merge_combine_read_size),
@@ -198,7 +198,7 @@ int Rdb_index_merge::add(const rocksdb::Slice &key, const rocksdb::Slice &val) {
   /* Find sort order of the new record */
   auto res =
       m_offset_tree.emplace(m_rec_buf_unsorted->m_block.get() + rec_offset,
-                            m_cf_handle->GetComparator());
+                            m_cf_handle.GetComparator());
   if (!res.second) {
     my_printf_error(ER_DUP_ENTRY,
                     "Failed to insert the record: the key already exists",
@@ -309,7 +309,7 @@ int Rdb_index_merge::merge_heap_prepare() {
   /* Allocate buffers for each chunk */
   for (ulonglong i = 0; i < m_merge_file.m_num_sort_buffers; i++) {
     const auto entry =
-        std::make_shared<merge_heap_entry>(m_cf_handle->GetComparator());
+        std::make_shared<merge_heap_entry>(m_cf_handle.GetComparator());
 
     /*
       Read chunk_size bytes from each chunk on disk, and place inside

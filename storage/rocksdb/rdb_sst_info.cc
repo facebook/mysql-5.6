@@ -40,18 +40,16 @@
 namespace myrocks {
 
 Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
-    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
-    const rocksdb::DBOptions &db_options, const std::string &name,
-    const bool tracing)
+    rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
+    const rocksdb::DBOptions &db_options, const std::string &name, bool tracing)
     : m_db(db),
       m_cf(cf),
       m_db_options(db_options),
       m_sst_file_writer(nullptr),
       m_name(name),
       m_tracing(tracing),
-      m_comparator(cf->GetComparator()) {
+      m_comparator(cf.GetComparator()) {
   assert(db != nullptr);
-  assert(cf != nullptr);
 }
 
 Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
@@ -65,7 +63,7 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
 
-  rocksdb::Status s = m_cf->GetDescriptor(&cf_descr);
+  auto s = m_cf.GetDescriptor(&cf_descr);
   if (!s.ok()) {
     return s;
   }
@@ -75,8 +73,8 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
   const rocksdb::Options options(m_db_options, cf_descr.options);
 
   m_sst_file_writer =
-      new rocksdb::SstFileWriter(env_options, options, m_comparator, m_cf, true,
-                                 rocksdb::Env::IOPriority::IO_TOTAL,
+      new rocksdb::SstFileWriter(env_options, options, m_comparator, &m_cf,
+                                 true, rocksdb::Env::IOPriority::IO_TOTAL,
                                  cf_descr.options.optimize_filters_for_hits);
 
   s = m_sst_file_writer->Open(m_name);
@@ -191,10 +189,11 @@ Rdb_sst_file_ordered::Rdb_sst_stack::top() {
   return std::make_pair(key, value);
 }
 
-Rdb_sst_file_ordered::Rdb_sst_file_ordered(
-    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
-    const rocksdb::DBOptions &db_options, const std::string &name,
-    const bool tracing, size_t max_size)
+Rdb_sst_file_ordered::Rdb_sst_file_ordered(rocksdb::DB *db,
+                                           rocksdb::ColumnFamilyHandle &cf,
+                                           const rocksdb::DBOptions &db_options,
+                                           const std::string &name,
+                                           bool tracing, size_t max_size)
     : m_use_stack(false),
       m_first(true),
       m_stack(max_size),
@@ -300,11 +299,11 @@ rocksdb::Status Rdb_sst_file_ordered::commit() {
   return m_file.commit();
 }
 
-Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
+Rdb_sst_info::Rdb_sst_info(rocksdb::DB *db, const std::string &tablename,
                            const std::string &indexname,
-                           rocksdb::ColumnFamilyHandle *const cf,
+                           rocksdb::ColumnFamilyHandle &cf,
                            const rocksdb::DBOptions &db_options,
-                           const bool tracing)
+                           bool tracing)
     : m_db(db),
       m_cf(cf),
       m_db_options(db_options),
@@ -339,7 +338,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
   }
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
-  const rocksdb::Status s = m_cf->GetDescriptor(&cf_descr);
+  const auto s = m_cf.GetDescriptor(&cf_descr);
   if (!s.ok()) {
     // Default size if we can't get the cf's target size
     m_max_size = 64 * 1024 * 1024;
@@ -479,7 +478,7 @@ int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
   // This checks out the list of files so that the caller can collect/group
   // them and ingest them all in one go, and any racing calls to commit
   // won't see them at all
-  commit_info->init(m_cf, std::move(m_committed_files));
+  commit_info->init(&m_cf, std::move(m_committed_files));
   assert(m_committed_files.size() == 0);
 
   m_done = true;

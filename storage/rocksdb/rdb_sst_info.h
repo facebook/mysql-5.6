@@ -35,12 +35,13 @@ namespace myrocks {
 class Rdb_sst_file_ordered {
  private:
   class Rdb_sst_file {
-   private:
-    Rdb_sst_file(const Rdb_sst_file &p) = delete;
-    Rdb_sst_file &operator=(const Rdb_sst_file &p) = delete;
+    Rdb_sst_file(const Rdb_sst_file &) = delete;
+    Rdb_sst_file &operator=(const Rdb_sst_file &) = delete;
+    Rdb_sst_file(Rdb_sst_file &&) = delete;
+    Rdb_sst_file &operator=(Rdb_sst_file &&) = delete;
 
     rocksdb::DB *const m_db;
-    rocksdb::ColumnFamilyHandle *const m_cf;
+    rocksdb::ColumnFamilyHandle &m_cf;
     const rocksdb::DBOptions &m_db_options;
     rocksdb::SstFileWriter *m_sst_file_writer;
     const std::string m_name;
@@ -50,9 +51,9 @@ class Rdb_sst_file_ordered {
     std::string generateKey(const std::string &key);
 
    public:
-    Rdb_sst_file(rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
+    Rdb_sst_file(rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
                  const rocksdb::DBOptions &db_options, const std::string &name,
-                 const bool tracing);
+                 bool tracing);
     ~Rdb_sst_file();
 
     rocksdb::Status open();
@@ -95,10 +96,9 @@ class Rdb_sst_file_ordered {
   rocksdb::Status apply_first();
 
  public:
-  Rdb_sst_file_ordered(rocksdb::DB *const db,
-                       rocksdb::ColumnFamilyHandle *const cf,
+  Rdb_sst_file_ordered(rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
                        const rocksdb::DBOptions &db_options,
-                       const std::string &name, const bool tracing,
+                       const std::string &name, bool tracing,
                        size_t max_size);
 
   inline rocksdb::Status open() { return m_file.open(); }
@@ -108,12 +108,13 @@ class Rdb_sst_file_ordered {
 };
 
 class Rdb_sst_info {
- private:
-  Rdb_sst_info(const Rdb_sst_info &p) = delete;
-  Rdb_sst_info &operator=(const Rdb_sst_info &p) = delete;
+  Rdb_sst_info(const Rdb_sst_info &) = delete;
+  Rdb_sst_info &operator=(const Rdb_sst_info &) = delete;
+  Rdb_sst_info(Rdb_sst_info &&) = delete;
+  Rdb_sst_info &operator=(Rdb_sst_info &&) = delete;
 
   rocksdb::DB *const m_db;
-  rocksdb::ColumnFamilyHandle *const m_cf;
+  rocksdb::ColumnFamilyHandle &m_cf;
   const rocksdb::DBOptions &m_db_options;
   uint64_t m_curr_size;
   uint64_t m_max_size;
@@ -140,10 +141,9 @@ class Rdb_sst_info {
                      const rocksdb::Status &s);
 
  public:
-  Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
-               const std::string &indexname,
-               rocksdb::ColumnFamilyHandle *const cf,
-               const rocksdb::DBOptions &db_options, const bool tracing);
+  Rdb_sst_info(rocksdb::DB *db, const std::string &tablename,
+               const std::string &indexname, rocksdb::ColumnFamilyHandle &cf,
+               const rocksdb::DBOptions &db_options, bool tracing);
   ~Rdb_sst_info();
 
   /*
@@ -249,7 +249,7 @@ class Rdb_sst_info {
     return m_committed_files;
   }
 
-  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf; }
+  const rocksdb::ColumnFamilyHandle &get_cf() const { return m_cf; }
 
   static void init(const rocksdb::DB *const db);
 
