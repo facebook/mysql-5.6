@@ -2191,8 +2191,8 @@ static int rdb_i_s_lock_info_fill_table(
   for (const auto &lock : lock_info) {
     const uint32_t cf_id = lock.first;
     const auto &key_lock_info = lock.second;
-    const auto key_hexstr = rdb_hexdump(key_lock_info.key.c_str(),
-                                        key_lock_info.key.length(), FN_REFLEN);
+    const auto key_hexstr =
+        rdb_hexdump(key_lock_info.key.data(), key_lock_info.key.length());
 
     for (const auto &id : key_lock_info.ids) {
       tables->table->field[RDB_LOCKS_FIELD::COLUMN_FAMILY_ID]->store(cf_id,
@@ -2300,10 +2300,10 @@ static int rdb_i_s_trx_info_fill_table(
   const std::vector<Rdb_trx_info> &all_trx_info = rdb_get_all_trx_info();
 
   for (const auto &info : all_trx_info) {
-    auto name_hexstr =
-        rdb_hexdump(info.name.c_str(), info.name.length(), NAME_LEN);
-    auto key_hexstr = rdb_hexdump(info.waiting_key.c_str(),
-                                  info.waiting_key.length(), FN_REFLEN);
+    const auto name_hexstr =
+        rdb_hexdump(info.name.data(), info.name.length(), NAME_LEN);
+    const auto key_hexstr =
+        rdb_hexdump(info.waiting_key.data(), info.waiting_key.length());
 
     tables->table->field[RDB_TRX_FIELD::TRANSACTION_ID]->store(info.trx_id,
                                                                true);

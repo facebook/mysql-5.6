@@ -149,10 +149,9 @@ namespace myrocks {
   rdb_check_mutex_call_result(__PRETTY_FUNCTION__, false, \
                               mysql_mutex_unlock(&m))
 
-/*
-  Generic constant.
-*/
-const size_t RDB_MAX_HEXDUMP_LEN = 1000;
+// The default limit for rdb_hexdump output length, happens to fit the longest
+// possible keys (16K)
+constexpr size_t RDB_MAX_HEXDUMP_LEN = 2 * 16 * 1024;
 
 /*
   Helper function to get an NULL terminated uchar* out of a given MySQL String.
@@ -340,9 +339,9 @@ const std::vector<std::string> parse_into_tokens(const std::string &s,
   Helper functions to populate strings.
 */
 
-std::string rdb_hexdump(const char *data, const std::size_t data_len,
-                        const std::size_t maxsize = 0)
-    MY_ATTRIBUTE((__nonnull__));
+[[nodiscard]] std::string rdb_hexdump(
+    const char *data, std::size_t data_len,
+    std::size_t maxsize = RDB_MAX_HEXDUMP_LEN);
 
 /*
   Helper function to return dir + '/' + file
