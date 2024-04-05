@@ -334,7 +334,11 @@ void sync_array_wait_event(
 #endif
   sync_array_exit(arr);
 
+  thd_wait_begin(nullptr, THD_WAIT_LATCH);
+
   os_event_wait_low(sync_cell_get_event(cell), cell->signal_count);
+
+  thd_wait_end(nullptr);
 
   sync_array_free_cell(arr, cell);
 

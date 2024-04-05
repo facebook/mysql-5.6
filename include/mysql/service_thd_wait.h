@@ -129,7 +129,12 @@ typedef enum _thd_wait_type_e {
   */
   THD_WAIT_GTID_EXECUTED = 18,
 
-  THD_WAIT_LAST = 19
+  /**
+    Used for storage engine latch waits.
+  */
+  THD_WAIT_LATCH = 19,
+
+  THD_WAIT_LAST = 20
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
