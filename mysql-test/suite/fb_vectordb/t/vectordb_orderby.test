@@ -57,7 +57,7 @@ explain select id from t1 order by FB_VECTOR_L2('[2, 1, 1]', vector1) limit 2;
 
 --echo
 --echo
---echo 3. Verify that the optimizer does not choose the vector index without 
+--echo 3. Verify that the optimizer DOES choose the vector index EVEN without 
 --echo    the LIMIT clause for the above 3 cases 
 --echo
 
@@ -137,28 +137,31 @@ explain select id from t1 order by FB_VECTOR_L2(vector1, vector1) limit 2;
 
 --echo
 --echo
---echo 6. Other scenarios - Vector dist fn as part of SELECT fields
+--echo 7. Other scenarios - Vector dist fn as part of SELECT fields
 --echo 
 
 --echo Case A. SELECT *
 
 explain select *, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+explain select *, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 
 --echo
 --echo Case B. SELECT <vector index field>
 
 explain select vector1, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+explain select vector1, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 
 --echo
 --echo Case C. SELECT <primary key field>
 
 explain select id, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
+explain select id, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 
 enable_warnings;
 
 --echo
 --echo
---echo 7. Test ORDER BY and LIMIT pushdown to MyRocks by looking at output of Iterators 
+--echo 8. Test ORDER BY and LIMIT pushdown to MyRocks by looking at output of Iterators 
 --echo 
 
 --echo Case A. SELECT *

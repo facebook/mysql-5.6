@@ -5071,6 +5071,7 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
         queries too.
       */
       if (is_covering || select_limit != HA_POS_ERROR ||
+          (table->file->index_supports_vector_scan(order->order, nr)) ||
           (ref_key < 0 && (group || table->force_index_order))) {
         rec_per_key_t rec_per_key;
         KEY *keyinfo = table->key_info + nr;
