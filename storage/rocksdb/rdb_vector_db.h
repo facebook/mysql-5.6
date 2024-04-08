@@ -144,8 +144,9 @@ class Rdb_vector_db_handler {
   uint knn_search(THD *thd, Rdb_vector_index *index);
 
   int vector_index_orderby_init(Item *sort_func, int limit, uint batch_size,
-                                uint nprobe) {
+                                uint nprobe, uint limit_multiplier) {
     m_limit = limit;
+    m_limit_multiplier = limit_multiplier;
     m_batch_size = batch_size;
     m_nprobe = nprobe;
 
@@ -188,6 +189,8 @@ class Rdb_vector_db_handler {
     m_metric = FB_VECTOR_INDEX_METRIC::NONE;
     // reset ORDER BY related
     m_limit = 0;
+    m_limit_multiplier = 0;
+    m_nprobe = 0;
     m_buffer.clear();
   }
 
@@ -204,6 +207,7 @@ class Rdb_vector_db_handler {
   uint m_limit;
   uint m_batch_size;
   uint m_nprobe;
+  uint m_limit_multiplier;
 
   uint decode_value_to_buffer(Field *field, FB_vector_dimension dimension,
                               std::vector<float> &buffer);

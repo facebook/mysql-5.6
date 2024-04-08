@@ -666,6 +666,13 @@ struct System_variables {
   */
   uint fb_vector_index_cost_factor;
 
+  /**
+    This parameter acts counters the filtering effect of a query by
+    fetching more KNN result from FAISS so that the query LIMIT can be
+    satisfied.
+  */
+  uint fb_vector_search_limit_multiplier;
+
 };
 
 /**

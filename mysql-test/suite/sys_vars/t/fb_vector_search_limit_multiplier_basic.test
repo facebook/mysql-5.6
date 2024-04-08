@@ -1,0 +1,95 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 10
+####
+--echo Default value of fb_vector_search_limit_multiplier is 10
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+show session variables like 'fb_vector_search_limit_multiplier';
+
+select * from performance_schema.session_variables
+   where variable_name='fb_vector_search_limit_multiplier';
+
+####
+## Verify that the variable is dynamic
+####
+--echo fb_vector_search_limit_multiplier is a dynamic variable (change to 100)
+set @@session.fb_vector_search_limit_multiplier = 100;
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@session.fb_vector_search_limit_multiplier = 10;
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+####
+## Verify other accepted values 
+####
+--echo Verify other accepted values
+SET @@session.fb_vector_search_limit_multiplier = 1;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = 1000;
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+####
+## Verify values beyond range get truncated
+####
+SET @@session.fb_vector_search_limit_multiplier = 0;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = -1;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = 1001;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = 107601;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = True;
+SELECT @@session.fb_vector_search_limit_multiplier;
+SET @@session.fb_vector_search_limit_multiplier = False;
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+####
+## Try changing the value to invalid values
+####
+--echo Attempt setting invalid values
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = "off";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = "on";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = " ";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = "";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = '';
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.fb_vector_search_limit_multiplier = ' ';
+
+
+####
+## Other negative test cases 
+####
+--Error ER_PARSE_ERROR
+SET local.fb_vector_search_limit_multiplier = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.fb_vector_search_limit_multiplier;
+--Error ER_UNKNOWN_TABLE
+SELECT session.fb_vector_search_limit_multiplier;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (100)
+--let $restart_parameters = restart: --fb_vector_search_limit_multiplier=100
+--source include/restart_mysqld.inc
+
+SELECT @@session.fb_vector_search_limit_multiplier;
+
+--echo restart the server with the default value (10)
+--let $restart_parameters =
+--source include/restart_mysqld.inc
+
+# check value is default (10)
+SELECT @@session.fb_vector_search_limit_multiplier;

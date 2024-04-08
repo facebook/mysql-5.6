@@ -1,0 +1,277 @@
+CREATE TABLE t1 (
+id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+color varchar(20) not null, 
+vector1 JSON,   
+INDEX vector_key_1(vector1) 
+FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 3 
+);
+
+Vector distance ordering for reference:
+explain 
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	NULL
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+6	blue	[2.4, 3.72, 3.84]	1.8539998531341553
+3	blue	[1.2, 2.52, 2.64]	2.669999837875366
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+9	blue	[3.6, 4.92, 5.04]	9.677999496459961
+10	red	[4, 5.1, 5.2]	12.099998474121094
+11	green	[4.4, 5.61, 5.72]	18.430500030517578
+12	blue	[4.8, 6.12, 6.24]	26.141998291015625
+13	red	[5, 6.1, 6.2]	26.699996948242188
+14	green	[5.5, 6.71, 6.82]	37.96649932861328
+16	red	[6, 7.1, 7.2]	47.29999542236328
+15	blue	[6, 7.32, 7.44]	51.246002197265625
+17	green	[6.6, 7.81, 7.92]	64.76249694824219
+19	red	[7, 8.1, 8.2]	73.9000015258789
+18	blue	[7.2, 8.52, 8.64]	84.99000549316406
+20	green	[7.7, 8.91, 9.02]	98.8185043334961
+22	red	[8, 9.1, 9.2]	106.5
+21	blue	[8.4, 9.72, 9.84]	127.3740005493164
+23	green	[8.8, 10.01, 10.12]	140.13450622558594
+25	red	[9, 10.1, 10.2]	145.10000610351562
+24	blue	[9.6, 10.92, 11.04]	178.39801025390625
+26	green	[9.9, 11.11, 11.22]	188.7104949951172
+28	red	[10, 11.1, 11.2]	189.70001220703125
+27	blue	[10.8, 12.12, 12.24]	238.06198120117188
+29	green	[11, 12.21, 12.32]	244.5465087890625
+30	blue	[12, 13.32, 13.44]	306.3659973144531
+
+select @@local.fb_vector_search_limit_multiplier;
+@@local.fb_vector_search_limit_multiplier
+10
+set @old =  @@local.fb_vector_search_limit_multiplier;
+
+Executing queries with fb_vector_search_limit_multiplier = 1 as a SESSION VAR
+set fb_vector_search_limit_multiplier = 1;
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+
+Executing queries with fb_vector_search_limit_multiplier = 2 as a SESSION VAR
+set fb_vector_search_limit_multiplier = 2;
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+
+Executing queries with fb_vector_search_limit_multiplier = 3 as a SESSION VAR
+set fb_vector_search_limit_multiplier = 3;
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+11	green	[4.4, 5.61, 5.72]	18.430500030517578
+14	green	[5.5, 6.71, 6.82]	37.96649932861328
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+19	red	[7, 8.1, 8.2]	73.9000015258789
+
+Executing queries with fb_vector_search_limit_multiplier = 4 as a SESSION VAR
+set fb_vector_search_limit_multiplier = 4;
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+11	green	[4.4, 5.61, 5.72]	18.430500030517578
+14	green	[5.5, 6.71, 6.82]	37.96649932861328
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65536	NULL	1	100.00	Using where
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+19	red	[7, 8.1, 8.2]	73.9000015258789
+set fb_vector_search_limit_multiplier = 1;
+
+Executing queries with fb_vector_search_limit_multiplier = 1 as a HINT
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 1) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 1) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 1) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+
+Executing queries with fb_vector_search_limit_multiplier = 2 as a HINT
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 2) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 2) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 2) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+
+Executing queries with fb_vector_search_limit_multiplier = 3 as a HINT
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+11	green	[4.4, 5.61, 5.72]	18.430500030517578
+14	green	[5.5, 6.71, 6.82]	37.96649932861328
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+19	red	[7, 8.1, 8.2]	73.9000015258789
+
+Executing queries with fb_vector_search_limit_multiplier = 4 as a HINT
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 4) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+id	color	vector1	dis
+5	green	[2.2, 3.41, 3.52]	1.1384998559951782
+2	green	[1.1, 2.31, 2.42]	3.382499933242798
+8	green	[3.3, 4.51, 4.62]	6.1545000076293945
+11	green	[4.4, 5.61, 5.72]	18.430500030517578
+14	green	[5.5, 6.71, 6.82]	37.96649932861328
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 4) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+id	color	vector1	dis
+4	red	[2, 3.1, 3.2]	0.9000001549720764
+7	red	[3, 4.1, 4.2]	3.4999992847442627
+1	red	[1, 2.1, 2.2]	4.300000190734863
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+
+select /*+ SET_VAR(fb_vector_search_limit_multiplier = 4) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+id	color	vector1	dis
+10	red	[4, 5.1, 5.2]	12.099998474121094
+13	red	[5, 6.1, 6.2]	26.699996948242188
+16	red	[6, 7.1, 7.2]	47.29999542236328
+19	red	[7, 8.1, 8.2]	73.9000015258789
+set @@local.fb_vector_search_limit_multiplier = @old;
+drop table t1;

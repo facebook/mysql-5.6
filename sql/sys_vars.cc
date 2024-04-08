@@ -10453,3 +10453,14 @@ static Sys_var_uint Sys_fb_vector_index_cost_factor(
     VALID_RANGE(1, 100000), DEFAULT(1000), BLOCK_SIZE(1),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+static Sys_var_uint Sys_fb_vector_search_limit_multiplier(
+    "fb_vector_search_limit_multiplier",
+    "This parameter indicates to the storage engine the filtering effect "
+    "of a SQL query due to WHERE and HAVING clauses. This is used to "
+    "fetch more nearest neighbours from FAISS so that the LIMIT can still "
+    "be satisfied. This applies to all vector index types."
+    "This session default can be superceded by a query level override: "
+    "'SELECT /*+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ ... '. "
+    "Default: 10",
+    HINT_UPDATEABLE SESSION_VAR(fb_vector_search_limit_multiplier), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 1000), DEFAULT(10), BLOCK_SIZE(1));

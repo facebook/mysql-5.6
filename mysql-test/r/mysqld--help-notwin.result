@@ -615,6 +615,15 @@ The following options may be given as the first argument:
  maximum vector dimension
  --fb-vector-min-dimension[=#] 
  minimum vector dimension
+ --fb-vector-search-limit-multiplier[=#] 
+ This parameter indicates to the storage engine the
+ filtering effect of a SQL query due to WHERE and HAVING
+ clauses. This is used to fetch more nearest neighbours
+ from FAISS so that the LIMIT can still be satisfied. This
+ applies to all vector index types.This session default
+ can be superceded by a query level override: 'SELECT /*+
+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ ... '.
+ Default: 10
  --fb-vector-search-nprobe[=#] 
  This parameter controls the vector search radius for a
  query vector when doing nearest neighbour search or
@@ -3439,6 +3448,7 @@ fast-integer-to-string FALSE
 fb-vector-index-cost-factor 1000
 fb-vector-max-dimension 4096
 fb-vector-min-dimension 3
+fb-vector-search-limit-multiplier 10
 fb-vector-search-nprobe 16
 filesort-max-file-size 0
 flush FALSE

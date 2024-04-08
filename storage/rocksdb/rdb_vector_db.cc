@@ -1102,7 +1102,7 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, Rdb_vector_index *index) {
   }
 
   Rdb_vector_search_params params{.m_metric = m_metric,
-                                  .m_k = m_limit,
+                                  .m_k = m_limit * m_limit_multiplier,
                                   .m_batch_size = m_batch_size,
                                   .m_nprobe = m_nprobe};
   uint rtn = index->knn_search(thd, m_buffer, params, m_search_result);
