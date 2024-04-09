@@ -2208,6 +2208,8 @@ The following options may be given as the first argument:
  rows may disappear in the middle of transactions as they
  are dropped during compaction. Use with caution.
  (Defaults to on; use --skip-rocksdb-enable-ttl-read-filtering to disable.)
+ --rocksdb-enable-udt-in-mem 
+ Enabled UDT in memtable feature in MyRocks
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
@@ -3872,6 +3874,7 @@ rocksdb-enable-thread-tracking TRUE
 rocksdb-enable-tmp-table FALSE
 rocksdb-enable-ttl TRUE
 rocksdb-enable-ttl-read-filtering TRUE
+rocksdb-enable-udt-in-mem FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-error-on-suboptimal-collation TRUE

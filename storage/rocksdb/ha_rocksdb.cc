@@ -933,6 +933,7 @@ static int32_t rocksdb_table_stats_background_thread_nice_value =
 static unsigned long long rocksdb_table_stats_max_num_rows_scanned = 0ul;
 static bool rocksdb_enable_bulk_load_api = 1;
 static bool rocksdb_enable_remove_orphaned_dropped_cfs = 1;
+static bool rocksdb_enable_udt_in_mem = 0;
 static bool rocksdb_print_snapshot_conflict_queries = 0;
 static bool rocksdb_allow_to_start_after_corruption = 0;
 static ulong rocksdb_write_policy = rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
@@ -1564,6 +1565,11 @@ static MYSQL_SYSVAR_BOOL(enable_remove_orphaned_dropped_cfs,
                          "doesn't exist in cf manager",
                          nullptr, nullptr,
                          rocksdb_enable_remove_orphaned_dropped_cfs);
+
+static MYSQL_SYSVAR_BOOL(enable_udt_in_mem, rocksdb_enable_udt_in_mem,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "Enabled UDT in memtable feature in MyRocks", nullptr,
+                         nullptr, rocksdb_enable_udt_in_mem);
 
 static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Directory for temporary files during DDL operations.",
@@ -3094,6 +3100,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
     MYSQL_SYSVAR(enable_remove_orphaned_dropped_cfs),
+    MYSQL_SYSVAR(enable_udt_in_mem),
     MYSQL_SYSVAR(tmpdir),
     MYSQL_SYSVAR(merge_combine_read_size),
     MYSQL_SYSVAR(merge_tmp_file_removal_delay_ms),
