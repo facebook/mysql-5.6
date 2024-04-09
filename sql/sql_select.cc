@@ -5160,10 +5160,20 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
           index entry.
         */
         const Cost_estimate table_scan_time = table->file->table_scan_cost();
-        const double index_scan_time =
+        double index_scan_time =
             select_limit / rec_per_key *
             min<double>(table->file->page_read_cost(nr, rec_per_key),
                         table_scan_time.total_cost());
+
+        /*
+          Vector search through FAISS will be orders of magnitude faster
+          than doing a filesort. In order to make the optimizer prefer
+          the vector index, we add this as a factor by decreasing the
+          index scan time
+        */
+        if (table->file->index_supports_vector_scan(order->order, nr)) {
+           index_scan_time /= table->in_use->variables.fb_vector_index_cost_factor;
+        }
 
         /*
           Switch to index that gives order if its scan time is smaller than

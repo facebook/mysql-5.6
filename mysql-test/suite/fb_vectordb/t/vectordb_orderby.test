@@ -1,5 +1,4 @@
-create database test_db;
-use test_db;
+--source include/have_rocksdb.inc
 
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
@@ -188,4 +187,3 @@ select * from t1 order by FB_VECTOR_L2(vector1, '[1, 2, 3]') DESC limit 8;
 
 
 drop table t1;
-drop database test_db;

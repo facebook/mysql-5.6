@@ -659,6 +659,13 @@ struct System_variables {
   */
   uint fb_vector_search_nprobe;
 
+  /**
+    This parameter makes the optimizer prefer the vector index over
+    a table scan followed by filesort, by reducing the cost of vector search
+    via vector index by this factor.
+  */
+  uint fb_vector_index_cost_factor;
+
 };
 
 /**

@@ -10441,3 +10441,15 @@ static Sys_var_uint Sys_fb_vector_search_nprobe(
     "'SELECT /*+ SET_VAR(fb_vector_search_nprobe = 3) */ ... '. Default: 16",
     HINT_UPDATEABLE SESSION_VAR(fb_vector_search_nprobe), CMD_LINE(OPT_ARG),
     VALID_RANGE(1, 10000), DEFAULT(16), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_fb_vector_index_cost_factor(
+    "fb_vector_index_cost_factor",
+    "A table scan plus filesort will be prohibitively expensive "
+    "for vector searches. This sysvar parameterizes the preference for "
+    "the vector index, reduces the vector index cost by this factor, thereby "
+    "making the optimizer prefer the vector index for vector search. "
+    "Default: 1000",
+    SESSION_VAR(fb_vector_index_cost_factor), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 100000), DEFAULT(1000), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+

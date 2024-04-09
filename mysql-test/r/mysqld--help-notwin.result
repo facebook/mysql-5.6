@@ -605,6 +605,12 @@ The following options may be given as the first argument:
  Set/unset failure injection points
  --fast-integer-to-string 
  Optimized implementation of integer to string conversion
+ --fb-vector-index-cost-factor[=#] 
+ A table scan plus filesort will be prohibitively
+ expensive for vector searches. This sysvar parameterizes
+ the preference for the vector index, reduces the vector
+ index cost by this factor, thereby making the optimizer
+ prefer the vector index for vector search. Default: 1000
  --fb-vector-max-dimension[=#] 
  maximum vector dimension
  --fb-vector-min-dimension[=#] 
@@ -3427,6 +3433,7 @@ explicit-defaults-for-timestamp TRUE
 external-locking FALSE
 failure-injection-points 
 fast-integer-to-string FALSE
+fb-vector-index-cost-factor 1000
 fb-vector-max-dimension 4096
 fb-vector-min-dimension 3
 fb-vector-search-nprobe 16
