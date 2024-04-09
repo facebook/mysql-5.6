@@ -1320,6 +1320,8 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   assert_IMP(should_store_row_debug_checksums,
              (m_index_type == INDEX_TYPE_SECONDARY));
 
+  MEM_UNDEFINED(pack_buffer, max_storage_fmt_length());
+
   uchar *tuple = packed_tuple;
   size_t unpack_start_pos = size_t(-1);
   size_t unpack_len_pos = size_t(-1);
@@ -1470,6 +1472,8 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   }
 
   assert(is_storage_available(tuple - packed_tuple, 0));
+
+  MEM_NOACCESS(pack_buffer, max_storage_fmt_length());
 
   return tuple - packed_tuple;
 }
