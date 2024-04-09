@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS t2;
 
 
 SET @prior_rocksdb_perf_context_level = @@rocksdb_perf_context_level;
-SET GLOBAL rocksdb_perf_context_level=3;
+SET GLOBAL rocksdb_perf_context_level=4; #kEnableTimeExceptForMutex
 
 CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
 CREATE TABLE t2 (k INT, PRIMARY KEY (k)) ENGINE = ROCKSDB;
