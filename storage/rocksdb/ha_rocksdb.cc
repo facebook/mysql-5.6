@@ -20180,7 +20180,9 @@ bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
      3. check if this FUNC ITEM is a vector DB func
      4. check if the first arg is a FIELD_ITEM with data_type MYSQL_TYPE_JSON
      5. check if the FIELD_ITEM is assocaited with a vector index
-     6. check if the second arg is of type Item::STRING_ITEM/MYSQL_TYPE_VARCHAR
+     6. check if the second arg is:
+        a. Item::STRING_ITEM with data_type mapping to MYSQL_TYPE_VARCHAR
+        b. Item::CACHE_ITEM with data_type mapping to MYSQL_TYPE_JSON
  */
 bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
   if ((idx >= 0) && !table->key_info[idx].is_fb_vector_index())  // 1.
@@ -20227,11 +20229,13 @@ bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
 
   if (fld_index < 0) return false;
 
-  if ((arg1->type() != Item::STRING_ITEM) ||
-      (arg1->data_type() != MYSQL_TYPE_VARCHAR))  // 6.
-    return false;
+  if (((arg1->type() == Item::STRING_ITEM) &&
+       (arg1->data_type() == MYSQL_TYPE_VARCHAR)) ||  // 6a.
+      ((arg1->type() == Item::CACHE_ITEM) &&
+       (arg1->data_type() == MYSQL_TYPE_JSON)))  // 6b.
+    return true;
 
-  return true;
+  return false;
 }
 
 }  // namespace myrocks

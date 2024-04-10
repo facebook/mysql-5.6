@@ -168,8 +168,13 @@ class Rdb_vector_db_handler {
     uint arg_idx = 1;
     String tmp_str;
 
-    assert(args[0]->type() == Item::FIELD_ITEM);
-    assert(args[1]->type() == Item::STRING_ITEM);
+    assert((args[0]->type() == Item::FIELD_ITEM) &&
+           (args[0]->data_type() == MYSQL_TYPE_JSON));
+
+    assert(((args[1]->type() == Item::STRING_ITEM) &&
+           (args[1]->data_type() == MYSQL_TYPE_VARCHAR)) ||
+          ((args[1]->type() == Item::CACHE_ITEM) &&
+           (args[1]->data_type() == MYSQL_TYPE_JSON)));
 
     if (parse_fb_vector_from_item(args, arg_idx, tmp_str, __FUNCTION__,
                                   input_vector))
