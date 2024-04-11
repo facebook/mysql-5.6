@@ -1,11 +1,11 @@
 --source include/have_rocksdb.inc
 
-CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+CREATE TABLE valid_values (value varchar(255));
 INSERT INTO valid_values VALUES(1);
 INSERT INTO valid_values VALUES(0);
 INSERT INTO valid_values VALUES('on');
 
-CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+CREATE TABLE invalid_values (value varchar(255));
 INSERT INTO invalid_values VALUES('\'aaa\'');
 INSERT INTO invalid_values VALUES('\'bbb\'');
 

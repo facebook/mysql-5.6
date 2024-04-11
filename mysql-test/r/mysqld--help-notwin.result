@@ -2209,7 +2209,8 @@ The following options may be given as the first argument:
  are dropped during compaction. Use with caution.
  (Defaults to on; use --skip-rocksdb-enable-ttl-read-filtering to disable.)
  --rocksdb-enable-udt-in-mem 
- Enabled UDT in memtable feature in MyRocks
+ Enabled user define timestamp in memtable feature to
+ support HLC snapshot reads in MyRocks
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 

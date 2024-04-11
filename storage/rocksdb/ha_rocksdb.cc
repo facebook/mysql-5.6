@@ -1568,8 +1568,9 @@ static MYSQL_SYSVAR_BOOL(enable_remove_orphaned_dropped_cfs,
 
 static MYSQL_SYSVAR_BOOL(enable_udt_in_mem, rocksdb_enable_udt_in_mem,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Enabled UDT in memtable feature in MyRocks", nullptr,
-                         nullptr, rocksdb_enable_udt_in_mem);
+                         "Enabled user define timestamp in memtable feature to "
+                         "support HLC snapshot reads in MyRocks",
+                         nullptr, nullptr, rocksdb_enable_udt_in_mem);
 
 static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Directory for temporary files during DDL operations.",
