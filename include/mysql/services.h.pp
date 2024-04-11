@@ -165,6 +165,7 @@ struct st_ok_metadata {
   std::string gtid;
   std::string current_schema;
   std::map<std::string, std::string> response_attributes;
+  std::map<std::string, std::string> changed_sysvars;
 };
 typedef int (*start_result_metadata_t)(void *ctx, uint num_cols, uint flags,
                                        const CHARSET_INFO *resultcs);

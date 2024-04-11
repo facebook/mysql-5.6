@@ -70,6 +70,8 @@ struct st_ok_metadata {
   // An arbitrary key/value map of metadata returned by the server for the
   // current statement
   std::map<std::string, std::string> response_attributes;
+  // Contains changed tracked session system variables specified by the user
+  std::map<std::string, std::string> changed_sysvars;
 };
 
 /**

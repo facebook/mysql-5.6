@@ -3659,6 +3659,14 @@ bool THD::fillMetadata(struct st_ok_metadata &metadata) {
     hasMetadata = true;
   }
 
+  tracker = session_tracker.get_tracker(SESSION_SYSVARS_TRACKER);
+  if (tracker && tracker->is_enabled() && tracker->is_changed()) {
+    assert(dynamic_cast<Session_sysvars_tracker *>(tracker));
+    auto sysvars_tracker = static_cast<Session_sysvars_tracker *>(tracker);
+    sysvars_tracker->populate_changed_sysvars(this, metadata.changed_sysvars);
+    hasMetadata = true;
+  }
+
   // We need to explicitly call reset() on the tracker because reset()
   // is called by all store() functions, but plugins can't use store since
   // it's tied tightly to MySQL Classic Protocol. If we don't call this

@@ -67,138 +67,6 @@ static bool is_component_registered_var_name(const char *name) {
 }
 
 /**
-  Session_sysvars_tracker
-  -----------------------
-  This is a tracker class that enables & manages the tracking of session
-  system variables. It internally maintains a hash of user supplied variable
-  names and a boolean field to store if the variable was changed by the last
-  statement.
-*/
-
-class Session_sysvars_tracker : public State_tracker {
- private:
-  struct sysvar_node_st {
-    LEX_CSTRING m_sysvar_name;
-    bool m_changed;
-  };
-
-  class vars_list {
-   private:
-    /**
-      Registered system variables. (@@session_track_system_variables)
-      A hash to store the name of all the system variables specified by the
-      user.
-    */
-    using sysvar_map =
-        collation_unordered_map<std::string,
-                                unique_ptr_my_free<sysvar_node_st>>;
-    std::unique_ptr<sysvar_map> m_registered_sysvars;
-    char *variables_list;
-    /**
-      The boolean which when set to true, signifies that every variable
-      is to be tracked.
-    */
-    bool track_all;
-    const CHARSET_INFO *m_char_set;
-
-    void init(const CHARSET_INFO *char_set) {
-      variables_list = nullptr;
-      m_char_set = char_set;
-      m_registered_sysvars.reset(
-          new sysvar_map(char_set, key_memory_THD_Session_tracker));
-    }
-
-    void free_hash() { m_registered_sysvars.reset(); }
-
-    sysvar_node_st *search(const uchar *token, size_t length) {
-      return find_or_nullptr(
-          *m_registered_sysvars,
-          std::string(pointer_cast<const char *>(token), length));
-    }
-
-   public:
-    vars_list(const CHARSET_INFO *char_set) { init(char_set); }
-
-    void claim_memory_ownership(bool claim) { my_claim(variables_list, claim); }
-
-    ~vars_list() {
-      if (variables_list) my_free(variables_list);
-      variables_list = nullptr;
-    }
-
-    sysvar_node_st *search(sysvar_node_st *node, const LEX_CSTRING &tmp) {
-      sysvar_node_st *res;
-      res = search((const uchar *)tmp.str, tmp.length);
-      if (!res) {
-        if (track_all) {
-          insert(node, tmp);
-          return search((const uchar *)tmp.str, tmp.length);
-        }
-      }
-      return res;
-    }
-
-    sysvar_map::iterator begin() const { return m_registered_sysvars->begin(); }
-    sysvar_map::iterator end() const { return m_registered_sysvars->end(); }
-
-    const CHARSET_INFO *char_set() const { return m_char_set; }
-
-    bool insert(sysvar_node_st *node, const LEX_CSTRING &var);
-    void reset();
-    bool update(vars_list *from, THD *thd);
-    bool parse_var_list(THD *thd, LEX_STRING var_list, bool throw_error,
-                        const CHARSET_INFO *char_set, bool session_created);
-  };
-  /**
-    Two objects of vars_list type are maintained to manage
-    various operations on variables_list.
-  */
-  vars_list *orig_list, *tool_list;
-
- public:
-  /** Constructor */
-  Session_sysvars_tracker(const CHARSET_INFO *char_set) {
-    orig_list = new (std::nothrow) vars_list(char_set);
-    tool_list = new (std::nothrow) vars_list(char_set);
-  }
-
-  /** Destructor */
-  ~Session_sysvars_tracker() override {
-    if (orig_list) delete orig_list;
-    if (tool_list) delete tool_list;
-  }
-
-  /**
-    Method used to check the validity of string provided
-    for session_track_system_variables during the server
-    startup.
-  */
-  static bool server_init_check(const CHARSET_INFO *char_set,
-                                LEX_STRING var_list) {
-    vars_list dummy(char_set);
-    bool result;
-    result = dummy.parse_var_list(nullptr, var_list, false, char_set, true);
-    return result;
-  }
-
-  void reset() override;
-  bool enable(THD *thd) override;
-  bool check(THD *thd, set_var *var) override;
-  bool update(THD *thd) override;
-  bool store(THD *thd, String &buf) override;
-  void mark_as_changed(
-      THD *thd, LEX_CSTRING tracked_item_name,
-      const LEX_CSTRING *tracked_item_value = nullptr) override;
-  /* callback */
-  static const uchar *sysvars_get_key(const uchar *entry, size_t *length);
-
-  void claim_memory_ownership(bool claim) override {
-    if (orig_list != nullptr) orig_list->claim_memory_ownership(claim);
-    if (tool_list != nullptr) tool_list->claim_memory_ownership(claim);
-  }
-};
-
-/**
   Current_schema_tracker
   ----------------------
   This is a tracker class that enables & manages the tracking of current
@@ -419,6 +287,35 @@ bool Session_sysvars_tracker::vars_list::insert(sysvar_node_st *node,
     return true;
   } /* Error */
   return false;
+}
+
+void Session_sysvars_tracker::populate_changed_sysvars(
+    THD *thd, std::map<std::string, std::string> &sysvars) {
+  auto f = [thd, &sysvars](const System_variable_tracker &, sys_var *var) {
+    SHOW_VAR show;
+    show.type = SHOW_SYS;
+    show.value = pointer_cast<char *>(var);
+    show.name = var->name.str;
+    show.scope = SHOW_SCOPE_SESSION;
+
+    char val_buf[1024];
+    size_t val_length;
+    const CHARSET_INFO *charset;
+
+    const char *value =
+        get_one_variable(thd, &show, OPT_SESSION, SHOW_SYS, nullptr, &charset,
+                         val_buf, &val_length);
+
+    sysvars[var->name.str] = value;
+  };
+
+  for (const auto &key_and_value : *orig_list) {
+    if (!key_and_value.second->m_changed) {
+      continue;
+    }
+    System_variable_tracker::make_tracker(key_and_value.first)
+        .access_system_variable(thd, f, Suppress_not_found_error::YES);
+  }
 }
 
 /**
