@@ -1,0 +1,14 @@
+SET GLOBAL rocksdb_invalid_create_option_action = PUSH_ERROR;
+SET GLOBAL rocksdb_invalid_create_option_action = PUSH_WARNING;
+SET GLOBAL rocksdb_invalid_create_option_action = LOG;
+SET GLOBAL rocksdb_invalid_create_option_action = 2;
+SET GLOBAL rocksdb_invalid_create_option_action = 1;
+SET GLOBAL rocksdb_invalid_create_option_action = 0;
+== wrong arguments
+SET GLOBAL rocksdb_invalid_create_option_action = 3;
+ERROR 42000: Variable 'rocksdb_invalid_create_option_action' can't be set to the value of '3'
+SET GLOBAL rocksdb_invalid_create_option_action = TEST;
+ERROR 42000: Variable 'rocksdb_invalid_create_option_action' can't be set to the value of 'TEST'
+SET rocksdb_invalid_create_option_action = 0;
+ERROR HY000: Variable 'rocksdb_invalid_create_option_action' is a GLOBAL variable and should be set with SET GLOBAL
+SET GLOBAL rocksdb_invalid_create_option_action = DEFAULT;

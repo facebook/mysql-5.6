@@ -10743,7 +10743,8 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
                             "custom setting for row format");
         break;
       case invalid_create_option_action::PUSH_ERROR:
-        my_error(ER_CANT_CREATE_TABLE, MYF(0),
+        my_error(ER_CANT_CREATE_TABLE, MYF(0), str.c_str(),
+                 HA_WRONG_CREATE_OPTION,
                  "RocksDB only uses DYNAMIC row format");
         DBUG_RETURN(HA_WRONG_CREATE_OPTION);
     }

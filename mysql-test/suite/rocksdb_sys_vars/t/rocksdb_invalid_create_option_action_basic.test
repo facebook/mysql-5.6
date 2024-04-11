@@ -1,0 +1,18 @@
+--source include/have_rocksdb.inc
+
+SET GLOBAL rocksdb_invalid_create_option_action = PUSH_ERROR;
+SET GLOBAL rocksdb_invalid_create_option_action = PUSH_WARNING;
+SET GLOBAL rocksdb_invalid_create_option_action = LOG;
+SET GLOBAL rocksdb_invalid_create_option_action = 2;
+SET GLOBAL rocksdb_invalid_create_option_action = 1;
+SET GLOBAL rocksdb_invalid_create_option_action = 0;
+
+--echo == wrong arguments
+--error 1231
+SET GLOBAL rocksdb_invalid_create_option_action = 3;
+--error 1231
+SET GLOBAL rocksdb_invalid_create_option_action = TEST;
+--error 1229
+SET rocksdb_invalid_create_option_action = 0;
+
+SET GLOBAL rocksdb_invalid_create_option_action = DEFAULT;

@@ -84,7 +84,7 @@ Warnings:
 Warning	1005	RocksDB only uses DYNAMIC row format, will ignore custom setting for row format
 SET GLOBAL rocksdb_invalid_create_option_action='PUSH_ERROR';
 CREATE TABLE t2 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
-ERROR HY000: Can't create table 'RocksDB only uses DYNAMIC row format' (errno: -5888 - )
+ERROR HY000: Can't create table 'test.t2' (errno: 140 - RocksDB only uses DYNAMIC row format)
 SET GLOBAL rocksdb_invalid_create_option_action='LOG';
 call mtr.add_suppression("RocksDB only uses DYNAMIC row format, will ignore custom setting for row format");
 CREATE TABLE t2 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1 ROW_FORMAT=FIXED;
