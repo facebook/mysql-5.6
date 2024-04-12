@@ -24,6 +24,7 @@
 /* MySQL header files */
 #include "./my_stacktrace.h"
 #include "./sql_string.h"
+#include "my_compiler.h"
 #define LOG_COMPONENT_TAG "rocksdb"
 #include "mysql/components/services/log_builtins.h"
 #include "mysqld_error.h"
@@ -276,6 +277,7 @@ bool rdb_has_rocksdb_corruption();
 
 // stores a marker file in the data directory so that after restart server
 // is still aware that rocksdb data is corrupted
+MY_ATTRIBUTE((cold, noinline))
 void rdb_persist_corruption_marker();
 
 // Perform the given function on each directory entry. Supported flags are

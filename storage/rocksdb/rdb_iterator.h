@@ -28,6 +28,11 @@
 
 namespace myrocks {
 
+// If the iterator is not valid it might be because of EOF but might be due
+// to IOError or corruption. The good practice is always check it.
+// https://github.com/facebook/rocksdb/wiki/Iterator#error-handling
+[[nodiscard]] bool is_valid_rdb_iterator(const rocksdb::Iterator &it);
+
 class Rdb_iterator {
  public:
   virtual ~Rdb_iterator() = 0;
@@ -86,9 +91,11 @@ class Rdb_iterator_base : public Rdb_iterator {
                        const int bytes_changed_by_succ,
                        const rocksdb::Slice &end_key);
   int next_with_direction(bool move_forward, bool skip_next);
-  int convert_get_status(myrocks::Rdb_transaction *tx,
-                         const rocksdb::Status &status,
-                         rocksdb::PinnableSlice *value, bool skip_ttl_check);
+  [[nodiscard]] int convert_get_status(myrocks::Rdb_transaction &tx,
+                                       const rocksdb::Status &status,
+                                       rocksdb::PinnableSlice *value,
+                                       bool skip_ttl_check) const;
+  [[nodiscard]] int convert_iterator_status() const;
 
  public:
   Rdb_iterator_base(THD *thd, ha_rocksdb *rocksdb_handler,
