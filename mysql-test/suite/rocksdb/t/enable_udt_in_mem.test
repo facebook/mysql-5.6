@@ -1,0 +1,36 @@
+--source include/have_rocksdb.inc
+# This test aims to test the enable and disable of UDT-IN-MEM feature.
+# 1. Enable UDT-IN-MEM in empty instance
+# 2. Disable UDT-IN-MEM in empty instance
+# 3. Enable UDT-IN-MEM in non-empty instance
+# 4. Disable UDT-IN-MEM in non-empty instance
+
+# STEP 1: Enable UDT-IN-MEM in empty instance
+--let $restart_parameters= "restart: --rocksdb_enable_udt_in_mem=true"
+--source include/restart_mysqld.inc
+
+# STEP 2: Disable UDT-IN-MEM in empty instance
+--let $restart_parameters= "restart: --rocksdb_enable_udt_in_mem=false"
+--source include/restart_mysqld.inc
+
+# STEP 3: Prepare an non-empty instance
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdB;
+INSERT INTO t1 VALUES (1, 'foo');
+INSERT INTO t1 VALUES (2, 'foo');
+
+# STEP 4: Enable UDT-IN-MEM in non-empty instance
+--let $restart_parameters= "restart: --rocksdb_enable_udt_in_mem=true"
+--source include/restart_mysqld.inc
+
+INSERT INTO t1 VALUES (3, 'foo');
+select * from t1;
+
+# STEP 5: Disable UDT-IN-MEM in non-empty instance
+--let $restart_parameters= "restart: --rocksdb_enable_udt_in_mem=false"
+--source include/restart_mysqld.inc
+
+INSERT INTO t1 VALUES (4, 'foo');
+select * from t1;
+
+# Cleanup
+drop table t1;

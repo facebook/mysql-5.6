@@ -84,6 +84,7 @@
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/utilities/sim_cache.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
+#include "util/coding_lean.h"
 #include "util/stop_watch.h"
 
 /* MyRocks includes */
@@ -788,7 +789,6 @@ static unsigned long long rocksdb_table_stats_max_num_rows_scanned = 0ul;
 static bool rocksdb_enable_bulk_load_api = 1;
 static uint rocksdb_bulk_load_history_size = RDB_BULK_LOAD_HISTORY_DEFAULT_SIZE;
 static bool rocksdb_enable_remove_orphaned_dropped_cfs = 1;
-static bool rocksdb_enable_udt_in_mem = 0;
 static bool rocksdb_print_snapshot_conflict_queries = 0;
 static bool rocksdb_allow_to_start_after_corruption = 0;
 static ulong rocksdb_write_policy = rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
@@ -843,6 +843,7 @@ bool rocksdb_enable_instant_ddl_for_drop_index_changes = false;
 bool rocksdb_enable_instant_ddl_for_update_index_visibility = false;
 bool rocksdb_enable_tmp_table = false;
 bool rocksdb_enable_delete_range_for_drop_index = false;
+bool rocksdb_enable_udt_in_mem = false;
 uint rocksdb_clone_checkpoint_max_age;
 uint rocksdb_clone_checkpoint_max_count;
 unsigned long long rocksdb_converter_record_cached_length = 0;
@@ -3697,6 +3698,8 @@ class Rdb_transaction {
   String m_detailed_error;
   std::shared_ptr<Rdb_explicit_snapshot> m_explicit_snapshot;
   bool should_refresh_iterator_after_first_write = false;
+  char m_udt_read_timestamp[ROCKSDB_SIZEOF_UDT];
+  rocksdb::Slice m_udt_read_timestamp_slice;
 
   /*
     Tracks the number of tables in use through external_lock.
@@ -4021,6 +4024,10 @@ class Rdb_transaction {
 
   virtual void acquire_snapshot(bool acquire_now, TABLE_TYPE table_type) = 0;
   virtual void release_snapshot(TABLE_TYPE table_type) = 0;
+
+  virtual rocksdb::Status set_tx_read_timestamp(TABLE_TYPE table_type,
+                                                uint64_t override_ts = 0) = 0;
+  virtual rocksdb::Slice *get_tx_read_timestamp_slice() = 0;
 
   bool has_snapshot(TABLE_TYPE table_type) const {
     assert(m_read_opts[INTRINSIC_TMP].snapshot == nullptr);
@@ -4764,7 +4771,7 @@ class Rdb_transaction {
 
   [[nodiscard]] virtual rocksdb::Status get(
       rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
-      rocksdb::PinnableSlice *const value, TABLE_TYPE table_type) const = 0;
+      rocksdb::PinnableSlice *const value, TABLE_TYPE table_type) = 0;
 
   virtual rocksdb::Status get_for_update(const Rdb_key_def &key_descr,
                                          const rocksdb::Slice &key,
@@ -4780,8 +4787,7 @@ class Rdb_transaction {
   virtual void multi_get(rocksdb::ColumnFamilyHandle &column_family,
                          size_t num_keys, const rocksdb::Slice *keys,
                          rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
-                         rocksdb::Status *statuses,
-                         bool sorted_input) const = 0;
+                         rocksdb::Status *statuses, bool sorted_input) = 0;
 
   [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
       rocksdb::ColumnFamilyHandle &column_family, bool skip_bloom_filter,
@@ -4797,6 +4803,14 @@ class Rdb_transaction {
 
     rocksdb::ReadOptions options = m_read_opts[table_type];
     const bool fill_cache = !THDVAR(get_thd(), skip_fill_cache);
+
+    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
+        options.timestamp != nullptr) {
+      options.timestamp = nullptr;
+    }
+
+    assert(options.timestamp || (!rocksdb_enable_udt_in_mem ||
+                                 !is_udt_compatible_cf(column_family)));
 
     if (skip_bloom_filter) {
       options.total_order_seek = true;
@@ -5131,6 +5145,37 @@ class Rdb_transaction_impl : public Rdb_transaction {
     }
 
     release_snapshot(table_type);
+
+    if (rocksdb_enable_udt_in_mem) {
+      /*
+        - For implicit commit in DDL, m_thd->hlc_time_ns_next = 0;
+        - For MDL, m_thd->hlc_time_ns_next will be assigned during
+          ordered-commit(primary) or get from binlog(secondary).
+        - For sql_bin_log=0, use the latest shard HLC as commit timestamp
+          - When writing to the replica and set sql_bin_log=0, we are using
+          server generated HLC instead of that passed from primary. Keys with
+          larger HLC could have smaller seqNum. The latest shard HLC is used
+          here to avoid this case.
+      */
+      if (!m_thd->variables.sql_log_bin || !opt_bin_log ||
+          (m_thd->slave_thread && !opt_log_replica_updates)) {
+        const auto &db_lex_str = m_thd->db();
+        std::string db(db_lex_str.str, db_lex_str.length);
+
+        uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
+        s = m_rocksdb_tx[table_type]->SetCommitTimestamp(applied_hlc);
+      } else {
+        s = m_rocksdb_tx[table_type]->SetCommitTimestamp(
+            m_thd->hlc_time_ns_next);
+      }
+
+      if (!s.ok()) {
+        rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+        res = true;
+        goto error;
+      }
+    }
+
     s = m_rocksdb_tx[table_type]->Commit();
 #ifndef DBUG_OFF
     DBUG_EXECUTE_IF("myrocks_commit_io_error",
@@ -5223,7 +5268,49 @@ class Rdb_transaction_impl : public Rdb_transaction {
         m_rocksdb_tx[table_type]->SetSnapshotOnNextOperation(m_notifier);
         m_is_delayed_snapshot = true;
       }
+
+      /*
+       When UDT-IN-MEM is enabled, we get a read_opts.timestamp for all queries.
+       However, not every query needs a timestamp. For example:
+        - Write queries (GetforUpdate)
+        - Read when cf = system/system-tmp/tmp.
+       Miss a timestamp will cause a query failure.
+        - Hit an assertion for get (point query)
+        - Get an invalid iterator for get_iterator (range query)
+       To simplify the logic, we assign timestamp here anyway. When we do
+       get/get_iterator, we do some additional check around the cf. If cf is
+       system/tmp related, we assign timestamp to nullptr.
+      */
+      if (rocksdb_enable_udt_in_mem && !m_thd->is_dd_system_thread() &&
+          m_read_opts[table_type].timestamp == nullptr) {
+        set_tx_read_timestamp(table_type);
+      }
     }
+  }
+
+  /*
+   There will be three types of read HLC.
+   1. std::numeric_limits<uint64_t>::max()
+      - This will be the default value when rocksdb_enable_udt_in_mem is on
+   2. The latest value get from hlc-shard map
+   3. Timestamp passed from query request
+      - This currently is only used for test
+      - Users should not rely on this choice
+ */
+  rocksdb::Status set_tx_read_timestamp(TABLE_TYPE table_type,
+                                        uint64_t override_ts = 0) override {
+    rocksdb::EncodeFixed64(m_udt_read_timestamp,
+                           override_ts != 0 ? override_ts : m_thd->read_hlc);
+
+    m_udt_read_timestamp_slice =
+        rocksdb::Slice((const char *)m_udt_read_timestamp, ROCKSDB_SIZEOF_UDT);
+    m_read_opts[table_type].timestamp = &m_udt_read_timestamp_slice;
+
+    return rocksdb::Status::OK();
+  }
+
+  rocksdb::Slice *get_tx_read_timestamp_slice() override {
+    return &m_udt_read_timestamp_slice;
   }
 
   void release_snapshot(TABLE_TYPE table_type) override {
@@ -5249,6 +5336,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
     if (need_clear && m_rocksdb_tx[table_type] != nullptr)
       m_rocksdb_tx[table_type]->ClearSnapshot();
     m_is_delayed_snapshot = false;
+
+    if (rocksdb_enable_udt_in_mem &&
+        m_read_opts[table_type].timestamp != nullptr) {
+      m_read_opts[table_type].timestamp = nullptr;
+    }
   }
 
   [[nodiscard]] rocksdb::Status put(rocksdb::ColumnFamilyHandle &column_family,
@@ -5318,7 +5410,17 @@ class Rdb_transaction_impl : public Rdb_transaction {
   [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &column_family,
                                     const rocksdb::Slice &key,
                                     rocksdb::PinnableSlice *const value,
-                                    TABLE_TYPE table_type) const override {
+                                    TABLE_TYPE table_type) override {
+    auto saved_timestamp = m_read_opts[table_type].timestamp;
+    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
+        m_read_opts[table_type].timestamp != nullptr) {
+      m_read_opts[table_type].timestamp = nullptr;
+    }
+
+    assert(
+        m_read_opts[table_type].timestamp ||
+        (!rocksdb_enable_udt_in_mem || !is_udt_compatible_cf(column_family)));
+
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
@@ -5342,15 +5444,35 @@ class Rdb_transaction_impl : public Rdb_transaction {
       return m_rocksdb_tx[table_type]->Get(m_read_opts[table_type],
                                            &column_family, key, value);
     }
+
+    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
+        saved_timestamp != nullptr) {
+      m_read_opts[table_type].timestamp = saved_timestamp;
+    }
   }
 
   void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,
                  const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
                  TABLE_TYPE table_type, rocksdb::Status *statuses,
-                 bool sorted_input) const override {
+                 bool sorted_input) override {
+    auto saved_timestamp = m_read_opts[table_type].timestamp;
+    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
+        m_read_opts[table_type].timestamp != nullptr) {
+      m_read_opts[table_type].timestamp = nullptr;
+    }
+
+    assert(
+        m_read_opts[table_type].timestamp ||
+        (!rocksdb_enable_udt_in_mem || !is_udt_compatible_cf(column_family)));
+
     m_rocksdb_tx[table_type]->MultiGet(m_read_opts[table_type], &column_family,
                                        num_keys, keys, values, statuses,
                                        sorted_input);
+
+    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
+        saved_timestamp != nullptr) {
+      m_read_opts[table_type].timestamp = saved_timestamp;
+    }
   }
 
   rocksdb::Status get_for_update(const Rdb_key_def &key_descr,
@@ -5387,6 +5509,23 @@ class Rdb_transaction_impl : public Rdb_transaction {
       }
     });
 
+    /*
+      Why do we set the read_opt.timestamp to nullptr?
+      1.CF with UDT disabled could access this code path. We need to set
+        read_opt.timestamp to null for these CFs.
+      2.Timestamp validation is diabled in GetForUpdate. So read_opt.timestamp
+        will be ignored for CF with UDT enabled. Set read_opt.timestamp to
+        nullptr in both cases for simpilicity.
+      However, we need to reset the timestamp back after GetForUpdate() call.
+      - When checking the uniqueness of sk (write path), it will read sk out,
+        which needs a timestamp when UDT-IN-MEM is on. If we don't set the
+        timestamp back, it will fail the sk read.
+      - Partial index: GetForUpdate is used for check sentinel key. The
+        timestamp is still needed for read after the sentinal key check.
+    */
+    auto saved_timestamp = m_read_opts[table_type].timestamp;
+    m_read_opts[table_type].timestamp = nullptr;
+
     rocksdb::Status s;
     // If snapshot is null, pass it to GetForUpdate and snapshot is
     // initialized there. Snapshot validation is skipped in that case.
@@ -5404,6 +5543,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
                                                  exclusive, false);
       m_read_opts[table_type].snapshot = saved_snapshot;
     }
+
+    m_read_opts[table_type].timestamp = saved_timestamp;
 
     // row_lock_count is to track per row instead of per key
     if (key_descr.is_primary_key()) incr_row_lock_count(table_type);
@@ -5702,6 +5843,13 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
   }
 
+  rocksdb::Status set_tx_read_timestamp(TABLE_TYPE, uint64_t) override {
+    return rocksdb::Status::NotSupported(
+        "Not supported for write batch transaction.");
+  }
+
+  rocksdb::Slice *get_tx_read_timestamp_slice() override { return nullptr; }
+
   [[nodiscard]] rocksdb::Status put(rocksdb::ColumnFamilyHandle &column_family,
                                     const rocksdb::Slice &key,
                                     const rocksdb::Slice &value,
@@ -5772,7 +5920,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &column_family,
                                     const rocksdb::Slice &key,
                                     rocksdb::PinnableSlice *const value,
-                                    TABLE_TYPE table_type) const override {
+                                    TABLE_TYPE table_type) override {
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return rocksdb::Status::NotSupported(
@@ -5786,7 +5934,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,
                  const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
                  TABLE_TYPE table_type, rocksdb::Status *statuses,
-                 bool sorted_input) const override {
+                 bool sorted_input) override {
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -6586,7 +6734,18 @@ static xa_status_code rocksdb_commit_by_xid(
     DBUG_RETURN(XAER_NOTA);
   }
 
-  const rocksdb::Status s = trx->Commit();
+  // During transaction recovery, we use 0 as commit timestamp. This means we
+  // treat this recoveried transaction as flushed to sst files.
+  rocksdb::Status s;
+  if (rocksdb_enable_udt_in_mem) {
+    s = trx->SetCommitTimestamp(0);
+    if (!s.ok()) {
+      rdb_log_status_error(s);
+      DBUG_RETURN(XAER_RMERR);
+    }
+  }
+
+  s = trx->Commit();
 
   if (!s.ok()) {
     rdb_log_status_error(s);
@@ -7957,7 +8116,6 @@ static rocksdb::Status check_rocksdb_options_compatibility(
         cf_descr[i].options.compaction_filter;
     loaded_cf_descs[i].options.compaction_filter_factory =
         cf_descr[i].options.compaction_filter_factory;
-    loaded_cf_descs[i].options.comparator = cf_descr[i].options.comparator;
     loaded_cf_descs[i].options.memtable_factory =
         cf_descr[i].options.memtable_factory;
     loaded_cf_descs[i].options.merge_operator =
@@ -7966,6 +8124,12 @@ static rocksdb::Status check_rocksdb_options_compatibility(
         cf_descr[i].options.prefix_extractor;
     loaded_cf_descs[i].options.table_factory =
         cf_descr[i].options.table_factory;
+    // When UDT-IN-MEM is enable for exsiting cf, the persisted comparator is
+    // leveldb.BytewiseComparator while the new specified one is
+    // leveldb.BytewiseComparator.u64ts. The opposite happens when disabling
+    // UDT-IN-MEM. Rocksdb will fail the check even the differece is expected.
+    // Skip the check here and Rocksdb will handle the check when opening db.
+    // loaded_cf_descs[i].options.comparator = cf_descr[i].options.comparator;
   }
 
   // This is the essence of the function - determine if it's safe to open the
@@ -9988,6 +10152,7 @@ static const char *const rdb_error_messages[] = {
     "RocksDB status: expired.",
     "RocksDB status: try again.",
     "RocksDB commit failed for intrinsic tmp table.",
+    "Invalid iterator.",
 };
 
 static_assert((sizeof(rdb_error_messages) / sizeof(rdb_error_messages[0])) ==
@@ -17463,6 +17628,10 @@ bool ha_rocksdb::is_dd_update() const {
   return result;
 }
 
+bool is_udt_compatible_cf(rocksdb::ColumnFamilyHandle &cf) {
+  return cf.GetComparator()->timestamp_size() == ROCKSDB_SIZEOF_UDT;
+}
+
 #define SHOW_FNAME(name) rocksdb_show_##name
 
 #define DEF_SHOW_FUNC(name, key)                                          \
@@ -19717,6 +19886,10 @@ std::unique_ptr<rocksdb::Iterator> rdb_tx_get_iterator(
       // TODO(mung): set based on WHERE conditions
       read_opts.total_order_seek = true;
       read_opts.snapshot = *snapshot;
+      if (rocksdb_enable_udt_in_mem && is_udt_compatible_cf(cf)) {
+        Rdb_transaction *tx = get_tx_from_thd(thd);
+        read_opts.timestamp = tx->get_tx_read_timestamp_slice();
+      }
       return std::unique_ptr<rocksdb::Iterator>(
           rdb->NewIterator(read_opts, &cf));
     } else {

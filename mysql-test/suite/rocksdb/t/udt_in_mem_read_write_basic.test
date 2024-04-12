@@ -1,0 +1,63 @@
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+
+# This test aims to test the write and read path of UDT-IN-MEM feature
+# All reads are based on requested read HLC. The test includes:
+# 1. All contents are in memeory
+# 2. All contents are in sst files
+
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+# Case 1: Read in-memory content
+CREATE TABLE t1 (id INT, writeHLC BIGINT PRIMARY KEY) ENGINE=rocksdB;
+INSERT INTO t1 VALUES(1, 2538630000000000002);
+
+let $i = 1;
+while ($i <= 10) {
+  let $update = update t1 SET writeHLC=writeHLC+1 where id=1;
+  inc $i;
+  eval $update;
+}
+
+let $latest_value = query_get_value(select writeHLC from t1 where id=1, writeHLC, 1);
+let $step = 1;
+
+let $i = 1;
+let $read_hlc = 2538630000000000002;
+let $hlc_ts_lower_bound = 2538630000000000000;
+while ($i < 10) {
+    query_attrs_add hlc_ts_lower_bound $hlc_ts_lower_bound;
+    query_attrs_add exact_at_hlc $read_hlc;
+    let $result = query_get_value(select writeHLC from t1 where id=1, writeHLC, 1);
+    assert($result == $read_hlc);
+    query_attrs_reset;
+    inc $i;
+    --let $read_hlc = `SELECT $read_hlc + $step`
+}
+
+# Case 2: Read in-sst-file content
+# 1. Flush memtable
+# 2. Read with timestamp that is smaller than the cutoff timestamp, fail the query
+# 3. Read with timestamp that is larger than the cutoff timestamp, return data
+
+set global rocksdb_force_flush_memtable_now = true;
+set global rocksdb_compact_cf = 'default';
+
+query_attrs_add hlc_ts_lower_bound $hlc_ts_lower_bound;
+query_attrs_add exact_at_hlc 2538630000000000002;
+--replace_regex /argument.*/argument/
+--error 1296
+select * from t1 where id=1;
+query_attrs_reset;
+
+query_attrs_add hlc_ts_lower_bound $hlc_ts_lower_bound;
+query_attrs_add exact_at_hlc 2538630000000000103;
+let $result = query_get_value(select writeHLC from t1 where id=1, writeHLC, 1);
+assert($result == $latest_value);
+query_attrs_reset;
+
+# Cleanup
+drop table t1;
+SET @@global.maximum_hlc_drift_ns = 300000000000;
+SET @@global.minimum_hlc_ns = 0;

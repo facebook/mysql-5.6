@@ -325,9 +325,11 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
     //     revcf->Compare(0077, 0078) < 0 ==> False
     if (m_check_iterate_bounds &&
         ((!m_scan_it_upper_bound_slice.empty() &&
-          kd_comp->Compare(key, m_scan_it_upper_bound_slice) > 0) ||
+          kd_comp->GetRootComparator()->Compare(
+              key, m_scan_it_upper_bound_slice) > 0) ||
          (!m_scan_it_lower_bound_slice.empty() &&
-          kd_comp->Compare(key, m_scan_it_lower_bound_slice) < 0))) {
+          kd_comp->GetRootComparator()->Compare(
+              key, m_scan_it_lower_bound_slice) < 0))) {
       rc = HA_ERR_END_OF_FILE;
       break;
     }
@@ -377,6 +379,19 @@ int Rdb_iterator_base::seek(enum ha_rkey_function find_flag,
   */
   setup_scan_iterator(&start_key, &end_key, eq_cond_len, read_current,
                       find_flag);
+
+  /*
+    If the iterator is not valid, fail the query. This can happen if
+      1. Read HLC is smaller than cutoff timestamp
+      2. read_options.timestamp doesn't match with comparator
+  */
+  auto status = m_scan_it->status();
+  if (status.code() != rocksdb::Status::kOk) {
+    m_valid = !rc;
+    my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
+             rocksdb_hton_name);
+    return HA_ERR_ROCKSDB_INVALID_ITERATOR;
+  }
 
   /*
     Once we are positioned on from above, move to the position we really

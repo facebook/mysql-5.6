@@ -1,0 +1,2 @@
+--enable_binlog_hlc=true --maintain_database_hlc=true
+--allow_noncurrent_db_rw=off --enable_block_stale_hlc_read=true

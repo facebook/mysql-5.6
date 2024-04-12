@@ -1280,6 +1280,8 @@ bool rdb_tx_started(Rdb_transaction *tx, const TABLE_TYPE table_type);
 int rocksdb_create_checkpoint(std::string_view checkpoint_dir_raw);
 int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw);
 
+bool is_udt_compatible_cf(rocksdb::ColumnFamilyHandle &cf);
+
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
@@ -1305,6 +1307,7 @@ extern bool rocksdb_enable_instant_ddl_for_column_default_changes;
 extern bool rocksdb_enable_instant_ddl_for_table_comment_changes;
 extern bool rocksdb_enable_instant_ddl_for_drop_index_changes;
 extern bool rocksdb_enable_instant_ddl_for_update_index_visibility;
+extern bool rocksdb_enable_udt_in_mem;
 
 extern char *rocksdb_wal_dir;
 extern char *rocksdb_datadir;

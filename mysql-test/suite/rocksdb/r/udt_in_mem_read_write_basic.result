@@ -1,0 +1,21 @@
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+CREATE TABLE t1 (id INT, writeHLC BIGINT PRIMARY KEY) ENGINE=rocksdB;
+INSERT INTO t1 VALUES(1, 2538630000000000002);
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+update t1 SET writeHLC=writeHLC+1 where id=1;
+set global rocksdb_force_flush_memtable_now = true;
+set global rocksdb_compact_cf = 'default';
+select * from t1 where id=1;
+ERROR HY000: Got error 4 'Invalid argument
+drop table t1;
+SET @@global.maximum_hlc_drift_ns = 300000000000;
+SET @@global.minimum_hlc_ns = 0;

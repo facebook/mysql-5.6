@@ -192,6 +192,7 @@ const char *log_bin_basename = nullptr;
 const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
 const char *hlc_ts_upper_bound = "hlc_ts_upper_bound";
 const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
+const char *exact_at_hlc = "exact_at_hlc";
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -2968,14 +2969,17 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
 
   const char *hlc_ts_str = nullptr;
   const char *hlc_wait_timeout_str = nullptr;
+  const char *exactly_at_hlc_str = nullptr;
   for (const auto &p : thd->query_attrs_list) {
     if (p.first == hlc_ts_lower_bound) {
       hlc_ts_str = p.second.c_str();
     } else if (p.first == hlc_wait_timeout_ms) {
       hlc_wait_timeout_str = p.second.c_str();
+    } else if (p.first == exact_at_hlc) {
+      exactly_at_hlc_str = p.second.c_str();
     }
-    // Bailout once both strings are found
-    if (hlc_wait_timeout_str && hlc_ts_str) {
+    // Bailout once all strings are found
+    if (hlc_wait_timeout_str && hlc_ts_str && exactly_at_hlc_str) {
       break;
     }
   }
@@ -3024,6 +3028,18 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
       (timeout_ms == 0 || !wait_for_hlc_timeout_ms)) {
     my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, applied_hlc, db.c_str());
     return true;
+  }
+
+  if (exactly_at_hlc_str) {
+    uint64_t read_hlc;
+    if (!str_to_hlc(exactly_at_hlc_str, &read_hlc)) {
+      return true;
+    }
+    if (read_hlc == std::numeric_limits<uint64_t>::max()) {
+      thd->read_hlc = applied_hlc;
+    } else {
+      thd->read_hlc = read_hlc;
+    }
   }
 
   // Return early if the waiting feature isn't enabled

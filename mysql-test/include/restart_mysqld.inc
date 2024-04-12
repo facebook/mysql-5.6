@@ -132,4 +132,3 @@ if ($_xplugin_active)
 }
 # Turn off reconnect again
 --disable_reconnect
-

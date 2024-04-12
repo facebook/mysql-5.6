@@ -39,7 +39,12 @@ bool Rdb_cf_options::init(
     const rocksdb::BlockBasedTableOptions &table_options,
     std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
     std::string_view default_cf_options, std::string_view override_cf_options) {
-  m_default_cf_opts.comparator = rocksdb::BytewiseComparator();
+  if (rocksdb_enable_udt_in_mem) {
+    m_default_cf_opts.comparator = rocksdb::BytewiseComparatorWithU64Ts();
+  } else {
+    m_default_cf_opts.comparator = rocksdb::BytewiseComparator();
+  }
+
   m_default_cf_opts.compaction_filter_factory.reset(
       new Rdb_compact_filter_factory);
 
@@ -338,12 +343,28 @@ bool Rdb_cf_options::set_override(std::string_view override_config) {
   return true;
 }
 
+bool Rdb_cf_options::is_timestamp_aware_comparator(
+    const std::string_view cf_name) {
+  return rocksdb_enable_udt_in_mem && cf_name != DEFAULT_SYSTEM_CF_NAME &&
+         cf_name != DEFAULT_TMP_SYSTEM_CF_NAME &&
+         cf_name != DEFAULT_TMP_CF_NAME;
+}
+
 const rocksdb::Comparator *Rdb_cf_options::get_cf_comparator(
     std::string_view cf_name) {
-  if (Rdb_cf_manager::is_cf_name_reverse(cf_name)) {
-    return rocksdb::ReverseBytewiseComparator();
+  auto is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name);
+  if (is_timestamp_aware_comparator(cf_name)) {
+    if (is_reverse_cf) {
+      return rocksdb::ReverseBytewiseComparatorWithU64Ts();
+    } else {
+      return rocksdb::BytewiseComparatorWithU64Ts();
+    }
   } else {
-    return rocksdb::BytewiseComparator();
+    if (is_reverse_cf) {
+      return rocksdb::ReverseBytewiseComparator();
+    } else {
+      return rocksdb::BytewiseComparator();
+    }
   }
 }
 
@@ -363,6 +384,11 @@ bool Rdb_cf_options::get_cf_options(const std::string &cf_name,
   // Set the comparator according to 'rev:'
   opts->comparator = get_cf_comparator(cf_name);
   opts->merge_operator = get_cf_merge_operator(cf_name);
+
+  // When enabling UDT in memory, we disable persisting UDT in SST files.
+  if (is_timestamp_aware_comparator(cf_name)) {
+    opts->persist_user_defined_timestamps = false;
+  }
   // this sst partitioner is used in bulk load scenario, no need to set it for
   // non-data cfs.
   if (cf_name != DEFAULT_SYSTEM_CF_NAME && cf_name != DEFAULT_TMP_CF_NAME &&

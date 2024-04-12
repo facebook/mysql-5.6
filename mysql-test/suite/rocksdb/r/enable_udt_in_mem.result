@@ -1,0 +1,21 @@
+# restart: --rocksdb_enable_udt_in_mem=true
+# restart: --rocksdb_enable_udt_in_mem=false
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdB;
+INSERT INTO t1 VALUES (1, 'foo');
+INSERT INTO t1 VALUES (2, 'foo');
+# restart: --rocksdb_enable_udt_in_mem=true
+INSERT INTO t1 VALUES (3, 'foo');
+select * from t1;
+a	b
+1	foo
+2	foo
+3	foo
+# restart: --rocksdb_enable_udt_in_mem=false
+INSERT INTO t1 VALUES (4, 'foo');
+select * from t1;
+a	b
+1	foo
+2	foo
+3	foo
+4	foo
+drop table t1;

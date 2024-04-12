@@ -1077,6 +1077,8 @@ class THD : public MDL_context_owner,
   bool should_write_hlc = false;
   database_container databases;
 
+  uint64_t read_hlc = std::numeric_limits<uint64_t>::max();
+
   uint64_t binlog_ttl_read_filtering_ts = 0;
 
   uint64_t binlog_ttl_compaction_ts = 0;

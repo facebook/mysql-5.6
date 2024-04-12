@@ -156,6 +156,7 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(const rocksdb::Slice &key,
     case rocksdb::kEntryDelete:
       stats->m_entry_deletes++;
       break;
+    case rocksdb::kEntryDeleteWithTimestamp:
     case rocksdb::kEntrySingleDelete:
       stats->m_entry_single_deletes++;
       break;

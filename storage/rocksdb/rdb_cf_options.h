@@ -90,6 +90,8 @@ class Rdb_cf_options {
   [[nodiscard]] static std::shared_ptr<rocksdb::MergeOperator>
   get_cf_merge_operator(std::string_view cf_name);
 
+  static bool is_timestamp_aware_comparator(const std::string_view cf_name);
+
   /* Helper string manipulation functions */
   static void skip_spaces(std::string_view input, size_t &pos);
   [[nodiscard]] static bool find_column_family(std::string_view input,
