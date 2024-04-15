@@ -628,7 +628,10 @@ class Rdb_key_def {
       const Rdb_tbl_def &tbl_def_arg, bool &per_part_match_found,
       const char *const qualifier);
 
-  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle.get(); }
+  [[nodiscard]] rocksdb::ColumnFamilyHandle &get_cf() const {
+    return *m_cf_handle;
+  }
+
   std::shared_ptr<rocksdb::ColumnFamilyHandle> get_shared_cf() const {
     return m_cf_handle;
   }

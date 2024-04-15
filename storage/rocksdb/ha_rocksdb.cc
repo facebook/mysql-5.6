@@ -4072,19 +4072,21 @@ class Rdb_transaction {
   }
 
  public:
-  int get_key_merge(GL_INDEX_ID kd_gl_id, rocksdb::ColumnFamilyHandle *cf,
-                    Rdb_index_merge **key_merge) {
+  [[nodiscard]] int get_key_merge(GL_INDEX_ID kd_gl_id,
+                                  rocksdb::ColumnFamilyHandle &cf,
+                                  Rdb_index_merge **key_merge) {
     assert(!is_ac_nl_ro_rc_transaction());
 
     int res;
     auto it = m_key_merge.find(kd_gl_id);
     if (it == m_key_merge.end()) {
+      auto *const thd = get_thd();
       m_key_merge.emplace(
           std::piecewise_construct, std::make_tuple(kd_gl_id),
-          std::make_tuple(
-              get_rocksdb_tmpdir(), THDVAR(get_thd(), merge_buf_size),
-              THDVAR(get_thd(), merge_combine_read_size),
-              THDVAR(get_thd(), merge_tmp_file_removal_delay_ms), cf));
+          std::make_tuple(get_rocksdb_tmpdir(), THDVAR(thd, merge_buf_size),
+                          THDVAR(thd, merge_combine_read_size),
+                          THDVAR(thd, merge_tmp_file_removal_delay_ms),
+                          std::ref(cf)));
       it = m_key_merge.find(kd_gl_id);
       if ((res = it->second.init()) != 0) {
         return res;
@@ -4566,7 +4568,7 @@ class Rdb_transaction {
     assert(!is_ac_nl_ro_rc_transaction());
 
     uint n_null_fields = 0;
-    const rocksdb::Comparator *index_comp = key_def.get_cf()->GetComparator();
+    const auto *const index_comp = key_def.get_cf().GetComparator();
 
     /* Get proper SK buffer. */
     uchar *sk_buf = sk_info->swap_and_get_sk_buf();
@@ -4588,8 +4590,8 @@ class Rdb_transaction {
     return 0;
   }
 
-  bool add_index_to_sst_partitioner(rocksdb::ColumnFamilyHandle *cf,
-                                    const Rdb_key_def &kd) {
+  [[nodiscard]] bool add_index_to_sst_partitioner(
+      rocksdb::ColumnFamilyHandle &cf, const Rdb_key_def &kd) {
     assert(!is_ac_nl_ro_rc_transaction());
 
     return m_bulk_load_index_registry.add_index(rdb, cf, kd.get_index_number());
@@ -4698,29 +4700,27 @@ class Rdb_transaction {
   }
 #endif
 
-  virtual rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
-                              const rocksdb::Slice &key,
-                              const rocksdb::Slice &value,
-                              TABLE_TYPE table_type,
-                              const bool assume_tracked) = 0;
-  virtual rocksdb::Status delete_key(
-      rocksdb::ColumnFamilyHandle *const column_family,
-      const rocksdb::Slice &key, TABLE_TYPE table_type,
-      const bool assume_tracked) = 0;
-  virtual rocksdb::Status single_delete(
-      rocksdb::ColumnFamilyHandle *const column_family,
-      const rocksdb::Slice &key, TABLE_TYPE table_type,
-      const bool assume_tracked) = 0;
+  [[nodiscard]] virtual rocksdb::Status put(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      const rocksdb::Slice &value, TABLE_TYPE table_type,
+      bool assume_tracked) = 0;
+
+  [[nodiscard]] virtual rocksdb::Status delete_key(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool assume_tracked) = 0;
+
+  [[nodiscard]] virtual rocksdb::Status single_delete(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool assume_tracked) = 0;
 
   virtual bool has_modifications() const = 0;
 
   virtual rocksdb::WriteBatchBase *get_indexed_write_batch(
       TABLE_TYPE table_type) = 0;
 
-  virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
-                              const rocksdb::Slice &key,
-                              rocksdb::PinnableSlice *const value,
-                              TABLE_TYPE table_type) const = 0;
+  [[nodiscard]] virtual rocksdb::Status get(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      rocksdb::PinnableSlice *const value, TABLE_TYPE table_type) const = 0;
 
   virtual rocksdb::Status get_for_update(const Rdb_key_def &key_descr,
                                          const rocksdb::Slice &key,
@@ -4729,25 +4729,24 @@ class Rdb_transaction {
                                          const bool do_validate,
                                          bool no_wait) = 0;
 
-  virtual rocksdb::Iterator *get_iterator(
+  [[nodiscard]] virtual std::unique_ptr<rocksdb::Iterator> get_iterator(
       const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *column_family, TABLE_TYPE table_type) = 0;
+      rocksdb::ColumnFamilyHandle &column_family, TABLE_TYPE table_type) = 0;
 
-  virtual void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
-                         const size_t num_keys, const rocksdb::Slice *keys,
+  virtual void multi_get(rocksdb::ColumnFamilyHandle &column_family,
+                         size_t num_keys, const rocksdb::Slice *keys,
                          rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
                          rocksdb::Status *statuses,
-                         const bool sorted_input) const = 0;
+                         bool sorted_input) const = 0;
 
-  rocksdb::Iterator *get_iterator(
-      rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
+  [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
+      rocksdb::ColumnFamilyHandle &column_family, bool skip_bloom_filter,
       const rocksdb::Slice &eq_cond_lower_bound,
       const rocksdb::Slice &eq_cond_upper_bound, TABLE_TYPE table_type,
       bool read_current = false, bool create_snapshot = true) {
     // Make sure we are not doing both read_current (which implies we don't
     // want a snapshot) and create_snapshot which makes sure we create
     // a snapshot
-    assert(column_family != nullptr);
     assert(!read_current || !create_snapshot);
 
     if (create_snapshot) acquire_snapshot(true, table_type);
@@ -5022,7 +5021,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
     if (!THDVAR(m_thd, lock_scanned_rows) || force) {
       m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->UndoGetForUpdate(
-          key_descr.get_cf(), rocksdb::Slice(rowkey));
+          &key_descr.get_cf(), rocksdb::Slice(rowkey));
       // row_lock_count track row(pk)
       assert(!key_descr.is_primary_key() ||
              (key_descr.is_primary_key() && m_row_lock_count > 0));
@@ -5219,34 +5218,35 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_is_delayed_snapshot = false;
   }
 
-  rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key, const rocksdb::Slice &value,
-                      TABLE_TYPE table_type,
-                      const bool assume_tracked) override {
+  [[nodiscard]] rocksdb::Status put(rocksdb::ColumnFamilyHandle &column_family,
+                                    const rocksdb::Slice &key,
+                                    const rocksdb::Slice &value,
+                                    TABLE_TYPE table_type,
+                                    bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    return m_rocksdb_tx[table_type]->Put(column_family, key, value,
+    return m_rocksdb_tx[table_type]->Put(&column_family, key, value,
                                          assume_tracked);
   }
 
-  rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
-                             const rocksdb::Slice &key, TABLE_TYPE table_type,
-                             const bool assume_tracked) override {
+  [[nodiscard]] rocksdb::Status delete_key(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    return m_rocksdb_tx[table_type]->Delete(column_family, key, assume_tracked);
+    return m_rocksdb_tx[table_type]->Delete(&column_family, key,
+                                            assume_tracked);
   }
 
-  rocksdb::Status single_delete(
-      rocksdb::ColumnFamilyHandle *const column_family,
-      const rocksdb::Slice &key, TABLE_TYPE table_type,
-      const bool assume_tracked) override {
+  [[nodiscard]] rocksdb::Status single_delete(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    return m_rocksdb_tx[table_type]->SingleDelete(column_family, key,
+    return m_rocksdb_tx[table_type]->SingleDelete(&column_family, key,
                                                   assume_tracked);
   }
 
@@ -5282,10 +5282,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
     return m_rocksdb_tx[table_type]->GetWriteBatch();
   }
 
-  rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key,
-                      rocksdb::PinnableSlice *const value,
-                      TABLE_TYPE table_type) const override {
+  [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &column_family,
+                                    const rocksdb::Slice &key,
+                                    rocksdb::PinnableSlice *const value,
+                                    TABLE_TYPE table_type) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
@@ -5298,7 +5298,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       // select * from qn;
       rocksdb::PinnableSlice pin_val;
       rocksdb::Status s = m_rocksdb_tx[table_type]->Get(
-          m_read_opts[table_type], column_family, key, &pin_val);
+          m_read_opts[table_type], &column_family, key, &pin_val);
       pin_val.Reset();
       return s;
     } else {
@@ -5307,16 +5307,15 @@ class Rdb_transaction_impl : public Rdb_transaction {
         global_stats.queries[QUERIES_POINT].inc();
       }
       return m_rocksdb_tx[table_type]->Get(m_read_opts[table_type],
-                                           column_family, key, value);
+                                           &column_family, key, value);
     }
   }
 
-  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
-                 const size_t num_keys, const rocksdb::Slice *keys,
-                 rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
-                 rocksdb::Status *statuses,
-                 const bool sorted_input) const override {
-    m_rocksdb_tx[table_type]->MultiGet(m_read_opts[table_type], column_family,
+  void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,
+                 const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
+                 TABLE_TYPE table_type, rocksdb::Status *statuses,
+                 bool sorted_input) const override {
+    m_rocksdb_tx[table_type]->MultiGet(m_read_opts[table_type], &column_family,
                                        num_keys, keys, values, statuses,
                                        sorted_input);
   }
@@ -5334,7 +5333,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       return rocksdb::Status::NotSupported(
           "Not supported for intrinsic tmp tables");
     }
-    rocksdb::ColumnFamilyHandle *const column_family = key_descr.get_cf();
+    auto &column_family = key_descr.get_cf();
     /* check row lock limit in a trx. ignore replication threads */
     if (!m_thd->rli_slave && get_row_lock_count() >= get_max_row_lock_count()) {
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
@@ -5360,15 +5359,16 @@ class Rdb_transaction_impl : public Rdb_transaction {
     // initialized there. Snapshot validation is skipped in that case.
     if (m_read_opts[table_type].snapshot == nullptr || do_validate) {
       s = m_rocksdb_tx[table_type]->GetForUpdate(
-          m_read_opts[table_type], column_family, key, value, exclusive,
+          m_read_opts[table_type], &column_family, key, value, exclusive,
           m_read_opts[table_type].snapshot ? do_validate : false);
     } else {
       // If snapshot is set, and if skipping validation,
       // call GetForUpdate without validation and set back old snapshot
       auto saved_snapshot = m_read_opts[table_type].snapshot;
       m_read_opts[table_type].snapshot = nullptr;
-      s = m_rocksdb_tx[table_type]->GetForUpdate(
-          m_read_opts[table_type], column_family, key, value, exclusive, false);
+      s = m_rocksdb_tx[table_type]->GetForUpdate(m_read_opts[table_type],
+                                                 &column_family, key, value,
+                                                 exclusive, false);
       m_read_opts[table_type].snapshot = saved_snapshot;
     }
 
@@ -5377,14 +5377,15 @@ class Rdb_transaction_impl : public Rdb_transaction {
     return s;
   }
 
-  rocksdb::Iterator *get_iterator(
+  [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
       const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *const column_family,
+      rocksdb::ColumnFamilyHandle &column_family,
       TABLE_TYPE table_type) override {
     if (table_type == USER_TABLE) {
       global_stats.queries[QUERIES_RANGE].inc();
     }
-    return m_rocksdb_tx[table_type]->GetIterator(options, column_family);
+    return std::unique_ptr<rocksdb::Iterator>(
+        m_rocksdb_tx[table_type]->GetIterator(options, &column_family));
   }
 
   const rocksdb::Transaction *get_rdb_trx() const {
@@ -5672,11 +5673,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
   }
 
-  rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key, const rocksdb::Slice &value,
-                      TABLE_TYPE table_type,
-                      const bool assume_tracked
-                          MY_ATTRIBUTE((unused))) override {
+  [[nodiscard]] rocksdb::Status put(rocksdb::ColumnFamilyHandle &column_family,
+                                    const rocksdb::Slice &key,
+                                    const rocksdb::Slice &value,
+                                    TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
@@ -5686,16 +5686,15 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    m_batch->Put(column_family, key, value);
+    m_batch->Put(&column_family, key, value);
     // Note Put/Delete in write batch doesn't return any error code. We simply
     // return OK here.
     return rocksdb::Status::OK();
   }
 
-  rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
-                             const rocksdb::Slice &key, TABLE_TYPE table_type,
-                             const bool assume_tracked
-                                 MY_ATTRIBUTE((unused))) override {
+  [[nodiscard]] rocksdb::Status delete_key(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
@@ -5705,14 +5704,13 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     ++m_write_count[table_type];
-    m_batch->Delete(column_family, key);
+    m_batch->Delete(&column_family, key);
     return rocksdb::Status::OK();
   }
 
-  rocksdb::Status single_delete(
-      rocksdb::ColumnFamilyHandle *const column_family,
-      const rocksdb::Slice &key, TABLE_TYPE table_type,
-      const bool /* assume_tracked */) override {
+  [[nodiscard]] rocksdb::Status single_delete(
+      rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
+      TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
@@ -5722,7 +5720,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     ++m_write_count[table_type];
-    return m_batch->SingleDelete(column_family, key);
+    return m_batch->SingleDelete(&column_family, key);
   }
 
   bool has_modifications() const override {
@@ -5743,10 +5741,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     return m_batch;
   }
 
-  rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key,
-                      rocksdb::PinnableSlice *const value,
-                      TABLE_TYPE table_type) const override {
+  [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &column_family,
+                                    const rocksdb::Slice &key,
+                                    rocksdb::PinnableSlice *const value,
+                                    TABLE_TYPE table_type) const override {
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return rocksdb::Status::NotSupported(
@@ -5754,21 +5752,20 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
     value->Reset();
     return m_batch->GetFromBatchAndDB(rdb, m_read_opts[table_type],
-                                      column_family, key, value);
+                                      &column_family, key, value);
   }
 
-  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
-                 const size_t num_keys, const rocksdb::Slice *keys,
-                 rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
-                 rocksdb::Status *statuses,
-                 const bool sorted_input) const override {
+  void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,
+                 const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
+                 TABLE_TYPE table_type, rocksdb::Status *statuses,
+                 bool sorted_input) const override {
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
     }
-    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts[table_type], column_family,
-                                    num_keys, keys, values, statuses,
-                                    sorted_input);
+    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts[table_type],
+                                    &column_family, num_keys, keys, values,
+                                    statuses, sorted_input);
   }
 
   rocksdb::Status get_for_update(const Rdb_key_def &key_descr,
@@ -5784,7 +5781,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       return rocksdb::Status::NotSupported(
           "Not supported for intrinsic tmp tables");
     }
-    rocksdb::ColumnFamilyHandle *const column_family = key_descr.get_cf();
     if (value == nullptr) {
       // minic tranaction API get_for_update() behavior:
       // if value isn't nullptr, get_for_update() will lock and fetch value
@@ -5792,19 +5788,19 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       return rocksdb::Status::OK();
     }
 
+    auto &column_family = key_descr.get_cf();
     return get(column_family, key, value, table_type);
   }
 
-  rocksdb::Iterator *get_iterator(
-      const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *const /* column_family */,
-      const TABLE_TYPE table_type) override {
+  [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
+      const rocksdb::ReadOptions &options, rocksdb::ColumnFamilyHandle &,
+      TABLE_TYPE table_type) override {
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return nullptr;
     }
     const auto it = rdb->NewIterator(options);
-    return m_batch->NewIteratorWithBase(it);
+    return std::unique_ptr<rocksdb::Iterator>(m_batch->NewIteratorWithBase(it));
   }
 
   bool is_tx_started(TABLE_TYPE table_type) const override {
@@ -12874,7 +12870,7 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
     DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
   }
 
-  rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
+  auto &cf = kd.get_cf();
 
   if (THDVAR(thd, bulk_load_use_sst_partitioner) &&
       !tx->add_index_to_sst_partitioner(cf, kd)) {
@@ -12903,7 +12899,6 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
 
   if (sort) {
     Rdb_index_merge *key_merge;
-    assert(cf != nullptr);
 
     res = tx->get_key_merge(kd.get_gl_index_id(), cf, &key_merge);
     if (res == HA_EXIT_SUCCESS) {
@@ -13022,7 +13017,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
     return rc;
   }
 
-  const auto cf = m_pk_descr->get_cf();
+  auto &cf = m_pk_descr->get_cf();
 
   /*
     Check and update the tmp table usage
@@ -13047,7 +13042,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
       inserted doesn't violate any unique keys.
     */
     row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-        ->Put(cf, row_info.new_pk_slice, value_slice);
+        ->Put(&cf, row_info.new_pk_slice, value_slice);
   } else {
     const bool assume_tracked = can_assume_tracked(ha_thd());
     const auto s =
@@ -13261,7 +13256,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
       if (!rc) {
         const auto s =
             row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-                ->SingleDelete(kd.get_cf(), old_key_slice);
+                ->SingleDelete(&kd.get_cf(), old_key_slice);
         if (!s.ok()) {
           return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                                m_table_handler);
@@ -13274,7 +13269,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
       // Unconditionally issue SD if rocksdb_partial_index_blind_delete.
       const auto s =
           row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-              ->SingleDelete(kd.get_cf(), old_key_slice);
+              ->SingleDelete(&kd.get_cf(), old_key_slice);
       if (!s.ok()) {
         return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                              m_table_handler);
@@ -13318,7 +13313,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     rc = bulk_load_key(row_info.tx, kd, new_key_slice, new_value_slice, true);
   } else {
     row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-        ->Put(kd.get_cf(), new_key_slice, new_value_slice);
+        ->Put(&kd.get_cf(), new_key_slice, new_value_slice);
   }
 
   bytes_written += new_key_slice.size() + new_value_slice.size();
@@ -13922,7 +13917,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
       rocksdb::Slice secondary_key_slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
       s = tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-              ->SingleDelete(kd.get_cf(), secondary_key_slice);
+              ->SingleDelete(&kd.get_cf(), secondary_key_slice);
       if (!s.ok()) {
         DBUG_RETURN(rdb_error_to_mysql(s));
       }
@@ -13955,7 +13950,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
 
 rocksdb::Status ha_rocksdb::delete_or_singledelete(
     uint index, Rdb_transaction *const tx,
-    rocksdb::ColumnFamilyHandle *const column_family, const rocksdb::Slice &key,
+    rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
     TABLE_TYPE table_type) {
   const bool assume_tracked = can_assume_tracked(ha_thd());
   if (can_use_single_delete(index)) {
@@ -14776,7 +14771,7 @@ static bool is_myrocks_index_empty(rocksdb::ColumnFamilyHandle *cfh,
   const rocksdb::Slice key =
       rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
   std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
-  rocksdb_smart_seek(is_reverse_cf, it.get(), key);
+  rocksdb_smart_seek(is_reverse_cf, *it, key);
   if (!it->Valid()) {
     index_removed = true;
   } else {
@@ -15361,11 +15356,11 @@ void ha_rocksdb::records_in_range_internal(uint inx, key_range *const min_key,
   // Getting statistics, including from Memtables
   rocksdb::DB::SizeApproximationFlags include_flags =
       rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
-  rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, include_flags);
+  rdb->GetApproximateSizes(&kd.get_cf(), &r, 1, &sz, include_flags);
   *row_count = rows * ((double)sz / (double)disk_size);
   *total_size = sz;
   uint64_t memTableCount;
-  rdb->GetApproximateMemTableStats(kd.get_cf(), r, &memTableCount, &sz);
+  rdb->GetApproximateMemTableStats(&kd.get_cf(), r, &memTableCount, &sz);
   *row_count += memTableCount;
   *total_size += sz;
   DBUG_VOID_RETURN;
@@ -15412,9 +15407,9 @@ int ha_rocksdb::optimize(THD *const thd MY_ATTRIBUTE((__unused__)),
   for (uint i = 0; i < table->s->keys; i++) {
     uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
     auto range = get_range(i, buf);
-    const rocksdb::Status s = rdb->CompactRange(getCompactRangeOptions(),
-                                                m_key_descr_arr[i]->get_cf(),
-                                                &range.start, &range.limit);
+    const auto s = rdb->CompactRange(getCompactRangeOptions(),
+                                     &m_key_descr_arr[i]->get_cf(),
+                                     &range.start, &range.limit);
     if (!s.ok()) {
       DBUG_RETURN(rdb_error_to_mysql(s));
     }
@@ -15481,7 +15476,7 @@ static int calculate_cardinality_table_scan(
     auto r = ha_rocksdb::get_range(*kd, r_buf);
     uint64_t memtableCount;
     uint64_t memtableSize;
-    rdb->GetApproximateMemTableStats(kd->get_cf(), r, &memtableCount,
+    rdb->GetApproximateMemTableStats(&kd->get_cf(), r, &memtableCount,
                                      &memtableSize);
 
     if (scan_type == SCAN_TYPE_MEMTABLE_ONLY &&
@@ -15501,7 +15496,7 @@ static int calculate_cardinality_table_scan(
     }
 
     std::unique_ptr<rocksdb::Iterator> it = std::unique_ptr<rocksdb::Iterator>(
-        rdb->NewIterator(read_opts, kd->get_cf()));
+        rdb->NewIterator(read_opts, &kd->get_cf()));
     rocksdb::Slice first_index_key((const char *)r_buf,
                                    Rdb_key_def::INDEX_NUMBER_SIZE);
 
@@ -15619,7 +15614,7 @@ static int read_stats_from_ssts(
   uchar *bufp = buf.data();
   for (const auto &it : to_recalc) {
     auto &kd = it.second;
-    ranges[kd->get_cf()].push_back(ha_rocksdb::get_range(*kd, bufp));
+    ranges[&kd->get_cf()].push_back(ha_rocksdb::get_range(*kd, bufp));
     bufp += 2 * Rdb_key_def::INDEX_NUMBER_SIZE;
   }
 
@@ -15846,7 +15841,7 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable(ha_statistics *ha_stats,
       uint64_t sz = 0;
       rocksdb::DB::SizeApproximationFlags include_flags =
           rocksdb::DB::SizeApproximationFlags::INCLUDE_FILES;
-      rdb->GetApproximateSizes(pk_def->get_cf(), &r, 1, &sz, include_flags);
+      rdb->GetApproximateSizes(&pk_def->get_cf(), &r, 1, &sz, include_flags);
       ha_stats->records += sz / ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
       ha_stats->data_file_length += sz;
     }
@@ -15864,7 +15859,7 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable(ha_statistics *ha_stats,
       // it also can return 0 for quite a large tables which means that
       // cardinality for memtable only indxes will be reported as 0
 
-      rdb->GetApproximateMemTableStats(pk_def->get_cf(), r, &memtableCount,
+      rdb->GetApproximateMemTableStats(&pk_def->get_cf(), r, &memtableCount,
                                        &memtableSize);
 
       // Atomically update all of these fields at the same time
@@ -16670,7 +16665,7 @@ int ha_rocksdb::inplace_populate_sk(
   DBUG_ENTER_FUNC();
   int res = HA_EXIT_SUCCESS;
   assert(indexes.size() > 0);
-  uint table_default_cf_id = (*indexes.begin())->get_cf()->GetID();
+  const auto table_default_cf_id = (*indexes.begin())->get_cf().GetID();
   auto local_dict_manager =
       dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
   const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
@@ -16686,7 +16681,7 @@ int ha_rocksdb::inplace_populate_sk(
   {
     std::lock_guard<Rdb_dict_manager> dm_lock(*local_dict_manager);
     for (const auto &kd : indexes) {
-      const std::string cf_name = kd->get_cf()->GetName();
+      const auto &cf_name = kd->get_cf().GetName();
       std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
           cf_manager.get_cf(cf_name);
 
@@ -19516,8 +19511,8 @@ const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
   return tx->m_read_opts[TABLE_TYPE::USER_TABLE];
 }
 
-rocksdb::Iterator *rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool skip_bloom_filter,
+std::unique_ptr<rocksdb::Iterator> rdb_tx_get_iterator(
+    THD *thd, rocksdb::ColumnFamilyHandle &cf, bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, TABLE_TYPE table_type,
@@ -19530,7 +19525,8 @@ rocksdb::Iterator *rdb_tx_get_iterator(
       // TODO(mung): set based on WHERE conditions
       read_opts.total_order_seek = true;
       read_opts.snapshot = *snapshot;
-      return rdb->NewIterator(read_opts, cf);
+      return std::unique_ptr<rocksdb::Iterator>(
+          rdb->NewIterator(read_opts, &cf));
     } else {
       return nullptr;
     }
@@ -19547,7 +19543,7 @@ bool rdb_tx_started(Rdb_transaction *tx, TABLE_TYPE table_type) {
 }
 
 rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
-                           rocksdb::ColumnFamilyHandle *const column_family,
+                           rocksdb::ColumnFamilyHandle &column_family,
                            const rocksdb::Slice &key,
                            rocksdb::PinnableSlice *const value,
                            TABLE_TYPE table_type) {
@@ -19578,10 +19574,10 @@ void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
 }
 
 void rdb_tx_multi_get(Rdb_transaction *tx,
-                      rocksdb::ColumnFamilyHandle *const column_family,
+                      rocksdb::ColumnFamilyHandle &column_family,
                       const size_t num_keys, const rocksdb::Slice *keys,
                       rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
-                      rocksdb::Status *statuses, const bool sorted_input) {
+                      rocksdb::Status *statuses, bool sorted_input) {
   tx->multi_get(column_family, num_keys, keys, values, table_type, statuses,
                 sorted_input);
 }

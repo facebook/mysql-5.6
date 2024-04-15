@@ -1505,17 +1505,16 @@ class select_exec {
       return false;
     }
 
-    rocksdb::Iterator *get_iterator(rocksdb::ColumnFamilyHandle *cf,
-                                    bool use_bloom,
-                                    const rocksdb::Slice &lower_bound,
-                                    const rocksdb::Slice &upper_bound) {
+    [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
+        rocksdb::ColumnFamilyHandle &cf, bool use_bloom,
+        const rocksdb::Slice &lower_bound, const rocksdb::Slice &upper_bound) {
       return rdb_tx_get_iterator(m_thd, cf, !use_bloom, lower_bound,
                                  upper_bound, nullptr, m_table_type);
     }
 
-    rocksdb::Status get(rocksdb::ColumnFamilyHandle *cf,
-                        const rocksdb::Slice &key_slice,
-                        rocksdb::PinnableSlice *value_slice) {
+    [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &cf,
+                                      const rocksdb::Slice &key_slice,
+                                      rocksdb::PinnableSlice *value_slice) {
       rocksdb::Status s;
       return rdb_tx_get(m_tx, cf, key_slice, value_slice, m_table_type);
     }

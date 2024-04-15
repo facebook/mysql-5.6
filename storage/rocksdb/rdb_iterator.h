@@ -16,6 +16,9 @@
 
 #pragma once
 
+// C++ header files
+#include <memory>
+
 // MySQL header files
 #include "sql/debug_sync.h"
 #include "sql/handler.h"
@@ -150,7 +153,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   ha_rocksdb *m_rocksdb_handler;
 
   /* Iterator used for range scans and for full table/index scans */
-  rocksdb::Iterator *m_scan_it;
+  std::unique_ptr<rocksdb::Iterator> m_scan_it;
 
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;

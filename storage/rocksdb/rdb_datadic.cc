@@ -559,7 +559,7 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def,
     m_stats.m_distinct_keys_per_prefix.resize(get_key_parts());
 
     /* Cache prefix extractor for bloom filter usage later */
-    rocksdb::Options opt = rdb_get_rocksdb_db()->GetOptions(get_cf());
+    const auto opt = rdb_get_rocksdb_db()->GetOptions(&get_cf());
     m_prefix_extractor = opt.prefix_extractor;
 
     uint rtn = setup_vector_index(tbl, tbl_def, cmd_srv_helper);
@@ -4209,7 +4209,7 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
   for (uint i = 0; i < m_key_count; i++) {
     const Rdb_key_def &kd = *m_key_descr_arr[i];
 
-    const uint cf_id = kd.get_cf()->GetID();
+    const auto cf_id = kd.get_cf().GetID();
     /*
       If cf_id already exists, cf_flags must be the same.
       To prevent race condition, reading/modifying/committing CF flags
@@ -4217,7 +4217,7 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
       When RocksDB supports transaction with pessimistic concurrency
       control, we can switch to use it and removing mutex.
     */
-    const std::string cf_name = kd.get_cf()->GetName();
+    const auto &cf_name = kd.get_cf().GetName();
 
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
         cf_manager->get_cf(cf_name);
@@ -4370,7 +4370,7 @@ int Rdb_ddl_manager::find_in_uncommitted_keydef(const uint32_t cf_id) {
   for (const auto &pr : m_index_num_to_uncommitted_keydef) {
     const auto &kd = pr.second;
 
-    if (kd->get_cf()->GetID() == cf_id) {
+    if (kd->get_cf().GetID() == cf_id) {
       mysql_rwlock_unlock(&m_rwlock);
       return HA_EXIT_FAILURE;
     }

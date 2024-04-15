@@ -46,8 +46,10 @@ class Rdb_key_def;
 class Rdb_tbl_def;
 
 class Rdb_index_merge {
-  Rdb_index_merge(const Rdb_index_merge &p) = delete;
-  Rdb_index_merge &operator=(const Rdb_index_merge &p) = delete;
+  Rdb_index_merge(const Rdb_index_merge &) = delete;
+  Rdb_index_merge &operator=(const Rdb_index_merge &) = delete;
+  Rdb_index_merge(Rdb_index_merge &&) = delete;
+  Rdb_index_merge &operator=(Rdb_index_merge &&) = delete;
 
  public:
   /* Information about temporary files used in external merge sort */
@@ -67,15 +69,13 @@ class Rdb_index_merge {
     ulonglong m_disk_curr_offset;  /* current offset on disk */
     uint64 m_total_size;           /* total # of data bytes in chunk */
 
-    void store_key_value(const rocksdb::Slice &key, const rocksdb::Slice &val)
-        MY_ATTRIBUTE((__nonnull__));
+    void store_key_value(const rocksdb::Slice &key, const rocksdb::Slice &val);
 
-    void store_slice(const rocksdb::Slice &slice) MY_ATTRIBUTE((__nonnull__));
+    void store_slice(const rocksdb::Slice &slice);
 
-    size_t prepare(File fd, ulonglong f_offset) MY_ATTRIBUTE((__nonnull__));
+    [[nodiscard]] size_t prepare(File fd, ulonglong f_offset);
 
-    int read_next_chunk_from_disk(File fd)
-        MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+    [[nodiscard]] int read_next_chunk_from_disk(File fd);
 
     inline bool is_chunk_finished() const {
       return m_curr_offset + m_disk_curr_offset - m_disk_start_offset ==
@@ -109,17 +109,18 @@ class Rdb_index_merge {
     rocksdb::Slice m_key; /* current key pointed to by block ptr */
     rocksdb::Slice m_val;
 
-    size_t prepare(File fd, ulonglong f_offset, ulonglong chunk_size)
+    [[nodiscard]] size_t prepare(File fd, ulonglong f_offset,
+                                 ulonglong chunk_size);
+
+    [[nodiscard]] int read_next_chunk_from_disk(File fd);
+
+    [[nodiscard]] int read_rec(rocksdb::Slice *const key,
+                               rocksdb::Slice *const val)
         MY_ATTRIBUTE((__nonnull__));
 
-    int read_next_chunk_from_disk(File fd)
-        MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-    int read_rec(rocksdb::Slice *const key, rocksdb::Slice *const val)
-        MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-    int read_slice(rocksdb::Slice *const slice, const uchar **block_ptr)
-        MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+    [[nodiscard]] int read_slice(rocksdb::Slice *const slice,
+                                 const uchar **block_ptr)
+        MY_ATTRIBUTE((__nonnull__));
 
     explicit merge_heap_entry(const rocksdb::Comparator *const comparator)
         : m_chunk_info(nullptr), m_block(nullptr), m_comparator(comparator) {}
@@ -152,7 +153,7 @@ class Rdb_index_merge {
   const ulonglong m_merge_buf_size;
   const ulonglong m_merge_combine_read_size;
   const ulonglong m_merge_tmp_file_removal_delay;
-  rocksdb::ColumnFamilyHandle *m_cf_handle;
+  rocksdb::ColumnFamilyHandle &m_cf_handle;
   struct merge_file_info m_merge_file;
   std::shared_ptr<merge_buf_info> m_rec_buf_unsorted;
   std::shared_ptr<merge_buf_info> m_output_buf;
@@ -180,9 +181,9 @@ class Rdb_index_merge {
     return rocksdb::Slice(reinterpret_cast<const char *>(block), len);
   }
 
-  static int merge_record_compare(const uchar *a_block, const uchar *b_block,
-                                  const rocksdb::Comparator *const comparator)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] static int merge_record_compare(
+      const uchar *a_block, const uchar *b_block,
+      const rocksdb::Comparator *const comparator) MY_ATTRIBUTE((__nonnull__));
 
   void merge_read_rec(const uchar *const block, rocksdb::Slice *const key,
                       rocksdb::Slice *const val) MY_ATTRIBUTE((__nonnull__));
@@ -191,37 +192,36 @@ class Rdb_index_merge {
       MY_ATTRIBUTE((__nonnull__));
 
  public:
-  Rdb_index_merge(const char *const tmpfile_path,
-                  const ulonglong merge_buf_size,
-                  const ulonglong merge_combine_read_size,
-                  const ulonglong merge_tmp_file_removal_delay,
-                  rocksdb::ColumnFamilyHandle *cf);
+  Rdb_index_merge(const char *tmpfile_path, ulonglong merge_buf_size,
+                  ulonglong merge_combine_read_size,
+                  ulonglong merge_tmp_file_removal_delay,
+                  rocksdb::ColumnFamilyHandle &cf);
   ~Rdb_index_merge();
 
-  int init() MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int init();
 
-  int merge_file_create() MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int merge_file_create();
 
-  int add(const rocksdb::Slice &key, const rocksdb::Slice &val)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int add(const rocksdb::Slice &key, const rocksdb::Slice &val);
 
-  int merge_buf_write() MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int merge_buf_write();
 
-  int next(rocksdb::Slice *const key, rocksdb::Slice *const val)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int next(rocksdb::Slice *const key, rocksdb::Slice *const val);
 
-  int merge_heap_prepare() MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int merge_heap_prepare();
 
   void merge_heap_top(rocksdb::Slice *key, rocksdb::Slice *val)
       MY_ATTRIBUTE((__nonnull__));
 
-  int merge_heap_pop_and_get_next(rocksdb::Slice *const key,
-                                  rocksdb::Slice *const val)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int merge_heap_pop_and_get_next(rocksdb::Slice *const key,
+                                                rocksdb::Slice *const val)
+      MY_ATTRIBUTE((__nonnull__));
 
   void merge_reset();
 
-  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
+  [[nodiscard]] rocksdb::ColumnFamilyHandle &get_cf() const {
+    return m_cf_handle;
+  }
 };
 
 }  // namespace myrocks

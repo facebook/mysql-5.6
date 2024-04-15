@@ -40,7 +40,7 @@
 namespace myrocks {
 
 Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
-    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
+    rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
     const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
     uint32_t compression_parallel_threads)
     : m_db(db),
@@ -49,10 +49,9 @@ Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
       m_sst_file_writer(nullptr),
       m_name(name),
       m_tracing(tracing),
-      m_comparator(cf->GetComparator()),
+      m_comparator(cf.GetComparator()),
       m_compression_parallel_threads(compression_parallel_threads) {
   assert(db != nullptr);
-  assert(cf != nullptr);
 }
 
 Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
@@ -66,7 +65,7 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
 
-  rocksdb::Status s = m_cf->GetDescriptor(&cf_descr);
+  auto s = m_cf.GetDescriptor(&cf_descr);
   if (!s.ok()) {
     return s;
   }
@@ -78,8 +77,8 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
     options.compression_opts.parallel_threads = m_compression_parallel_threads;
 
   m_sst_file_writer =
-      new rocksdb::SstFileWriter(env_options, options, m_comparator, m_cf, true,
-                                 rocksdb::Env::IOPriority::IO_TOTAL,
+      new rocksdb::SstFileWriter(env_options, options, m_comparator, &m_cf,
+                                 true, rocksdb::Env::IOPriority::IO_TOTAL,
                                  cf_descr.options.optimize_filters_for_hits);
 
   s = m_sst_file_writer->Open(m_name);
@@ -195,9 +194,9 @@ Rdb_sst_file_ordered::Rdb_sst_stack::top() {
 }
 
 Rdb_sst_file_ordered::Rdb_sst_file_ordered(
-    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
-    const rocksdb::DBOptions &db_options, const std::string &name,
-    const bool tracing, size_t max_size, uint32_t compression_parallel_threads)
+    rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
+    const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
+    size_t max_size, uint32_t compression_parallel_threads)
     : m_use_stack(false),
       m_first(true),
       m_stack(max_size),
@@ -303,9 +302,9 @@ rocksdb::Status Rdb_sst_file_ordered::commit() {
   return m_file.commit();
 }
 
-Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
+Rdb_sst_info::Rdb_sst_info(rocksdb::DB *db, const std::string &tablename,
                            const std::string &indexname,
-                           rocksdb::ColumnFamilyHandle *const cf,
+                           rocksdb::ColumnFamilyHandle &cf,
                            const rocksdb::DBOptions &db_options, bool tracing,
                            uint32_t compression_parallel_threads)
     : m_db(db),
@@ -343,7 +342,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
   }
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
-  const rocksdb::Status s = m_cf->GetDescriptor(&cf_descr);
+  const auto s = m_cf.GetDescriptor(&cf_descr);
   if (!s.ok()) {
     // Default size if we can't get the cf's target size
     m_max_size = 64 * 1024 * 1024;
@@ -484,7 +483,7 @@ int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
   // This checks out the list of files so that the caller can collect/group
   // them and ingest them all in one go, and any racing calls to commit
   // won't see them at all
-  commit_info->init(m_cf, std::move(m_committed_files));
+  commit_info->init(&m_cf, std::move(m_committed_files));
   assert(m_committed_files.size() == 0);
 
   m_done = true;

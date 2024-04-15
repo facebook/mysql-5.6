@@ -101,7 +101,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
 
     Symmetry with read_after_key is possible if rocksdb supported prefix seeks.
   */
-  rocksdb_smart_seek(!m_kd.m_is_reverse_cf, m_scan_it, key_slice);
+  rocksdb_smart_seek(!m_kd.m_is_reverse_cf, *m_scan_it, key_slice);
 
   while (is_valid_rdb_iterator(*m_scan_it)) {
     if (!m_ignore_killed && thd_killed(m_thd)) {
@@ -112,7 +112,7 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
       */
     if ((full_key_match &&
          m_kd.value_matches_prefix(m_scan_it->key(), key_slice))) {
-      rocksdb_smart_next(!m_kd.m_is_reverse_cf, m_scan_it);
+      rocksdb_smart_next(!m_kd.m_is_reverse_cf, *m_scan_it);
       continue;
     }
 
@@ -132,14 +132,13 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
     with HA_READ_KEY_OR_NEXT, $GT = '>='
     with HA_READ_KEY_EXACT, $GT = '=='
   */
-  rocksdb_smart_seek(m_kd.m_is_reverse_cf, m_scan_it, key_slice);
+  rocksdb_smart_seek(m_kd.m_is_reverse_cf, *m_scan_it, key_slice);
 
   return convert_iterator_status();
 }
 
 void Rdb_iterator_base::release_scan_iterator() {
-  delete m_scan_it;
-  m_scan_it = nullptr;
+  m_scan_it.reset();
 
   if (m_scan_it_snapshot) {
     auto rdb = rdb_get_rocksdb_db();
@@ -272,7 +271,7 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
 
   int rc = 0;
   auto &tx = *get_tx_from_thd(m_thd);
-  const rocksdb::Comparator *kd_comp = m_kd.get_cf()->GetComparator();
+  const auto *const kd_comp = m_kd.get_cf().GetComparator();
 
   for (;;) {
     DEBUG_SYNC(m_thd, "rocksdb.check_flags_nwd");
@@ -291,9 +290,9 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
       skip_next = false;
     } else {
       if (move_forward) {
-        rocksdb_smart_next(m_kd.m_is_reverse_cf, m_scan_it);
+        rocksdb_smart_next(m_kd.m_is_reverse_cf, *m_scan_it);
       } else {
-        rocksdb_smart_prev(m_kd.m_is_reverse_cf, m_scan_it);
+        rocksdb_smart_prev(m_kd.m_is_reverse_cf, *m_scan_it);
       }
     }
 
@@ -483,7 +482,7 @@ Rdb_iterator_partial::Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd,
       m_prefix_keyparts(kd.partial_index_keyparts()),
       m_cur_prefix_key_len(0),
       m_records_it(m_records.end()),
-      m_comparator(slice_comparator(m_kd.get_cf()->GetComparator())) {
+      m_comparator(slice_comparator(m_kd.get_cf().GetComparator())) {
   init_sql_alloc(PSI_NOT_INSTRUMENTED, &m_mem_root, 4096);
   auto max_mem = get_partial_index_sort_max_mem(thd);
   if (max_mem) {
@@ -744,7 +743,7 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   auto wb = std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
   // Write sentinel key with empty value.
-  s = wb->Put(m_kd.get_cf(), cur_prefix_key, rocksdb::Slice());
+  s = wb->Put(&m_kd.get_cf(), cur_prefix_key, rocksdb::Slice());
   if (!s.ok()) {
     rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
     rdb_tx_release_lock(tx, m_kd, cur_prefix_key, true /* force */);
@@ -783,7 +782,7 @@ int Rdb_iterator_partial::materialize_prefix() {
         false /* store_row_debug_checksums */, 0 /* hidden_pk_id */, 0, nullptr,
         m_converter.get_ttl_bytes_buffer());
 
-    s = wb->Put(m_kd.get_cf(),
+    s = wb->Put(&m_kd.get_cf(),
                 rocksdb::Slice((const char *)m_sk_packed_tuple, sk_packed_size),
                 rocksdb::Slice((const char *)m_sk_tails.ptr(),
                                m_sk_tails.get_current_pos()));

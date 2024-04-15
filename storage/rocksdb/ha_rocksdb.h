@@ -22,6 +22,7 @@
 /* C++ standard header files */
 #include <deque>
 #include <map>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -659,11 +660,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int delete_row(const uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
   void update_table_stats_if_needed();
-  rocksdb::Status delete_or_singledelete(uint index, Rdb_transaction *const tx,
-                                         rocksdb::ColumnFamilyHandle *const cf,
-                                         const rocksdb::Slice &key,
-                                         TABLE_TYPE table_type)
-      MY_ATTRIBUTE((__warn_unused_result__));
+
+  [[nodiscard]] rocksdb::Status delete_or_singledelete(
+      uint index, Rdb_transaction *tx, rocksdb::ColumnFamilyHandle &cf,
+      const rocksdb::Slice &key, TABLE_TYPE table_type);
 
   int index_next(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
@@ -1212,18 +1212,17 @@ void remove_tmp_table_handler(THD *const thd, ha_rocksdb *rocksdb_handler);
 
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 
-rocksdb::Iterator *rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle *const cf, bool skip_bloom_filter,
+[[nodiscard]] std::unique_ptr<rocksdb::Iterator> rdb_tx_get_iterator(
+    THD *thd, rocksdb::ColumnFamilyHandle &cf, bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, TABLE_TYPE table_type,
     bool read_current = false, bool create_snapshot = true);
 
-rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
-                           rocksdb::ColumnFamilyHandle *const column_family,
-                           const rocksdb::Slice &key,
-                           rocksdb::PinnableSlice *const value,
-                           TABLE_TYPE table_type);
+[[nodiscard]] rocksdb::Status rdb_tx_get(
+    Rdb_transaction *tx, rocksdb::ColumnFamilyHandle &column_family,
+    const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
+    TABLE_TYPE table_type);
 
 rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       const Rdb_key_def &kd,
@@ -1236,36 +1235,33 @@ void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force);
 
 void rdb_tx_multi_get(Rdb_transaction *tx,
-                      rocksdb::ColumnFamilyHandle *const column_family,
-                      const size_t num_keys, const rocksdb::Slice *keys,
+                      rocksdb::ColumnFamilyHandle &column_family,
+                      size_t num_keys, const rocksdb::Slice *keys,
                       rocksdb::PinnableSlice *values, TABLE_TYPE table_type,
-                      rocksdb::Status *statuses, const bool sorted_input);
+                      rocksdb::Status *statuses, bool sorted_input);
 
-inline void rocksdb_smart_seek(bool seek_backward,
-                               rocksdb::Iterator *const iter,
+inline void rocksdb_smart_seek(bool seek_backward, rocksdb::Iterator &iter,
                                const rocksdb::Slice &key_slice) {
   if (seek_backward) {
-    iter->SeekForPrev(key_slice);
+    iter.SeekForPrev(key_slice);
   } else {
-    iter->Seek(key_slice);
+    iter.Seek(key_slice);
   }
 }
 
-inline void rocksdb_smart_next(bool seek_backward,
-                               rocksdb::Iterator *const iter) {
+inline void rocksdb_smart_next(bool seek_backward, rocksdb::Iterator &iter) {
   if (seek_backward) {
-    iter->Prev();
+    iter.Prev();
   } else {
-    iter->Next();
+    iter.Next();
   }
 }
 
-inline void rocksdb_smart_prev(bool seek_backward,
-                               rocksdb::Iterator *const iter) {
+inline void rocksdb_smart_prev(bool seek_backward, rocksdb::Iterator &iter) {
   if (seek_backward) {
-    iter->Next();
+    iter.Next();
   } else {
-    iter->Prev();
+    iter.Prev();
   }
 }
 
