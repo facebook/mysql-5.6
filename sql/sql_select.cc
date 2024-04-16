@@ -4686,11 +4686,17 @@ bool JOIN::make_tmp_tables_info() {
       OPTION_FOUND_ROWS supersedes LIMIT and is taken into account.
     */
     DBUG_PRINT("info", ("Sorting for order by/group by"));
+    bool fb_vector_ordering_needs_reorder =
+        thd->variables.fb_vector_search_type == FB_VECTOR_SEARCH_INDEX_SCAN &&
+        m_ordered_index_usage == ORDERED_INDEX_ORDER_BY &&
+        qep_tab[curr_tmp_table].table()->file->index_supports_vector_scan(
+            order.order, qep_tab[curr_tmp_table].effective_index());
     ORDER_with_src order_arg = group_list.empty() ? order : group_list;
     if (qep_tab &&
-        m_ordered_index_usage != (group_list.empty()
-                                      ? ORDERED_INDEX_ORDER_BY
-                                      : ORDERED_INDEX_GROUP_BY) &&
+        (m_ordered_index_usage != (group_list.empty()
+                                       ? ORDERED_INDEX_ORDER_BY
+                                       : ORDERED_INDEX_GROUP_BY) ||
+         fb_vector_ordering_needs_reorder) &&
         // Windowing will change order, so it's too early to sort here
         !m_windowing_steps) {
       // Sort either first non-const table or the last tmp table

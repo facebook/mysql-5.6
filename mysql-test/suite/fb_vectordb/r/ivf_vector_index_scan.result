@@ -1,0 +1,489 @@
+insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 2)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL fb_vector_dimension 4,
+name varchar(64),
+value int,
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1',
+INDEX key2(name),
+INDEX key3(value)
+);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i), ABS(50-i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+1000), ABS(50-i) from a);
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` order by `dis` limit 10
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99	49	0.1683160364627838
+98	[0.0098, 0.0098, 0, 0]	val98	48	0.1684321016073227
+97	[0.0097, 0.0097, 0, 0]	val97	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	1	100	100	100
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` order by `dis` limit 10
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99	49	0.1683160364627838
+98	[0.0098, 0.0098, 0, 0]	val98	48	0.1684321016073227
+97	[0.0097, 0.0097, 0, 0]	val97	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	2	100	100	100
+SET SESSION fb_vector_search_type = KNN;
+explain select * from t1 order by value limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key3	5	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`value` limit 10
+select * from t1 order by value limit 10;
+id	vector1	name	value
+50	[0.0050, 0.0050, 0, 0]	val50	0
+1050	[1.0050, 0.9950, 0, 0]	val1050	0
+49	[0.0049, 0.0049, 0, 0]	val49	1
+51	[0.0051, 0.0051, 0, 0]	val51	1
+1049	[1.0049, 0.9951, 0, 0]	val1049	1
+1051	[1.0051, 0.9949, 0, 0]	val1051	1
+48	[0.0048, 0.0048, 0, 0]	val48	2
+52	[0.0052, 0.0052, 0, 0]	val52	2
+1048	[1.0048, 0.9952, 0, 0]	val1048	2
+1052	[1.0052, 0.9948, 0, 0]	val1052	2
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select * from t1 order by value limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key3	5	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`value` limit 10
+select * from t1 order by value limit 10;
+id	vector1	name	value
+50	[0.0050, 0.0050, 0, 0]	val50	0
+1050	[1.0050, 0.9950, 0, 0]	val1050	0
+49	[0.0049, 0.0049, 0, 0]	val49	1
+51	[0.0051, 0.0051, 0, 0]	val51	1
+1049	[1.0049, 0.9951, 0, 0]	val1049	1
+1051	[1.0051, 0.9949, 0, 0]	val1051	1
+48	[0.0048, 0.0048, 0, 0]	val48	2
+52	[0.0052, 0.0052, 0, 0]	val52	2
+1048	[1.0048, 0.9952, 0, 0]	val1048	2
+1052	[1.0052, 0.9948, 0, 0]	val1052	2
+SET SESSION fb_vector_search_type = KNN;
+explain select * from t1 order by name limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key2	259	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`name` limit 10
+select * from t1 order by name limit 10;
+id	vector1	name	value
+0	[0, 0, 0, 0]	val0	50
+1	[0.0001, 0.0001, 0, 0]	val1	49
+10	[0.0010, 0.0010, 0, 0]	val10	40
+1000	[1, 1, 0, 0]	val1000	50
+1001	[1.0001, 0.9999, 0, 0]	val1001	49
+1002	[1.0002, 0.9998, 0, 0]	val1002	48
+1003	[1.0003, 0.9997, 0, 0]	val1003	47
+1004	[1.0004, 0.9996, 0, 0]	val1004	46
+1005	[1.0005, 0.9995, 0, 0]	val1005	45
+1006	[1.0006, 0.9994, 0, 0]	val1006	44
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select * from t1 order by name limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key2	259	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`name` limit 10
+select * from t1 order by name limit 10;
+id	vector1	name	value
+0	[0, 0, 0, 0]	val0	50
+1	[0.0001, 0.0001, 0, 0]	val1	49
+10	[0.0010, 0.0010, 0, 0]	val10	40
+1000	[1, 1, 0, 0]	val1000	50
+1001	[1.0001, 0.9999, 0, 0]	val1001	49
+1002	[1.0002, 0.9998, 0, 0]	val1002	48
+1003	[1.0003, 0.9997, 0, 0]	val1003	47
+1004	[1.0004, 0.9996, 0, 0]	val1004	46
+1005	[1.0005, 0.9995, 0, 0]	val1005	45
+1006	[1.0006, 0.9994, 0, 0]	val1006	44
+SET SESSION fb_vector_search_type = KNN;
+explain select * from t1 order by value, name limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`value`,`test`.`t1`.`name` limit 10
+select * from t1 order by value, name limit 10;
+id	vector1	name	value
+1050	[1.0050, 0.9950, 0, 0]	val1050	0
+50	[0.0050, 0.0050, 0, 0]	val50	0
+1049	[1.0049, 0.9951, 0, 0]	val1049	1
+1051	[1.0051, 0.9949, 0, 0]	val1051	1
+49	[0.0049, 0.0049, 0, 0]	val49	1
+51	[0.0051, 0.0051, 0, 0]	val51	1
+1048	[1.0048, 0.9952, 0, 0]	val1048	2
+1052	[1.0052, 0.9948, 0, 0]	val1052	2
+48	[0.0048, 0.0048, 0, 0]	val48	2
+52	[0.0052, 0.0052, 0, 0]	val52	2
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select * from t1 order by value, name limit 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	1	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value` from `test`.`t1` order by `test`.`t1`.`value`,`test`.`t1`.`name` limit 10
+select * from t1 order by value, name limit 10;
+id	vector1	name	value
+1050	[1.0050, 0.9950, 0, 0]	val1050	0
+50	[0.0050, 0.0050, 0, 0]	val50	0
+1049	[1.0049, 0.9951, 0, 0]	val1049	1
+1051	[1.0051, 0.9949, 0, 0]	val1051	1
+49	[0.0049, 0.0049, 0, 0]	val49	1
+51	[0.0051, 0.0051, 0, 0]	val51	1
+1048	[1.0048, 0.9952, 0, 0]	val1048	2
+1052	[1.0052, 0.9948, 0, 0]	val1052	2
+48	[0.0048, 0.0048, 0, 0]	val48	2
+52	[0.0052, 0.0052, 0, 0]	val52	2
+SET SESSION fb_vector_search_type = KNN;
+update t1 set name = CONCAT(name, "aaa") where id in (97, 98, 99, 1097, 1098, 1099);
+select * from t1 where id in (97, 98, 99, 1097, 1098, 1099);
+id	vector1	name	value
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47
+98	[0.0098, 0.0098, 0, 0]	val98aaa	48
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49
+1097	[1.0097, 0.9903, 0, 0]	val1097aaa	47
+1098	[1.0098, 0.9902, 0, 0]	val1098aaa	48
+1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` where (`test`.`t1`.`name` like '%aaa%') order by `dis` limit 6
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+98	[0.0098, 0.0098, 0, 0]	val98aaa	48	0.1684321016073227
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	3	100	100	100
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	Using where; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` where (`test`.`t1`.`name` like '%aaa%') order by `dis` limit 6
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+98	[0.0098, 0.0098, 0, 0]	val98aaa	48	0.1684321016073227
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+1097	[1.0097, 0.9903, 0, 0]	val1097aaa	47	0.9801880121231079
+1098	[1.0098, 0.9902, 0, 0]	val1098aaa	48	0.9801919460296631
+1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	0.9801959991455078
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	4	100	100	100
+SET SESSION fb_vector_search_type = KNN;
+update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+98	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	5	100	100	100
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+98	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	6	100	100	100
+SET SESSION fb_vector_search_type = KNN;
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` where (`test`.`t1`.`name` like '%aaa%') order by `dis` limit 6
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+98	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+SET SESSION fb_vector_search_type = ITERATOR;
+explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	key1	65535	NULL	1	100.00	Using where; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`name` AS `name`,`test`.`t1`.`value` AS `value`,fb_vector_l2(`test`.`t1`.`vector1`,'[0.3, 0.3]') AS `dis` from `test`.`t1` where (`test`.`t1`.`name` like '%aaa%') order by `dis` limit 6
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+98	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+1097	[1.0097, 0.9903, 0, 0]	val1097aaa	47	0.9801880121231079
+1098	[1.0098, 0.9902, 0, 0]	val1098aaa	48	0.9801919460296631
+1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	0.9801959991455078
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	8	100	100	100
+SET SESSION fb_vector_search_type = KNN;
+update t1 set id = 2000 where id = 98;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+2000	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+2000	[0.0097, 0.009, 0, 0]	val98aaa	48	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SET SESSION fb_vector_search_type = KNN;
+update t1 set vector1 = '[0.0098, 0.0099, 0, 0]', id = 2001 where id = 2000;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	42	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+SET SESSION fb_vector_search_type = KNN;
+update t1 set vector1 = '[1.0001, 1, 0, 0]' where id = 92;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+89	[0.0089, 0.0089, 0, 0]	val89	39	0.16947844624519348
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	13	99	101	100
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683160364627838
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+89	[0.0089, 0.0089, 0, 0]	val89	39	0.16947844624519348
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+200	14	99	101	100
+SET SESSION fb_vector_search_type = KNN;
+
+delete vector from centroid 0
+delete from t1 where id = 99;
+99 should disappear from query result
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+89	[0.0089, 0.0089, 0, 0]	val89	39	0.16947844624519348
+88	[0.0088, 0.0088, 0, 0]	val88	38	0.1695948988199234
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+199	15	98	101	99
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+2001	[0.0098, 0.0099, 0, 0]	val98aaa	48	0.16837406158447266
+97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	46	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	45	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	44	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	43	0.16901300847530365
+91	[0.0091, 0.0091, 0, 0]	val91	41	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	40	0.16936200857162476
+89	[0.0089, 0.0089, 0, 0]	val89	39	0.16947844624519348
+88	[0.0088, 0.0088, 0, 0]	val88	38	0.1695948988199234
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+199	16	98	101	99
+SET SESSION fb_vector_search_type = KNN;
+
+results from centroid 1
+select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+1000	[1, 1, 0, 0]	val1000	50	0.31999996304512024
+1001	[1.0001, 0.9999, 0, 0]	val1001	49	0.3199999928474426
+1002	[1.0002, 0.9998, 0, 0]	val1002	48	0.3200001120567322
+1003	[1.0003, 0.9997, 0, 0]	val1003	47	0.32000017166137695
+1004	[1.0004, 0.9996, 0, 0]	val1004	46	0.32000023126602173
+1005	[1.0005, 0.9995, 0, 0]	val1005	45	0.32000041007995605
+1006	[1.0006, 0.9994, 0, 0]	val1006	44	0.32000067830085754
+1007	[1.0007, 0.9993, 0, 0]	val1007	43	0.32000094652175903
+1008	[1.0008, 0.9992, 0, 0]	val1008	42	0.3200012445449829
+1009	[1.0009, 0.9991, 0, 0]	val1009	41	0.32000163197517395
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+199	17	98	101	99
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+1000	[1, 1, 0, 0]	val1000	50	0.31999996304512024
+1001	[1.0001, 0.9999, 0, 0]	val1001	49	0.3199999928474426
+1002	[1.0002, 0.9998, 0, 0]	val1002	48	0.3200001120567322
+1003	[1.0003, 0.9997, 0, 0]	val1003	47	0.32000017166137695
+1004	[1.0004, 0.9996, 0, 0]	val1004	46	0.32000023126602173
+1005	[1.0005, 0.9995, 0, 0]	val1005	45	0.32000041007995605
+1006	[1.0006, 0.9994, 0, 0]	val1006	44	0.32000067830085754
+1007	[1.0007, 0.9993, 0, 0]	val1007	43	0.32000094652175903
+1008	[1.0008, 0.9992, 0, 0]	val1008	42	0.3200012445449829
+1009	[1.0009, 0.9991, 0, 0]	val1009	41	0.32000163197517395
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+199	18	98	101	99
+SET SESSION fb_vector_search_type = KNN;
+
+delete vector from centroid 1
+delete from t1 where id = 1001;
+1001 should disappear from query result
+select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+1000	[1, 1, 0, 0]	val1000	50	0.31999996304512024
+1002	[1.0002, 0.9998, 0, 0]	val1002	48	0.3200001120567322
+1003	[1.0003, 0.9997, 0, 0]	val1003	47	0.32000017166137695
+1004	[1.0004, 0.9996, 0, 0]	val1004	46	0.32000023126602173
+1005	[1.0005, 0.9995, 0, 0]	val1005	45	0.32000041007995605
+1006	[1.0006, 0.9994, 0, 0]	val1006	44	0.32000067830085754
+1007	[1.0007, 0.9993, 0, 0]	val1007	43	0.32000094652175903
+1008	[1.0008, 0.9992, 0, 0]	val1008	42	0.3200012445449829
+1009	[1.0009, 0.9991, 0, 0]	val1009	41	0.32000163197517395
+1010	[1.0010, 0.9990, 0, 0]	val1010	40	0.320002019405365
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+198	19	98	100	99
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
+id	vector1	name	value	dis
+1000	[1, 1, 0, 0]	val1000	50	0.31999996304512024
+1002	[1.0002, 0.9998, 0, 0]	val1002	48	0.3200001120567322
+1003	[1.0003, 0.9997, 0, 0]	val1003	47	0.32000017166137695
+1004	[1.0004, 0.9996, 0, 0]	val1004	46	0.32000023126602173
+1005	[1.0005, 0.9995, 0, 0]	val1005	45	0.32000041007995605
+1006	[1.0006, 0.9994, 0, 0]	val1006	44	0.32000067830085754
+1007	[1.0007, 0.9993, 0, 0]	val1007	43	0.32000094652175903
+1008	[1.0008, 0.9992, 0, 0]	val1008	42	0.3200012445449829
+1009	[1.0009, 0.9991, 0, 0]	val1009	41	0.32000163197517395
+1010	[1.0010, 0.9990, 0, 0]	val1010	40	0.320002019405365
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+198	20	98	100	99
+SET SESSION fb_vector_search_type = KNN;
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+id	vector1	name	value	dis
+1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	1.9009900093078613
+1098	[1.0098, 0.9902, 0, 0]	val1098aaa	48	1.900979995727539
+1097	[1.0097, 0.9903, 0, 0]	val1097aaa	47	1.9009699821472168
+1096	[1.0096, 0.9904, 0, 0]	val1096	46	1.9009599685668945
+1095	[1.0095, 0.9905, 0, 0]	val1095	45	1.9009499549865723
+1094	[1.0094, 0.9906, 0, 0]	val1094	44	1.90093994140625
+1093	[1.0093, 0.9907, 0, 0]	val1093	43	1.9009299278259277
+1092	[1.0092, 0.9908, 0, 0]	val1092	42	1.9009199142456055
+1091	[1.0091, 0.9909, 0, 0]	val1091	41	1.9009099006652832
+1090	[1.0090, 0.9910, 0, 0]	val1090	40	1.900899887084961
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+198	21	98	100	99
+SET SESSION fb_vector_search_type = ITERATOR;
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+id	vector1	name	value	dis
+1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	1.9009900093078613
+1098	[1.0098, 0.9902, 0, 0]	val1098aaa	48	1.900979995727539
+1097	[1.0097, 0.9903, 0, 0]	val1097aaa	47	1.9009699821472168
+1096	[1.0096, 0.9904, 0, 0]	val1096	46	1.9009599685668945
+1095	[1.0095, 0.9905, 0, 0]	val1095	45	1.9009499549865723
+1094	[1.0094, 0.9906, 0, 0]	val1094	44	1.90093994140625
+1093	[1.0093, 0.9907, 0, 0]	val1093	43	1.9009299278259277
+1092	[1.0092, 0.9908, 0, 0]	val1092	42	1.9009199142456055
+1091	[1.0091, 0.9909, 0, 0]	val1091	41	1.9009099006652832
+1090	[1.0090, 0.9910, 0, 0]	val1090	40	1.900899887084961
+SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
+198	22	98	100	99
+SET SESSION fb_vector_search_type = KNN;
+drop table t1;

@@ -141,6 +141,12 @@ enum enum_enable_jemalloc {
   JEMALLOC_DUMP = 2
 };
 
+/** Values for fb_vector_search_type */
+enum enum_fb_vector_search_type {
+  FB_VECTOR_SEARCH_KNN = 0,
+  FB_VECTOR_SEARCH_INDEX_SCAN = 1,
+};
+
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT 1
 #define MODE_PIPES_AS_CONCAT 2
@@ -679,6 +685,12 @@ struct System_variables {
     search in FAISS
   */
   bool fb_vector_index_cond_pushdown;
+
+  /**
+    This parameter controls which algorithm will be used to search through the
+    vector db ivf index.
+  */
+  ulong fb_vector_search_type;
 };
 
 /**

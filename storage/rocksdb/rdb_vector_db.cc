@@ -270,7 +270,8 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     return available;
   }
 
-  uint get_key_and_value(std::string &key, std::string &value) const {
+  uint get_key_and_value(std::string &key, std::string &value,
+                         bool need_value = true) const {
     assert(m_context->m_error == false);
     assert(m_iterator->Valid());
 
@@ -291,6 +292,10 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     }
     // copy the key bytes
     key = key_slice.ToString();
+
+    if (!need_value) {
+      return HA_EXIT_SUCCESS;
+    }
 
     /*
       Vector index Value format:
@@ -433,6 +438,61 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
   std::vector<uint8_t> m_codes_buffer;
 };
 
+class Rdb_vector_list_iterator : public Rdb_vector_db_iterator {
+ public:
+  Rdb_vector_list_iterator(Rdb_faiss_inverted_list_context &&context,
+                           Index_id index_id,
+                           rocksdb::ColumnFamilyHandle *const cf,
+                           const uint code_size,
+                           std::vector<faiss::idx_t> &&list_ids)
+      : m_index_id(index_id),
+        m_code_size(code_size),
+        m_cf(*cf),
+        m_context(context),
+        m_list_ids(list_ids) {
+    m_list_id_iter = m_list_ids.begin();
+  }
+
+  bool is_available() override {
+    if (m_error) return false;
+
+    while (m_current_iterator == nullptr ||
+           !m_current_iterator->is_available()) {
+      if (m_error || m_list_id_iter == m_list_ids.end() ||
+          *m_list_id_iter < 0) {
+        break;
+      }
+      m_current_iterator.reset(new Rdb_vector_iterator(
+          &m_context, m_index_id, m_cf, m_code_size, *m_list_id_iter));
+      m_list_id_iter++;
+    }
+
+    return m_current_iterator != nullptr && m_current_iterator->is_available();
+  }
+
+  void next() override { m_current_iterator->next(); }
+
+  uint get_key(std::string &key) override {
+    std::string value;
+    uint rtn = m_current_iterator->get_key_and_value(key, value, false);
+    if (rtn) {
+      m_error = rtn;
+      return rtn;
+    }
+    return rtn;
+  }
+
+ private:
+  Index_id m_index_id;
+  uint m_code_size;
+  rocksdb::ColumnFamilyHandle &m_cf;
+  Rdb_faiss_inverted_list_context m_context;
+  std::vector<faiss::idx_t> m_list_ids;
+  std::unique_ptr<Rdb_vector_iterator> m_current_iterator = nullptr;
+  std::vector<faiss::idx_t>::iterator m_list_id_iter;
+  uint m_error = HA_EXIT_SUCCESS;
+};
+
 /**
   faiss inverted list implementation.
   throws exceptions for methods that are not used for our use case.
@@ -532,6 +592,28 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
   FB_vector_dimension dimension() const override {
     return m_index_def.dimension();
+  }
+
+  virtual uint index_scan(THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+                          const Rdb_key_def *sk_descr,
+                          std::vector<float> &query_vector, uint nprobe,
+                          std::unique_ptr<Rdb_vector_db_iterator>
+                              &index_scan_result_iter) override {
+    m_hit++;
+
+    constexpr faiss::idx_t vector_count = 1;
+    std::vector<faiss::idx_t> vector_ids(nprobe);
+    std::vector<float> distances(nprobe);
+
+    m_quantizer->search(vector_count, query_vector.data(), nprobe,
+                        distances.data(), vector_ids.data());
+
+    Rdb_faiss_inverted_list_context context(thd, tbl, pk_index_cond, sk_descr);
+    index_scan_result_iter.reset(new Rdb_vector_list_iterator(
+        std::move(context), m_index_id, m_cf_handle.get(),
+        m_index_l2->code_size, std::move(vector_ids)));
+
+    return HA_EXIT_SUCCESS;
   }
 
   virtual uint knn_search(
@@ -835,6 +917,35 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]],
 
 Rdb_vector_db_handler::Rdb_vector_db_handler() {}
 
+uint Rdb_vector_db_handler::search(THD *thd, const TABLE *const tbl,
+                                   Rdb_vector_index *index,
+                                   const Rdb_key_def *sk_descr,
+                                   Item *pk_index_cond) {
+  if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+    return knn_search(thd, tbl, index, sk_descr, pk_index_cond);
+  } else {
+    return index_scan(thd, tbl, index, sk_descr, pk_index_cond);
+  }
+}
+
+uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE *const tbl,
+                                       Rdb_vector_index *index,
+                                       const Rdb_key_def *sk_descr,
+                                       Item *pk_index_cond) {
+  if (!m_buffer.size()) return HA_ERR_END_OF_FILE;
+
+  if (m_buffer.size() < index->dimension()) {
+    m_buffer.resize(index->dimension(), 0.0);
+  } else if (m_buffer.size() > index->dimension()) {
+    LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "query vector dimension is too big for vector index");
+    return HA_EXIT_FAILURE;
+  }
+
+  return index->index_scan(thd, tbl, pk_index_cond, sk_descr, m_buffer,
+                           m_nprobe, m_index_scan_result_iter);
+}
+
 uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
                                        Rdb_vector_index *index,
                                        const Rdb_key_def *sk_descr,
@@ -866,8 +977,13 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
   return rtn;
 }
 
-std::string Rdb_vector_db_handler::current_key() const {
-  return m_vector_db_result_iter->first;
+uint Rdb_vector_db_handler::current_key(std::string &key) const {
+  if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+    key = m_vector_db_result_iter->first;
+    return HA_EXIT_SUCCESS;
+  } else {
+    return m_index_scan_result_iter->get_key(key);
+  }
 }
 
 }  // namespace myrocks

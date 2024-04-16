@@ -645,6 +645,13 @@ The following options may be given as the first argument:
  using a query hint like this: 'SELECT /*+
  SET_VAR(fb_vector_search_nprobe = 3) */ ... '. Default:
  16
+ --fb-vector-search-type[=name] 
+ This parameter controls the algorithm that is used to
+ search through the vector db ivf index. When it is set to
+ KNN, KNN search will be used to return the k nearest
+ neighbor points around the closest centroids. When it is
+ set to ITERATOR, index scan will be used to iterate
+ through all entries around the nearest centroids.
  --filesort-max-file-size=# 
  The max size of a file to use for filesort. Raise an
  error when this is exceeded. 0 means no limit.
@@ -3478,6 +3485,7 @@ fb-vector-max-dimension 4096
 fb-vector-min-dimension 3
 fb-vector-search-limit-multiplier 10
 fb-vector-search-nprobe 16
+fb-vector-search-type KNN
 filesort-max-file-size 0
 flush FALSE
 flush-only-old-table-cache-entries FALSE

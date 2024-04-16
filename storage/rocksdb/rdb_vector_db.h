@@ -32,6 +32,13 @@ namespace myrocks {
 using faiss_ivf_list_id = int64_t;
 
 class Rdb_key_def;
+class Rdb_vector_db_iterator {
+ public:
+  virtual ~Rdb_vector_db_iterator() = default;
+  virtual bool is_available() = 0;
+  virtual void next() = 0;
+  virtual uint get_key(std::string &key) = 0;
+};
 
 /** for infomation schema */
 class Rdb_vector_index_info {
@@ -97,6 +104,12 @@ class Rdb_vector_index {
       Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) = 0;
 
+  virtual uint index_scan(
+      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+      const Rdb_key_def *sk_descr, std::vector<float> &query_vector,
+      uint nprobe,
+      std::unique_ptr<Rdb_vector_db_iterator> &index_scan_result_iter) = 0;
+
   /**
     scans all vectors in index and populate counters
   */
@@ -129,26 +142,44 @@ class Rdb_vector_db_handler {
   Rdb_vector_db_handler();
 
   bool has_more_results() {
-    return !m_search_result.empty() &&
-           m_vector_db_result_iter != m_search_result.cend();
-  }
-
-  void next_result() {
-    if (has_more_results()) {
-      ++m_vector_db_result_iter;
+    if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+      return !m_search_result.empty() &&
+             m_vector_db_result_iter != m_search_result.cend();
+    } else {
+      return m_index_scan_result_iter &&
+             m_index_scan_result_iter->is_available();
     }
   }
 
-  std::string current_key() const;
+  void next_result() {
+    if (!has_more_results()) return;
+
+    if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+      ++m_vector_db_result_iter;
+    } else {
+      m_index_scan_result_iter->next();
+    }
+  }
+
+  uint current_key(std::string &key) const;
+
+  uint search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
+              const Rdb_key_def *sk_descr, Item *pk_index_cond);
+
+  uint index_scan(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
+                  const Rdb_key_def *sk_descr, Item *pk_index_cond);
 
   uint knn_search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
                   const Rdb_key_def *sk_descr, Item *pk_index_cond);
 
   int vector_index_orderby_init(Item *sort_func, int limit, uint nprobe,
-                                uint limit_multiplier) {
+                                uint limit_multiplier,
+                                enum_fb_vector_search_type search_type) {
     m_limit = limit;
     m_limit_multiplier = limit_multiplier;
     m_nprobe = nprobe;
+
+    m_search_type = search_type;
 
     Fb_vector input_vector;
     Item_func *item_func = (Item_func *)sort_func;
@@ -186,19 +217,26 @@ class Rdb_vector_db_handler {
   }
 
   void vector_index_orderby_end() {
+    m_search_type = FB_VECTOR_SEARCH_KNN;
     m_metric = FB_VECTOR_INDEX_METRIC::NONE;
     // reset ORDER BY related
     m_limit = 0;
     m_limit_multiplier = 0;
     m_nprobe = 0;
     m_buffer.clear();
+
+    if (m_index_scan_result_iter) {
+      m_index_scan_result_iter = nullptr;
+    }
   }
 
  private:
   // input vector from the USER query,
   std::vector<float> m_buffer;
+  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN;
   std::vector<std::pair<std::string, float>> m_search_result;
   decltype(m_search_result.cbegin()) m_vector_db_result_iter;
+  std::unique_ptr<Rdb_vector_db_iterator> m_index_scan_result_iter = nullptr;
   FB_VECTOR_INDEX_METRIC m_metric = FB_VECTOR_INDEX_METRIC::NONE;
   // LIMIT associated with the ORDER BY clause
   uint m_limit;

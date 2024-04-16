@@ -11129,7 +11129,7 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
   if (kd.is_vector_index()) {
     auto vector_db_handler = get_vector_db_handler();
-    rc = vector_db_handler->knn_search(
+    rc = vector_db_handler->search(
         thd, table, kd.get_vector_index(), &kd,
         (pushed_idx_cond_keyno == active_index) ? pushed_idx_cond : nullptr);
     if (rc) {
@@ -11138,7 +11138,11 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &vector_index_key = vector_db_handler->current_key();
+    std::string vector_index_key;
+    rc = vector_db_handler->current_key(vector_index_key);
+    if (rc) {
+      DBUG_RETURN(rc);
+    }
     rocksdb::Slice key(vector_index_key);
     const uint size =
         kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
@@ -11861,7 +11865,11 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &vector_index_key = vector_db_handler->current_key();
+    std::string vector_index_key;
+    rc = vector_db_handler->current_key(vector_index_key);
+    if (rc) {
+      DBUG_RETURN(rc);
+    }
     rocksdb::Slice key(vector_index_key);
     const uint size =
         kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
@@ -13702,10 +13710,14 @@ int ha_rocksdb::index_end() {
 */
 int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
   // update the ORDER BY parameters
+  auto search_type = table->in_use->variables.fb_vector_search_type ==
+                             FB_VECTOR_SEARCH_INDEX_SCAN
+                         ? FB_VECTOR_SEARCH_INDEX_SCAN
+                         : FB_VECTOR_SEARCH_KNN;
   auto vector_db_handler = get_vector_db_handler();
   return vector_db_handler->vector_index_orderby_init(
       sort_func, limit, table->in_use->variables.fb_vector_search_nprobe,
-      table->in_use->variables.fb_vector_search_limit_multiplier);
+      table->in_use->variables.fb_vector_search_limit_multiplier, search_type);
 }
 
 /**
@@ -20171,6 +20183,8 @@ bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
         b. Item::CACHE_ITEM with data_type mapping to MYSQL_TYPE_JSON
  */
 bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
+  if (idx >= (int)table->s->keys) return false;
+
   if ((idx >= 0) && !table->key_info[idx].is_fb_vector_index())  // 1.
     return false;
 
