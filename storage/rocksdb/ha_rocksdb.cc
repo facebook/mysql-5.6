@@ -9364,15 +9364,22 @@ int ha_rocksdb::convert_record_from_storage_format(
                                            : rc;
 }
 
+static constexpr std::size_t get_next_aligned(std::size_t &offset) {
+  constexpr auto bits_below_alignment = alignof(std::max_align_t) - 1;
+  constexpr auto bits_above_alignment = ~bits_below_alignment;
+
+  const auto padding =
+      ((offset + bits_below_alignment) & bits_above_alignment) - offset;
+  offset += padding;
+
+  return padding;
+}
+
 int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
                                   const Rdb_tbl_def &tbl_def_arg) {
   DBUG_ENTER_FUNC();
 
   std::shared_ptr<Rdb_key_def> *const kd_arr = tbl_def_arg.m_key_descr_arr;
-
-  uint max_packed_sk_len = 0;
-  uint pack_key_len = 0;
-
   m_pk_descr = kd_arr[pk_index(table_arg, tbl_def_arg)];
 
   // move this into get_table_handler() ??
@@ -9381,12 +9388,11 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
     return rtn;
   }
 
-  pack_key_len = m_pk_descr->max_storage_fmt_length();
-  m_pk_packed_tuple = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, pack_key_len, MYF(0)));
+  const auto pack_key_len = m_pk_descr->max_storage_fmt_length();
+  auto buf_size = static_cast<std::size_t>(pack_key_len);
 
   /* Sometimes, we may use m_sk_packed_tuple for storing packed PK */
-  max_packed_sk_len = pack_key_len;
+  auto max_packed_sk_len = pack_key_len;
   for (uint i = 0; i < table_arg.s->keys; i++) {
     /* Primary key was processed above */
     if (i == table_arg.s->primary_key) continue;
@@ -9403,48 +9409,57 @@ int ha_rocksdb::alloc_key_buffers(const TABLE &table_arg,
     }
   }
 
-  m_sk_packed_tuple = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-  m_sk_packed_tuple_old = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-  m_sk_packed_tuple_updated = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-  m_end_key_packed_tuple = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
-  m_pack_buffer = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
+  const auto pad1 [[maybe_unused]] = get_next_aligned(buf_size);
+  const auto m_sk_packed_tuple_offset = buf_size;
+  buf_size += max_packed_sk_len;
 
-  if (m_pk_packed_tuple == nullptr || m_sk_packed_tuple == nullptr ||
-      m_sk_packed_tuple_old == nullptr ||
-      m_sk_packed_tuple_updated == nullptr ||
-      m_end_key_packed_tuple == nullptr || m_pack_buffer == nullptr) {
-    // One or more of the above allocations failed.  Clean up and exit
+  const auto pad2 [[maybe_unused]] = get_next_aligned(buf_size);
+  const auto m_sk_packed_tuple_old_offset = buf_size;
+  buf_size += max_packed_sk_len;
+
+  const auto pad3 [[maybe_unused]] = get_next_aligned(buf_size);
+  const auto m_sk_packed_tuple_updated_offset = buf_size;
+  buf_size += max_packed_sk_len;
+
+  const auto pad4 [[maybe_unused]] = get_next_aligned(buf_size);
+  const auto m_end_key_packed_tuple_offset = buf_size;
+  buf_size += max_packed_sk_len;
+
+  const auto pad5 [[maybe_unused]] = get_next_aligned(buf_size);
+  const auto m_pack_buffer_offset = buf_size;
+  buf_size += max_packed_sk_len;
+
+  buffers.reset(static_cast<uchar *>(
+      my_malloc(PSI_NOT_INSTRUMENTED, buf_size, MYF(0))));
+  if (buffers == nullptr) {
     free_key_buffers();
 
     DBUG_RETURN(HA_ERR_OUT_OF_MEM);
   }
 
+  m_pk_packed_tuple = buffers.get();
+  MEM_NOACCESS(m_pk_packed_tuple + pack_key_len, pad1);
+  m_sk_packed_tuple = buffers.get() + m_sk_packed_tuple_offset;
+  MEM_NOACCESS(m_sk_packed_tuple + max_packed_sk_len, pad2);
+  m_sk_packed_tuple_old = buffers.get() + m_sk_packed_tuple_old_offset;
+  MEM_NOACCESS(m_sk_packed_tuple_old + max_packed_sk_len, pad3);
+  m_sk_packed_tuple_updated = buffers.get() + m_sk_packed_tuple_updated_offset;
+  MEM_NOACCESS(m_sk_packed_tuple_updated + max_packed_sk_len, pad4);
+  m_end_key_packed_tuple = buffers.get() + m_end_key_packed_tuple_offset;
+  MEM_NOACCESS(m_end_key_packed_tuple + max_packed_sk_len, pad5);
+  m_pack_buffer = buffers.get() + m_pack_buffer_offset;
+
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
 void ha_rocksdb::free_key_buffers() {
-  my_free(m_pk_packed_tuple);
   m_pk_packed_tuple = nullptr;
-
-  my_free(m_sk_packed_tuple);
   m_sk_packed_tuple = nullptr;
-
-  my_free(m_sk_packed_tuple_old);
   m_sk_packed_tuple_old = nullptr;
-
-  my_free(m_sk_packed_tuple_updated);
   m_sk_packed_tuple_updated = nullptr;
-
-  my_free(m_end_key_packed_tuple);
   m_end_key_packed_tuple = nullptr;
-
-  my_free(m_pack_buffer);
   m_pack_buffer = nullptr;
+  buffers.reset();
 
   release_blob_buffer();
 }

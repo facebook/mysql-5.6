@@ -194,8 +194,14 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   */
   mutable bool m_pk_can_be_decoded;
 
+  // The common buffer for m_pk_packed_tuple, m_sk_packed_tuple,
+  // m_sk_packed_tuple_old, m_sk_packed_tuple_updated, m_end_key_packed_tuple,
+  // & m_pack_buffer.
+  unique_ptr_my_free<uchar[]> buffers;
+
   uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
-  // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
+  // TODO: ^ can we join this with last_rowkey?
+  // ^^ todo: change it to 'char[]'?
 
   /*
     Temporary buffers for storing the key part of the Key/Value pair
