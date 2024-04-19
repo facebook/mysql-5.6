@@ -58,6 +58,7 @@
 #include "sql/sql_admin.h"  // Sql_cmd_shutdown etc.
 #include "sql/sql_alter.h"
 #include "sql/sql_check_constraint.h"  // Sql_check_constraint_spec
+#include "sql/sql_checksum.h"          // Sql_cmd_checksum_tables
 #include "sql/sql_cmd_srs.h"
 #include "sql/sql_dump.h"  // Sql_cmd_dump_table
 #include "sql/sql_exchange.h"
@@ -5300,6 +5301,17 @@ class PT_dump_table final : public Parse_tree_root {
  private:
   Sql_cmd_dump_table m_cmd;
   Dump_table_opts m_opts;
+  PT_item_list *m_item_list;
+};
+
+class PT_checksum_tables final : public Parse_tree_root {
+ public:
+  PT_checksum_tables(PT_item_list *item_list) : m_item_list(item_list) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_checksum_tables m_cmd;
   PT_item_list *m_item_list;
 };
 

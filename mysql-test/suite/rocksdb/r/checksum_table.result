@@ -47,12 +47,12 @@ checksum table t1;
 Table	Checksum
 test.t1	1303411884
 drop table t1;
-# 
-#  The following test is about making sure MyRocks CHECKSUM TABLE 
+#
+#  The following test is about making sure MyRocks CHECKSUM TABLE
 #  values are the same as with InnoDB.
 #  If you see checksum values changed, make sure their counterparts
 #  in suite/innodb/r/checksum-matches-myrocks.result match.
-# 
+#
 create table t1 (pk int primary key, col1 varchar(10)) engine=rocksdb charset=latin1;
 insert into t1 values (2,'fooo');
 insert into t1 values (1,NULL);
@@ -61,7 +61,7 @@ Table	Checksum
 test.t1	1303411884
 drop table t1;
 create table t1 (
-pk bigint unsigned primary key, 
+pk bigint unsigned primary key,
 col1 varchar(10),
 col2 tinyint,
 col3 double
@@ -74,6 +74,9 @@ insert into t1 values (2, 'foo', NULL, NULL);
 checksum table t1;
 Table	Checksum
 test.t1	3633741545
+checksum table t1 (pk);
+Table	Checksum
+test.t1	1856968723
 insert into t1 values (3, NULL,  123,  NULL);
 insert into t1 values (4, NULL,  NULL, 2.78);
 checksum table t1;
@@ -84,4 +87,38 @@ insert into t1 values (6, '',            NULL, 2.78);
 checksum table t1;
 Table	Checksum
 test.t1	3183101003
+The following two should match because the select list order doesn't
+actually affect the CRC32 order: it merely sets bits in the read_set.
+The columns will still be processed in table schema order.
+checksum table t1 (pk, col1);
+Table	Checksum
+test.t1	2408254905
+checksum table t1 (col1, pk);
+Table	Checksum
+test.t1	2408254905
+checksum table t1 (pk, col1, col2);
+Table	Checksum
+test.t1	1214636397
+checksum table t1 (pk, col1, col2, col3);
+Table	Checksum
+test.t1	3183101003
+Compare that checksumming the table wholesale and individually yields
+the same result.
+Negative tests
+--------------
+checksum table t1 ();
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 1
+Can't use * expression in select list.
+checksum table t1 (*);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '*)' at line 1
+Can't checksum multiple tables with select-list.
+checksum table t1 (col1), t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ', t2' at line 1
+checksum table t1, t2 (fake_col);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(fake_col)' at line 1
+Can't use expressions in select list.
+checksum table t1 (pk + 1, col1);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '+ 1, col1)' at line 1
+checksum table t1 (pk, z);
+ERROR 42S22: Unknown column 'z' in 'field list'
 drop table t1;

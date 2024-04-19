@@ -11223,9 +11223,9 @@ bool mysql_create_like_table(THD *thd, Table_ref *table, Table_ref *src_table,
             goto err;
         }
       } else  // Case 1
-          if (write_bin_log(thd, true, thd->query().str, thd->query().length,
-                            is_trans))
-        goto err;
+        if (write_bin_log(thd, true, thd->query().str, thd->query().length,
+                          is_trans))
+          goto err;
     }
     /*
       Case 3 and 4 does nothing under RBR
@@ -18829,6 +18829,7 @@ bool mysql_recreate_table(THD *thd, Table_ref *table_list, bool table_copy) {
 }
 
 bool mysql_checksum_table(THD *thd, Table_ref *tables,
+                          mem_root_deque<Item *> *item_list,
                           HA_CHECK_OPT *check_opt) {
   Table_ref *table;
   Item *item;
@@ -18856,6 +18857,12 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
     privilege checking. Clear all references to closed tables.
   */
   close_thread_tables(thd);
+
+  if (item_list) {
+    // Parser enforces single table when item list is provided.
+    assert(!tables->next_local);
+  }
+
   for (table = tables; table; table = table->next_local) table->table = nullptr;
 
   /* Open one table after the other to keep lock time as short as possible. */
@@ -18899,9 +18906,21 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
         ha_checksum crc = 0;
         uchar null_mask = 256 - (1 << t->s->last_null_bit_pos);
 
-        t->use_all_columns();
+        if (!item_list) {
+          // Add all columns to the read_set.
+          t->use_all_columns();
+        } else {
+          // Resolve the columns in m_item_list and add them to the read_set.
+          if (setup_fields(thd, /*want_privilege=*/SELECT_ACL,
+                           /*allow_sum_func=*/false, /*split_sum_funcs=*/false,
+                           /*column_update=*/false, /*typed_items=*/nullptr,
+                           item_list, Ref_item_array())) {
+            protocol->abort_row();
+            goto err;
+          }
+        }
 
-        if (t->file->ha_rnd_init(true))
+        if (t->file->ha_rnd_init(true /* scan */))
           protocol->store_null();
         else {
           for (;;) {
@@ -18930,6 +18949,10 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
             }
 
             for (uint i = 0; i < t->s->fields; i++) {
+              if (!bitmap_is_set(t->read_set, i)) {
+                continue;
+              }
+
               Field *f = t->field[i];
 
               /*

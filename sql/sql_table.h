@@ -464,6 +464,7 @@ bool mysql_rename_table(THD *thd, handlerton *base, const char *old_db,
                         const char *new_db, const char *new_name, uint flags);
 
 bool mysql_checksum_table(THD *thd, Table_ref *table_list,
+                          mem_root_deque<Item *> *item_list,
                           HA_CHECK_OPT *check_opt);
 bool mysql_rm_table(THD *thd, Table_ref *tables, bool if_exists,
                     bool drop_temporary);

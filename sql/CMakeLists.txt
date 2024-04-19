@@ -545,6 +545,7 @@ SET(SQL_SHARED_SOURCES
   sql_initialize.cc
   sql_call.cc
   sql_check_constraint.cc
+  sql_checksum.cc
   sql_class.cc
   sql_component.cc
   sql_const_folding.cc

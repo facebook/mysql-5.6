@@ -4403,15 +4403,6 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       if (mysql_rename_tables(thd, first_table)) goto error;
       break;
     }
-    case SQLCOM_CHECKSUM: {
-      assert(first_table == all_tables && first_table != nullptr);
-      if (check_table_access(thd, SELECT_ACL, all_tables, false, UINT_MAX,
-                             false))
-        goto error; /* purecov: inspected */
-
-      res = mysql_checksum_table(thd, first_table, &lex->check_opt);
-      break;
-    }
     case SQLCOM_REPLACE:
     case SQLCOM_INSERT:
     case SQLCOM_REPLACE_SELECT:
@@ -4420,6 +4411,7 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
     case SQLCOM_DELETE_MULTI:
     case SQLCOM_UPDATE:
     case SQLCOM_UPDATE_MULTI:
+    case SQLCOM_CHECKSUM:
     case SQLCOM_CREATE_TABLE:
     case SQLCOM_CREATE_INDEX:
     case SQLCOM_DROP_INDEX:

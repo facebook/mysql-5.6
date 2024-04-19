@@ -1627,6 +1627,7 @@ void warn_about_deprecated_binary(THD *thd)
         insert_columns
         fields_or_vars
         opt_field_or_var_spec
+        checksum_table_spec
         row_value_explicit
         opt_dump_columns
 
@@ -1906,6 +1907,7 @@ void warn_about_deprecated_binary(THD *thd)
         analyze_table_stmt
         call_stmt
         check_table_stmt
+        checksum
         create_index_stmt
         create_resource_group_stmt
         create_role_stmt
@@ -2377,7 +2379,7 @@ simple_statement:
         | call_stmt
         | change                        { $$= nullptr; }
         | check_table_stmt
-        | checksum                      { $$= nullptr; }
+        | checksum
         | clone_stmt                    { $$= nullptr; }
         | commit                        { $$= nullptr; }
         | create                        { $$= nullptr; }
@@ -9700,17 +9702,48 @@ replica_until:
           }
         ;
 
+/**
+  Checksum one or more tables.
+*/
 checksum:
-          CHECKSUM_SYM table_or_tables table_list opt_checksum_type
+          CHECKSUM_SYM table_or_tables checksum_table_spec opt_checksum_type
           {
-            LEX *lex=Lex;
-            lex->sql_command = SQLCOM_CHECKSUM;
-            /* Will be overriden during execution. */
-            YYPS->m_lock_type= TL_UNLOCK;
-            if (Select->add_tables(YYTHD, $3, TL_OPTION_UPDATING,
-                                   YYPS->m_lock_type, YYPS->m_mdl_type))
-              MYSQL_YYABORT;
+            $$= NEW_PTN PT_checksum_tables($3);
+            if ($$ == nullptr)
+              MYSQL_YYABORT; // OOM
+
             Lex->check_opt.flags= $4;
+          }
+        ;
+
+checksum_table_spec:
+          /**
+            Checksum multiple tables in a batch; no column selection is
+            permitted.
+          */
+          table_list
+          {
+            if (Select->add_tables(YYTHD, $1, 0, TL_UNLOCK, YYPS->m_mdl_type))
+              MYSQL_YYABORT;
+
+            // No item list.
+            $$ = nullptr;
+          }
+          /**
+            Checksumming one table supports an optional column list, similar to
+            the INSERT statement, in which case, only those columns will be
+            checksummed.
+
+            Reuse insert_columns rule since we only want simple column refs.
+          */
+          | table_ident '(' insert_columns ')'
+          {
+            if (!Select->add_table_to_list(
+                YYTHD, $1, nullptr, 0, TL_UNLOCK, YYPS->m_mdl_type))
+              MYSQL_YYABORT;
+
+              // Save the columns (item list).
+              $$ = $3;
           }
         ;
 

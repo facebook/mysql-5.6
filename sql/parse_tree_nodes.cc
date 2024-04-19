@@ -3685,6 +3685,20 @@ Sql_cmd *PT_dump_table::make_cmd(THD *thd) {
   return &m_cmd;
 }
 
+Sql_cmd *PT_checksum_tables::make_cmd(THD *thd) {
+  LEX *const lex = thd->lex;
+  lex->sql_command = SQLCOM_CHECKSUM;
+  Query_block *const query_block = lex->current_query_block();
+  Parse_context pc(thd, query_block);
+  if (m_item_list) {
+    if (m_item_list->contextualize(&pc)) {
+      return nullptr;
+    }
+    m_cmd.set_item_list(&m_item_list->value);
+  }
+  return &m_cmd;
+}
+
 bool PT_select_item_list::contextualize(Parse_context *pc) {
   if (super::contextualize(pc)) return true;
   pc->select->fields = value;
