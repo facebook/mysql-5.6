@@ -1,0 +1,76 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key);
+insert into t1 values (0);
+include/sync_slave_sql_with_master.inc
+"Stopping sql_thread on server_2 and blocking further applies"
+stop replica sql_thread;
+set @@global.rpl_raft_debug_sync_point = "UpdateConsensusApplied";
+"Pushing new write on leader: server_1"
+update t1 set a = 2;
+include/sync_slave_io_with_master.inc
+show status like "Rpl_raft_last_appended_opid";
+Variable_name	Value
+Rpl_raft_last_appended_opid	1:4
+show status like "Rpl_raft_slave_last_applied_trx";
+Variable_name	Value
+Rpl_raft_slave_last_applied_trx	1:4
+select * from t1;
+a
+2
+show status like "Rpl_raft_last_appended_opid";
+Variable_name	Value
+Rpl_raft_last_appended_opid	1:4
+show status like "Rpl_raft_slave_last_applied_trx";
+Variable_name	Value
+Rpl_raft_slave_last_applied_trx	1:3
+select * from t1;
+a
+0
+"Transfering leader: server_1 -> server_2"
+set @@global.rpl_raft_new_leader_uuid = 'uuid2';
+set @@global.rpl_raft_debug_sync_point_action = "wait_for UpdateConsensusApplied";
+"Force leader back: server_2 -> server_1"
+set @@global.rpl_raft_start_election = 1;
+update t1 set a = 3;
+"Waiting for promote"
+show status like "Rpl_raft_last_appended_opid";
+Variable_name	Value
+Rpl_raft_last_appended_opid	2:5
+show status like "Rpl_raft_slave_last_applied_trx";
+Variable_name	Value
+Rpl_raft_slave_last_applied_trx	1:3
+select * from t1;
+a
+2
+set @@global.rpl_raft_debug_sync_point = "";
+"Waiting for applies"
+show status like "Rpl_raft_last_appended_opid";
+Variable_name	Value
+Rpl_raft_last_appended_opid	3:7
+show status like "Rpl_raft_slave_last_applied_trx";
+Variable_name	Value
+Rpl_raft_slave_last_applied_trx	3:7
+select * from t1;
+a
+3
+include/rpl_end.inc

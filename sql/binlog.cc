@@ -2035,7 +2035,7 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
       // We add a little slack to max size to account for additional
       // log events (ie. gtid and metadata)
       ret = raft_trx_cache->open(binlog_cache_size,
-                                 max_binlog_cache_size +
+                                 max_binlog_cache_size + 
                                  opt_max_binlog_cache_overhead_size);
       if (ret) {
         raft_trx_cache.reset();
