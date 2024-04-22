@@ -87,12 +87,44 @@ CREATE TABLE t10(x varchar(5001));
 --eval SELECT * FROM t10 INTO OUTFILE '$output_file_big_row' COMPRESSED;
 # validate
 --exec zstd -dcq $output_file_zstd_big_row | diff $input_file_big_row -
+--remove_file $input_file_big_row
+--remove_file $output_file_zstd_big_row
+
+#
+# test how compression works for big rows (5000 bytes) and customized 
+# IO_CAHCE SIZE which do not fit into internal cache buffer
+# and require more than one write operation for a single row
+#
+set @saved_load_data_infile_buffer_size = @@session.load_data_infile_buffer_size;
+set load_data_infile_buffer_size = 67108864;
+set @saved_select_into_buffer_size  = @@session.select_into_buffer_size;
+set select_into_buffer_size = 67108864;
+
+CREATE TABLE t11(x varchar(5001));
+# generate rows bigger 4K, so they cannot be flushed in one step
+--exec dd bs=100000000 count=1 if=/dev/urandom | base64 -w 5000 > $tmp_dir/t11.tmp
+--let $input_file_big_row=$tmp_dir/t11.txt
+--exec head -n 1000  $tmp_dir/t11.tmp > $input_file_big_row
+--remove_file $tmp_dir/t11.tmp
+# load input data
+--replace_result $input_file_big_row INPUT_FILE_BIG_ROW
+--eval LOAD DATA INFILE '$input_file_big_row' INTO TABLE t11;
+# dump data into file, compressed
+--let $output_file_big_row=$tmp_dir/t11.txt
+--let $output_file_zstd_big_row=$tmp_dir/t11.txt.0.zst
+--replace_result $output_file_big_row OUTPUT_FILE_BIG_ROW
+--eval SELECT * FROM t11 INTO OUTFILE '$output_file_big_row' COMPRESSED;
+# validate
+--exec zstd -dcq $output_file_zstd_big_row | diff $input_file_big_row -
+--remove_file $input_file_big_row
+--remove_file $output_file_zstd_big_row
+set select_into_buffer_size = @saved_select_into_buffer_size;
+set load_data_infile_buffer_size = @saved_load_data_infile_buffer_size;
 
 #
 # check error that compression does not work outside secure_file_priv path
 #
-
---let $error_output_file=$tmp_dir/../error.txt.zstd
+let $error_output_file=$tmp_dir/../error.txt.zstd
 --replace_result $error_output_file ERROR_OUTPUT_FILE
 --error ER_OPTION_PREVENTS_STATEMENT
 --eval SELECT * FROM t10 INTO OUTFILE '$error_output_file' COMPRESSED(0);
@@ -117,9 +149,7 @@ set @@session.select_into_file_fsync_size = @saved_select_into_file_fsync_size;
 --remove_file $input_file
 --remove_file $output_file_zstd2
 --remove_file $output_file_zstd3
---remove_file $input_file_big_row
---remove_file $output_file_zstd_big_row
 --remove_file $output_file4
 --remove_file $output_file_zstd4
 
-DROP TABLE t1, t10;
+DROP TABLE t1, t10, t11;

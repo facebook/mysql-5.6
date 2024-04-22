@@ -6,10 +6,15 @@ insert into t4 values (concat("<<<", REPLACE(REPEAT("abc.", 100), ".", "\n"), ">
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+CREATE TABLE t5(x varchar(5001));
   20000   20000 1620000
  200000  200000 16200000
 LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;
 LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t3;
+set @saved_load_data_infile_buffer_size = @@session.load_data_infile_buffer_size;
+set load_data_infile_buffer_size = 67108864;
+LOAD DATA LOCAL INFILE 'TMP_DIR/t5.txt' INTO TABLE t5;
+set load_data_infile_buffer_size = @saved_load_data_infile_buffer_size;
 select count(*) from t1;
 count(*)
 20000
@@ -22,6 +27,9 @@ count(*)
 select count(*) from t4;
 count(*)
 104994
+select count(*) from t5;
+count(*)
+33334
 SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(-1000);
 ERROR HY000: Incorrect arguments to COMPRESSED
 SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED('hello');
@@ -34,6 +42,10 @@ SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(1);
 SELECT * FROM t2 INTO OUTFILE 'TMP_DIR/t2.txt' COMPRESSED(1);
 SELECT * FROM t3 INTO OUTFILE 'TMP_DIR/t3.txt' COMPRESSED(1);
 SELECT * FROM t4 INTO OUTFILE 'TMP_DIR/t4.txt' COMPRESSED(1);
+set @saved_select_into_buffer_size  = @@session.select_into_buffer_size;
+set select_into_buffer_size = 67108864;
+SELECT * FROM t5 INTO OUTFILE 'TMP_DIR/t5.txt' COMPRESSED(1);
+set select_into_buffer_size = @saved_select_into_buffer_size;
   20000   20000 1620000
       0       0       0
  200000  200000 16200000
@@ -49,8 +61,13 @@ CREATE TABLE t3(x VARCHAR(100));
 LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t3;;
 <<<abc\
 >>>
+DROP TABLE t5;
+CREATE TABLE t5(x VARCHAR(100));
+LOAD DATA LOCAL INFILE 'INPUT_FILE/t5.txt.0.zst' INTO TABLE t5 COMPRESSED;;
+LOAD DATA LOCAL INFILE 'INPUT_FILE/t5.txt.1.zst' INTO TABLE t5 COMPRESSED;;
+LOAD DATA LOCAL INFILE 'INPUT_FILE/t5.txt.2.zst' INTO TABLE t5 COMPRESSED;;
 SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(1);
 ERROR HY000: File 'TMP_DIR/t1.txt.0.zst' already exists
 SELECT * FROM t1 INTO OUTFILE 'TMP_DIR/t1.txt' COMPRESSED(1);
 ERROR HY000: File 'TMP_DIR/t1.txt.1.zst' already exists
-DROP TABLE t1, t2, t3, t4;
+DROP TABLE t1, t2, t3, t4, t5;

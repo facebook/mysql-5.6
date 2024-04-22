@@ -302,14 +302,13 @@ int init_io_cache_with_opt_compression(IO_CACHE *info, File file,
   *info = IO_CACHE{};
 
   try {
-    cachesize = 0L;  // ignore the "select_into_buffer_size" parameter
-    if (type == WRITE_CACHE && cachesize == 0L && seek_offset == 0L) {
+    if (type == WRITE_CACHE && seek_offset == 0L) {
       info->compressor =
           new compressor(info, file, cachesize, type, seek_offset, use_async_io,
                          cache_myflags);
       info->write_function = io_cache_compressor_write;
     } else if ((type == READ_NET || type == READ_FIFO || type == READ_CACHE) &&
-               cachesize == 0L && seek_offset == 0L) {
+               seek_offset == 0L) {
       info->decompressor =
           new decompressor(info, file, cachesize, type, seek_offset,
                            use_async_io, cache_myflags);

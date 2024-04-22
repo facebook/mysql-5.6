@@ -19,6 +19,8 @@ insert into t4 values (concat("<<<", REPLACE(REPEAT("abc.", 100), ".", "\n"), ">
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+# test with big iocache
+CREATE TABLE t5(x varchar(5001));
 
 --let $tmp_dir=`SELECT @@GLOBAL.secure_file_priv`
 --let $generated_input_file=$tmp_dir/t1.txt
@@ -28,6 +30,7 @@ insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 --exec dd bs=20000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
 --exec head -n 20000  $tmp_dir/t1.tmp | tee $generated_input_file | wc
 --exec head -n 200000  $tmp_dir/t1.tmp | tee $generated_big_input_file | wc
+--exec dd bs=2000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t5.txt
 --remove_file $tmp_dir/t1.tmp
 
 # load input data
@@ -36,11 +39,20 @@ insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
 --replace_result $generated_big_input_file INPUT_FILE
 --eval LOAD DATA LOCAL INFILE '$generated_big_input_file' INTO TABLE t3
 
+set @saved_load_data_infile_buffer_size = @@session.load_data_infile_buffer_size;
+set load_data_infile_buffer_size = 67108864;
+--replace_result $tmp_dir TMP_DIR 
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t5.txt' INTO TABLE t5
+set load_data_infile_buffer_size = @saved_load_data_infile_buffer_size;
+--remove_file $tmp_dir/t5.txt
+
+
 # show data in tables
 select count(*) from t1;
 select count(*) from t2;
 select count(*) from t3;
 select count(*) from t4;
+select count(*) from t5;
 
 # test passing invalid value for select into compressed
 --replace_result $tmp_dir TMP_DIR
@@ -65,6 +77,12 @@ select count(*) from t4;
 --eval SELECT * FROM t3 INTO OUTFILE '$tmp_dir/t3.txt' COMPRESSED(1)
 --replace_result $tmp_dir TMP_DIR
 --eval SELECT * FROM t4 INTO OUTFILE '$tmp_dir/t4.txt' COMPRESSED(1)
+
+set @saved_select_into_buffer_size  = @@session.select_into_buffer_size;
+set select_into_buffer_size = 67108864;
+--replace_result $tmp_dir TMP_DIR
+--eval SELECT * FROM t5 INTO OUTFILE '$tmp_dir/t5.txt' COMPRESSED(1)
+set select_into_buffer_size = @saved_select_into_buffer_size;
 
 # validate compressed output
 --exec zstd -dcq $tmp_dir/t1.txt.*.zst > $generated_input_file 
@@ -117,6 +135,21 @@ if($checksum1 != $checksum2)
 --exec head -n 1 $tmp_dir/t4.txt.1
 --exec tail -n 1 $tmp_dir/t4.txt.1
 
+--let $checksum1=`CHECKSUM TABLE t5`
+DROP TABLE t5;
+CREATE TABLE t5(x VARCHAR(100));
+--replace_result $tmp_dir INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t5.txt.0.zst' INTO TABLE t5 COMPRESSED;
+--replace_result $tmp_dir INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t5.txt.1.zst' INTO TABLE t5 COMPRESSED;
+--replace_result $tmp_dir INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t5.txt.2.zst' INTO TABLE t5 COMPRESSED;
+--let $checksum2=`CHECKSUM TABLE t5`
+if($checksum1 != $checksum2)
+{
+  --echo "table t5 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
 # Verify that suitable error is thrown if any intermediate compressed
 # chunk name already exisis in file system.
 --replace_result $tmp_dir TMP_DIR
@@ -134,5 +167,5 @@ if($checksum1 != $checksum2)
 --remove_file $generated_big_input_file
 --remove_file $tmp_dir/t4.txt.1
 --remove_files_wildcard $tmp_dir t2.txt.*
-DROP TABLE t1, t2, t3, t4;
+DROP TABLE t1, t2, t3, t4, t5;
 
