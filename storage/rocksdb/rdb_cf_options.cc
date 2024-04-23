@@ -402,9 +402,11 @@ bool Rdb_cf_options::get_cf_options(const std::string &cf_name,
           cf_name.c_str());
       return false;
     }
+    // This comparator is for bulk load scenario, use non-timestamp aware one
+    // because we don't assign timestamp to bulk-loaded key.
     opts->sst_partitioner_factory =
         std::make_shared<Rdb_sst_partitioner_factory>(
-            opts->comparator, opts->num_levels,
+            opts->comparator->GetRootComparator(), opts->num_levels,
             Rdb_cf_manager::is_cf_name_reverse(cf_name));
   }
   return true;

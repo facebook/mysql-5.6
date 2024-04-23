@@ -307,6 +307,9 @@ enum select_bypass_policy_type {
 
 #define ROCKSDB_SIZEOF_UDT sizeof(longlong)
 
+static_assert(ROCKSDB_SIZEOF_TTL_RECORD == ROCKSDB_SIZEOF_UDT,
+              "TTL and UDT's timestamp size should be the same.");
+
 #define ROCKSDB_SIZEOF_AUTOINC_VALUE sizeof(longlong)
 
 /*

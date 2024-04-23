@@ -1,4 +1,6 @@
 --source include/have_rocksdb.inc
+--source include/skip_udt_in_mem.inc
+
 set global rocksdb_table_stats_skip_system_cf=true;
 # only SingleDelete increases
 CREATE TABLE t1 (id INT, value int, PRIMARY KEY (id), INDEX (value)) ENGINE=RocksDB;

@@ -77,6 +77,7 @@ class Rdb_iterator {
   virtual int prev() = 0;
   virtual rocksdb::Slice key() = 0;
   virtual rocksdb::Slice value() = 0;
+  virtual rocksdb::Slice timestamp() = 0;
   virtual void reset() = 0;
   virtual bool is_valid() = 0;
 };
@@ -126,6 +127,8 @@ class Rdb_iterator_base : public Rdb_iterator {
   rocksdb::Slice key() override { return m_scan_it->key(); }
 
   rocksdb::Slice value() override { return m_scan_it->value(); }
+
+  rocksdb::Slice timestamp() override { return m_scan_it->timestamp(); }
 
   void reset() override {
     release_scan_iterator();
@@ -246,6 +249,16 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   Records m_records;
   Records::iterator m_records_it;
   slice_comparator m_comparator;
+  // m_comparator_root is non-timestamp aware and will be used in the following
+  // cases when UDT-IN-MEM is enabled.
+  // 1. m_record sorting: m_record is used to store temp secondary key results.
+  // These key slices have lost timestamp information, so we need to use
+  // non-timestamp aware comparator to sort them. When constructing m_records,
+  // the first step is to reading pk via m_iterator_pk, which honors the read
+  // HLC. So it's okay to lose the timestamp after that.
+  // 2. Upper bound and lower bound of a certain key range. The upper bounds and
+  // lower bounds are based on m_records.
+  slice_comparator m_comparator_root;
 
  public:
   Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd, const Rdb_key_def &pkd,

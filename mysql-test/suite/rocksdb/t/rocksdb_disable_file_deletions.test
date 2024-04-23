@@ -48,6 +48,9 @@ while ($i < 10)
 }
 enable_query_log;
 
+# With UDT-IN-MEM, memtable will delay it's flush. So manually flush memtable here.
+set global rocksdb_force_flush_memtable_now = true;
+
 # FLUSH LOGS;
 # make sure the WAL has disappeared
 --error 1

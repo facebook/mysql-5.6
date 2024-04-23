@@ -4,6 +4,8 @@
 #rocksdb_number_sst_entry_put value is mono-increase during compaction
 # with rocksdb dd, compaction may occurs in __system__ col, cuase its value increase much more than innodb dd
 --source include/have_innodb_ddse.inc
+# 1.Enabled HLC and increased singledelete due to udt
+--source include/skip_udt_in_mem.inc
 
 -- let $uuid = `select @@server_uuid;`
 

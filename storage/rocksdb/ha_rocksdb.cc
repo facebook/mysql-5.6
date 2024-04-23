@@ -850,6 +850,8 @@ unsigned long long rocksdb_converter_record_cached_length = 0;
 static bool rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds = 0;
 bool rocksdb_enable_autoinc_compact_mode = false;
 char max_timestamp_uint64[ROCKSDB_SIZEOF_TTL_RECORD];
+rocksdb::Slice rocksdb_max_timestamp_slice =
+    rocksdb::Slice(max_timestamp_uint64, ROCKSDB_SIZEOF_UDT);
 
 ulong rocksdb_file_checksums = file_checksums_type::CHECKSUMS_OFF;
 static std::time_t last_binlog_ttl_compaction_ts = std::time(nullptr);
@@ -4601,7 +4603,13 @@ class Rdb_transaction {
     assert(!is_ac_nl_ro_rc_transaction());
 
     uint n_null_fields = 0;
-    const auto *const index_comp = key_def.get_cf().GetComparator();
+    // During bulk load, we don't assign timestamp for bulk-loaded entries, so
+    // we need to use timestamp-unawared comparator in UDT-IN-MEM enabled case
+    // too. The GetRootComparator() function call will return /*this*/ when
+    // UDT-IN-MEM is not enabled and return the root comparator, which is
+    // timestamp-unawared when UDT-IN-MEM is enabled.
+    const auto *const index_comp =
+        key_def.get_cf().GetComparator()->GetRootComparator();
 
     /* Get proper SK buffer. */
     uchar *sk_buf = sk_info->swap_and_get_sk_buf();
@@ -5584,6 +5592,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
     tx_opts.write_batch_flush_threshold =
         THDVAR(m_thd, write_batch_flush_threshold);
+    tx_opts.write_batch_track_timestamp_size = rocksdb_enable_udt_in_mem;
 
     write_opts.protection_bytes_per_key =
         THDVAR(m_thd, protection_bytes_per_key);
@@ -8845,6 +8854,7 @@ static int rocksdb_init_internal(void *const p) {
   tx_db_options.custom_mutex_factory = std::make_shared<Rdb_mutex_factory>();
   tx_db_options.write_policy =
       static_cast<rocksdb::TxnDBWritePolicy>(rocksdb_write_policy);
+  tx_db_options.enable_udt_validation = !rocksdb_enable_udt_in_mem;
 
   status =
       check_rocksdb_options_compatibility(rocksdb_datadir, main_opts, cf_descr);
@@ -15145,7 +15155,8 @@ rocksdb::Range ha_rocksdb::get_range(int i, uchar *buf) const {
 
 static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
   int ret = 0;
-  rocksdb::WriteBatch batch;
+  size_t default_cf_ts_sz = rocksdb_enable_udt_in_mem ? ROCKSDB_SIZEOF_UDT : 0;
+  rocksdb::WriteBatch batch = rocksdb::WriteBatch(0, 0, 0, default_cf_ts_sz);
   for (const auto &d : indices) {
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(d.cf_id);
@@ -15279,6 +15290,11 @@ void Rdb_drop_index_thread::run() {
         std::unordered_set<GL_INDEX_ID> finished;
         rocksdb::ReadOptions read_opts;
         read_opts.total_order_seek = true;  // disable bloom filter
+        // User defined timestamps are ignored when dropping the index, so use
+        // max integer to see the latest keys written to rocksdb.
+        if (rocksdb_enable_udt_in_mem) {
+          read_opts.timestamp = &rocksdb_max_timestamp_slice;
+        }
 
         for (const auto d : indices) {
           uint32 cf_flags = 0;
@@ -15911,6 +15927,11 @@ static int calculate_cardinality_table_scan(
     read_opts.read_tier = rocksdb::ReadTier::kMemtableTier;
   } else {
     read_opts.total_order_seek = true;
+  }
+  // User defined timestamps are ignored when calculating table statistics, so
+  // use max integer to see the latest keys written to rocksdb.
+  if (rocksdb_enable_udt_in_mem) {
+    read_opts.timestamp = &rocksdb_max_timestamp_slice;
   }
 
   Rdb_tbl_card_coll cardinality_collector(rocksdb_table_stats_sampling_pct);
@@ -19951,6 +19972,15 @@ int rdb_tx_set_status_error(Rdb_transaction &tx, const rocksdb::Status &s,
                             const Rdb_key_def &kd,
                             const Rdb_tbl_def *const tbl_def) {
   return tx.set_status_error(tx.get_thd(), s, kd, tbl_def, nullptr);
+}
+
+int rdb_tx_set_read_timestamp(Rdb_transaction &tx, uint64_t ts) {
+  auto s = tx.set_tx_read_timestamp(USER_TABLE, ts);
+  if (s.code() != rocksdb::Status::kOk) {
+    return HA_ERR_UNSUPPORTED;
+  }
+
+  return HA_EXIT_SUCCESS;
 }
 
 /****************************************************************************

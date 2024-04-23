@@ -122,8 +122,13 @@ class Rdb_index_merge {
                                  const uchar **block_ptr)
         MY_ATTRIBUTE((__nonnull__));
 
+    // For bulk load, use non-timestamp aware comparator because we don't assign
+    // timestamp to bulk-loaded key. GetRootComparator() can return us a
+    // non-timestamp aware one when UDT-IN-MEM is enabled or disabled.
     explicit merge_heap_entry(const rocksdb::Comparator *const comparator)
-        : m_chunk_info(nullptr), m_block(nullptr), m_comparator(comparator) {}
+        : m_chunk_info(nullptr),
+          m_block(nullptr),
+          m_comparator(comparator->GetRootComparator()) {}
   };
 
   struct merge_heap_comparator {
@@ -143,9 +148,12 @@ class Rdb_index_merge {
              0;
     }
 
+    // For bulk load, use non-timestamp aware comparator because we don't assign
+    // timestamp to bulk-loaded key. GetRootComparator() can return us a
+    // non-timestamp aware one when UDT-IN-MEM is enabled or disabled.
     merge_record(uchar *const block,
                  const rocksdb::Comparator *const comparator)
-        : m_block(block), m_comparator(comparator) {}
+        : m_block(block), m_comparator(comparator->GetRootComparator()) {}
   };
 
  private:

@@ -35,7 +35,9 @@ id	value
 
 [connection slave]
 include/stop_slave.inc
+set sql_log_bin = 0;
 delete from t1 where id in (2, 3);
+set sql_log_bin = 1;
 include/start_slave.inc
 select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 [connection master]
@@ -201,8 +203,10 @@ insert into u2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
 include/sync_slave_sql_with_master.inc
 [connection slave]
 [on slave]
+set sql_log_bin = 0;
 delete from t2 where id <= 2;
 delete from u2 where id <= 2;
+set sql_log_bin = 1;
 [connection master]
 [on master]
 update t2 set i2=100, value=100 where id=1;
@@ -276,8 +280,10 @@ insert into u2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
 include/sync_slave_sql_with_master.inc
 [connection slave]
 [on slave]
+set sql_log_bin = 0;
 delete from t2 where id <= 2;
 delete from u2 where id <= 2;
+set sql_log_bin = 1;
 [connection master]
 [on master]
 update t2 set i2=100, value=100 where id=1;
@@ -329,7 +335,9 @@ insert into t3 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
 include/sync_slave_sql_with_master.inc
 [connection slave]
 [on slave]
+set sql_log_bin = 0;
 delete from t3 where id <= 2;
+set sql_log_bin = 1;
 [connection master]
 [on master]
 update t3 set i2=100, value=100 where id=1;
@@ -364,7 +372,9 @@ insert into t4 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
 include/sync_slave_sql_with_master.inc
 [connection slave]
 [on slave]
+set sql_log_bin = 0;
 update t4 set i1=100 where id=1;
+set sql_log_bin = 1;
 [connection master]
 [on master]
 delete from t4 where id=1;

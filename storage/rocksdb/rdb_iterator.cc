@@ -24,6 +24,7 @@
 #include "scope_guard.h"
 #include "sql/sql_class.h"
 #include "sql/thr_malloc.h"
+#include "storage/rocksdb/ha_rocksdb.h"
 
 namespace myrocks {
 
@@ -502,7 +503,9 @@ Rdb_iterator_partial::Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd,
       m_prefix_keyparts(kd.partial_index_keyparts()),
       m_cur_prefix_key_len(0),
       m_records_it(m_records.end()),
-      m_comparator(slice_comparator(m_kd.get_cf().GetComparator())) {
+      m_comparator(slice_comparator(m_kd.get_cf().GetComparator())),
+      m_comparator_root(slice_comparator(
+          m_kd.get_cf().GetComparator()->GetRootComparator())) {
   init_sql_alloc(PSI_NOT_INSTRUMENTED, &m_mem_root, 4096);
   auto max_mem = get_partial_index_sort_max_mem(thd);
   if (max_mem) {
@@ -761,8 +764,12 @@ int Rdb_iterator_partial::materialize_prefix() {
   rocksdb::TransactionDBWriteOptimizations optimize;
   optimize.skip_concurrency_control = true;
 
-  auto wb = std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
   // Write sentinel key with empty value.
+  // When UDT-IN-MEM is enabled, the write HLC should be 0 so that it can always
+  // be seen once written
+  size_t default_cf_ts_sz = rocksdb_enable_udt_in_mem ? ROCKSDB_SIZEOF_UDT : 0;
+  auto wb = std::unique_ptr<rocksdb::WriteBatch>(
+      new rocksdb::WriteBatch(0, 0, 0, default_cf_ts_sz));
   auto val = m_pkd.has_ttl() ? rocksdb::Slice(max_timestamp_uint64,
                                               ROCKSDB_SIZEOF_TTL_RECORD)
                              : rocksdb::Slice();
@@ -780,9 +787,18 @@ int Rdb_iterator_partial::materialize_prefix() {
     iter_pk.set_ignore_killed(true);
   }
 
+  size_t num_rows = 0;
+
+  // When materializing prefix, we should read all primary keys out to build the
+  // secondary index. So we set max_int as read HLC when UDT-IN-MEM is enabled.
+  if (rocksdb_enable_udt_in_mem) {
+    rc = rdb_tx_set_read_timestamp(*tx, std::numeric_limits<uint64_t>::max());
+    if (rc) {
+      goto exit;
+    }
+  }
   rc = iter_pk.seek(HA_READ_KEY_EXACT, cur_prefix_key, false, cur_prefix_key,
                     true /* read current */);
-  size_t num_rows = 0;
 
   while (!rc) {
     if (!rocksdb_partial_index_ignore_killed && thd_killed(m_thd)) {
@@ -805,10 +821,23 @@ int Rdb_iterator_partial::materialize_prefix() {
         false /* store_row_debug_checksums */, 0 /* hidden_pk_id */, 0, nullptr,
         m_converter.get_ttl_bytes_buffer());
 
-    s = wb->Put(&m_kd.get_cf(),
-                rocksdb::Slice((const char *)m_sk_packed_tuple, sk_packed_size),
-                rocksdb::Slice((const char *)m_sk_tails.ptr(),
-                               m_sk_tails.get_current_pos()));
+    // When UDT-IN-MEM is enabled, use pk's timestamp to construct sk.
+    if (rocksdb_enable_udt_in_mem) {
+      const rocksdb::Slice &timestamp = iter_pk.timestamp();
+      s = wb->Put(
+          &m_kd.get_cf(),
+          rocksdb::Slice((const char *)m_sk_packed_tuple, sk_packed_size),
+          timestamp,
+          rocksdb::Slice((const char *)m_sk_tails.ptr(),
+                         m_sk_tails.get_current_pos()));
+    } else {
+      s = wb->Put(
+          &m_kd.get_cf(),
+          rocksdb::Slice((const char *)m_sk_packed_tuple, sk_packed_size),
+          rocksdb::Slice((const char *)m_sk_tails.ptr(),
+                         m_sk_tails.get_current_pos()));
+    }
+
     if (!s.ok()) {
       rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
       goto exit;
@@ -821,7 +850,21 @@ int Rdb_iterator_partial::materialize_prefix() {
   if (rc != HA_ERR_END_OF_FILE) goto exit;
   rc = HA_EXIT_SUCCESS;
 
-  s = rdb_get_rocksdb_db()->Write(options, optimize, wb.get());
+  // [UDT-IN-MEM] Set read HLC back after reading all pk out
+  if (rocksdb_enable_udt_in_mem) {
+    rc = rdb_tx_set_read_timestamp(*tx, m_thd->read_hlc);
+    if (rc) {
+      goto exit;
+    }
+    const rocksdb::Slice &dummy_slice = rocksdb::Slice("dummy");
+    s = wb->UpdateTimestamps(dummy_slice, [](uint32_t) { return 0; });
+    if (!s.ok()) {
+      rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
+      goto exit;
+    }
+  }
+
+  s = rdb_get_rocksdb_db()->GetBaseDB()->Write(options, wb.get());
   if (!s.ok()) {
     rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
     goto exit;
@@ -922,7 +965,7 @@ int Rdb_iterator_partial::read_prefix_from_pk() {
   if (rc != HA_ERR_END_OF_FILE) goto exit;
   rc = HA_EXIT_SUCCESS;
 
-  std::sort(m_records.begin(), m_records.end(), m_comparator);
+  std::sort(m_records.begin(), m_records.end(), m_comparator_root);
   rocksdb_partial_index_groups_sorted++;
   rocksdb_partial_index_rows_sorted += num_rows;
 
@@ -1005,7 +1048,7 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
         if (m_kd.m_is_reverse_cf) {
           // Emulate "SeekForPrev" behaviour.
           m_records_it = std::upper_bound(m_records.begin(), m_records.end(),
-                                          start_key, m_comparator);
+                                          start_key, m_comparator_root);
           if (m_records_it == m_records.begin()) {
             next_prefix = true;
           } else {
@@ -1013,7 +1056,7 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
           }
         } else {
           m_records_it = std::lower_bound(m_records.begin(), m_records.end(),
-                                          start_key, m_comparator);
+                                          start_key, m_comparator_root);
           if (m_records_it == m_records.end()) {
             next_prefix = true;
           }
@@ -1021,14 +1064,14 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
       } else {
         if (m_kd.m_is_reverse_cf) {
           m_records_it = std::upper_bound(m_records.begin(), m_records.end(),
-                                          start_key, m_comparator);
+                                          start_key, m_comparator_root);
           if (m_records_it == m_records.end()) {
             next_prefix = true;
           }
         } else {
           // Emulate "SeekForPrev" behaviour.
           m_records_it = std::lower_bound(m_records.begin(), m_records.end(),
-                                          start_key, m_comparator);
+                                          start_key, m_comparator_root);
           if (m_records_it == m_records.begin()) {
             next_prefix = true;
           } else {

@@ -1,3 +1,4 @@
 CREATE TABLE t (a INT, b TEXT) ENGINE=ROCKSDB;
 SET SESSION rocksdb_disable_file_deletions = 1;
+set global rocksdb_force_flush_memtable_now = true;
 DROP TABLE t;

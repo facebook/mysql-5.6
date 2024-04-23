@@ -151,8 +151,9 @@ select table_schema, table_name, auto_increment from information_schema.tables w
 --echo # Drop table.
 drop table t;
 
---let $rpl_server_number = 1
---source include/rpl_restart_server.inc
+# Comment this master restart out, or it will hit overtime during rpl_end.inc
+#--let $rpl_server_number = 1
+#--source include/rpl_restart_server.inc
 
 connection slave;
 --source include/start_slave.inc

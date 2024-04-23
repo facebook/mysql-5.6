@@ -1276,6 +1276,7 @@ bool rdb_tx_started(Rdb_transaction *tx, const TABLE_TYPE table_type);
                                           const rocksdb::Status &s,
                                           const Rdb_key_def &kd,
                                           const Rdb_tbl_def *const tbl_def);
+int rdb_tx_set_read_timestamp(Rdb_transaction &tx, const uint64_t ts);
 
 int rocksdb_create_checkpoint(std::string_view checkpoint_dir_raw);
 int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw);

@@ -132,6 +132,5 @@ TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	16
 # Drop table.
 drop table t;
-include/rpl_restart_server.inc [server_number=1]
 include/start_slave.inc
 include/rpl_end.inc

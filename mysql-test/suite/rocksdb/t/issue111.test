@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source include/skip_udt_in_mem.inc
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc

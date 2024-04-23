@@ -89,4 +89,3 @@ select * from t3 where pk < 5;
 connection master;
 drop table t0, t1, t2, t3;
 --source include/rpl_end.inc
-

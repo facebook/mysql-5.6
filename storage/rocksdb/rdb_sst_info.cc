@@ -39,6 +39,9 @@
 
 namespace myrocks {
 
+// For bulk load + UDT-IN-MEM, use non-timestamp aware comparator because we
+// don't assign timestamp to bulk-loaded key. GetRootComparator() can return us
+// a non-timestamp aware one when UDT-IN-MEM is enabled or disabled.
 Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
     rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
     const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
@@ -49,7 +52,7 @@ Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
       m_sst_file_writer(nullptr),
       m_name(name),
       m_tracing(tracing),
-      m_comparator(cf.GetComparator()),
+      m_comparator(cf.GetComparator()->GetRootComparator()),
       m_compression_parallel_threads(compression_parallel_threads) {
   assert(db != nullptr);
 }
