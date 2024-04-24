@@ -16,6 +16,7 @@
 
 #include "./rdb_cmd_srv_helper.h"
 
+#include <array>
 #include <cinttypes>
 #include <string_view>
 

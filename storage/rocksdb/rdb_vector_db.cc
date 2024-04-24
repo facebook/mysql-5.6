@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string_view>
 #include "ha_rocksdb.h"
@@ -86,7 +87,7 @@ static uint read_inverted_list_key(Rdb_string_reader &reader,
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
-  size_t actual_list_id;
+  std::uint64_t actual_list_id;
   if (reader.read_uint64(&actual_list_id)) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "Failed to read list id for key in index %d", index_id);
@@ -94,8 +95,7 @@ static uint read_inverted_list_key(Rdb_string_reader &reader,
   }
   if (actual_list_id != list_id) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                    "Invalid list id for key in index %d, actual value %lu",
-                    index_id, actual_list_id);
+        "Invalid list id for key in index %d, actual value %" PRIu64, index_id, actual_list_id);
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
   return HA_EXIT_SUCCESS;
@@ -141,7 +141,7 @@ class Rdb_faiss_inverted_list_context {
       auto iter = m_vectorid_pk.find(vector_id);
       if (iter == m_vectorid_pk.end()) {
         LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                        "Failed to find matching pk for %lu", vector_id);
+                        "Failed to find matching pk for %" PRIu64, vector_id);
         return HA_EXIT_FAILURE;
       }
       result.emplace_back(iter->second, distances[i]);
