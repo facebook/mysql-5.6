@@ -6,8 +6,8 @@ DROP TABLE IF EXISTS t1;
 enable_warnings;
 enable_query_log;
 
-# Turn off the THD recycling feature in this MTR test
-SET GLOBAL THRIFT_SERVER_NUM_THD_CACHING=0;
+# Turn on the THD recycling feature in this MTR test
+SET GLOBAL THRIFT_SERVER_THD_CACHING_PERCENT=100;
 
 
 CREATE TABLE t1(c1 BIGINT NOT NULL, c2 VARCHAR(64), c3 int, PRIMARY KEY (c1));
