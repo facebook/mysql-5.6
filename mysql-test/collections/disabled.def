@@ -23,6 +23,7 @@ audit_null.audit_plugin_bugs : BUG#28080637 Test fails consistently
 binlog.binlog_mysqlbinlog_rewrite_db @windows     : BUG#26717205 Requires a debug client binary and fails consistently.
 binlog_gtid.binlog_xa_select_gtid_executed_explicitly_crash : Bug#28588717 Fails both on FreeBSD and other platforms
 binlog_nogtid.binlog_gtid_next_xa                 : BUG#33650776 Failure of XA COMMIT of prepared txn, can result in txn rollback
+binlog.binlog_mysqlbinlog_source_gipk_info        : BUG#00000000 Binlog format incompatibility between upstream and Meta
 
 # clone suite tests
 clone.local_xa : BUG#00000000 : cross-engine consistent clone does not block XA commits
