@@ -6,6 +6,8 @@ insert into t2 select variable_name from performance_schema.session_variables wh
 select variable_name as `There should be *no* long test name listed below:` from t2
 where length(variable_name) > 50;
 There should be *no* long test name listed below:
+rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds
+rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds
 rocksdb_enable_instant_ddl_for_column_default_changes
 rocksdb_enable_instant_ddl_for_column_default_changes
 rocksdb_enable_instant_ddl_for_table_comment_changes

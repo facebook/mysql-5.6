@@ -1,0 +1,2 @@
+--rocksdb_default_cf_options=write_buffer_size=64k;block_based_table_factory={filter_policy=bloomfilter:10:false;whole_key_filtering=0;};prefix_extractor=capped:24
+--rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds=1

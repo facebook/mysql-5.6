@@ -1,0 +1,22 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(true);
+INSERT INTO valid_values VALUES(false);
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES(1);
+INSERT INTO valid_values VALUES("on");
+INSERT INTO valid_values VALUES("off");
+
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+INSERT INTO invalid_values VALUES(2);
+INSERT INTO invalid_values VALUES(-1);
+
+--let $sys_var=ROCKSDB_DEBUG_SKIP_BLOOM_FILTER_CHECK_ON_ITERATOR_BOUNDS
+--let $read_only=0
+--let $session=0
+--source ../include/rocksdb_sys_var.inc
+
+DROP TABLE valid_values;
+DROP TABLE invalid_values;

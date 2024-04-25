@@ -990,6 +990,8 @@ bool rocksdb_enable_delete_range_for_drop_index = false;
 uint rocksdb_clone_checkpoint_max_age;
 uint rocksdb_clone_checkpoint_max_count;
 unsigned long long rocksdb_converter_record_cached_length = 0;
+static bool rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds = 0;
+
 enum file_checksums_type {
   CHECKSUMS_OFF = 0,
   CHECKSUMS_WRITE_ONLY,
@@ -3074,6 +3076,14 @@ static MYSQL_SYSVAR_ENUM(
     nullptr, nullptr, file_checksums_type::CHECKSUMS_OFF,
     &file_checksums_typelib);
 
+static MYSQL_SYSVAR_BOOL(
+    debug_skip_bloom_filter_check_on_iterator_bounds,
+    rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds,
+    PLUGIN_VAR_RQCMDARG,
+    "Allow iterator bounds to be set up for rocksdb even when the query range "
+    "conditions would otherwise allow bloom filters to be used.",
+    nullptr, nullptr, false);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -3309,6 +3319,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(clone_checkpoint_max_count),
     MYSQL_SYSVAR(converter_record_cached_length),
     MYSQL_SYSVAR(file_checksums),
+    MYSQL_SYSVAR(debug_skip_bloom_filter_check_on_iterator_bounds),
     nullptr};
 
 static bool is_tmp_table(const std::string &tablename) {
@@ -13560,7 +13571,7 @@ static void setup_iterator_bounds(
        only on whether the CF is fwd or rev. So we can assert here that the
        lower bound is not less than the upper bound, for reverse CF
     */
-    assert(lower_bound_slice->compare(*upper_bound_slice ) >= 0);
+    assert(lower_bound_slice->compare(*upper_bound_slice) >= 0);
 
   } else {
     *upper_bound_slice =
@@ -13570,7 +13581,7 @@ static void setup_iterator_bounds(
     /* Just like for the reverse CF case above, we can assert here that the
        lower bound is not greater than the upper bound, for fwd CF
     */
-    assert(lower_bound_slice->compare(*upper_bound_slice ) <= 0);
+    assert(lower_bound_slice->compare(*upper_bound_slice) <= 0);
   }
 
   assert(lower_bound_size >= Rdb_key_def::INDEX_NUMBER_SIZE);
@@ -18395,7 +18406,10 @@ bool ha_rocksdb::check_bloom_and_set_bounds(
     rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice,
     bool *check_iterate_bounds, enum ha_rkey_function find_flag) {
   bool can_use_bloom = can_use_bloom_filter(thd, kd, eq_cond);
-  if (!can_use_bloom && (THDVAR(thd, enable_iterate_bounds))) {
+
+  if ((rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds ||
+       !can_use_bloom) &&
+      (THDVAR(thd, enable_iterate_bounds))) {
     setup_iterator_bounds(kd, eq_cond, slice, end_slice, lower_bound,
                           upper_bound, lower_bound_slice, upper_bound_slice,
                           find_flag);

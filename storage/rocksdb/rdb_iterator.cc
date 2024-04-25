@@ -167,8 +167,9 @@ void Rdb_iterator_base::setup_scan_iterator(
   // See setup_iterator_bounds on how the bound_len parameter is
   // used.
   if (ha_rocksdb::check_bloom_and_set_bounds(
-          m_thd, m_kd, eq_cond, slice, end_slice, m_scan_it_lower_bound, m_scan_it_upper_bound,
-          &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice, &m_check_iterate_bounds, find_flag)) {
+          m_thd, m_kd, eq_cond, slice, end_slice, m_scan_it_lower_bound,
+          m_scan_it_upper_bound, &m_scan_it_lower_bound_slice,
+          &m_scan_it_upper_bound_slice, &m_check_iterate_bounds, find_flag)) {
     skip_bloom = false;
   }
 
