@@ -2,3 +2,6 @@
 
 [rocksdb_ddse]
 default_dd_system_storage_engine = rocksdb
+
+[range_locking]
+rocksdb_use_range_locking=1

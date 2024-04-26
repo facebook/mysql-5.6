@@ -11,9 +11,9 @@ FOLLY_DIR = ./third-party/folly
 all:" > $MKFILE
 
 if [ -z $1 ]; then
-  echo "	@echo \"\$(LIB_SOURCES)\"" >> $MKFILE
+  echo "	@echo \"\$(LIB_SOURCES)\" \"\$(RANGE_TREE_SOURCES)\"" >> $MKFILE
 else
-  echo "	@echo \"\$(LIB_SOURCES)\" \"\$(FOLLY_SOURCES)\"" >> $MKFILE
+  echo "	@echo \"\$(LIB_SOURCES)\" \"\$(RANGE_TREE_SOURCES)\" \"\$(FOLLY_SOURCES)\"" >> $MKFILE
 fi
 for f in `make --makefile $MKFILE`
 do

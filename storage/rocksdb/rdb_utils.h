@@ -40,7 +40,18 @@
 #include <jemalloc/jemalloc.h>
 #endif
 
+// Forward declarations
 struct fileinfo;
+
+#ifdef ROCKSDB_CUSTOM_NAMESPACE
+namespace ROCKSDB_CUSTOM_NAMESPACE {
+#else
+namespace rocksdb {
+#endif
+
+struct EndpointWithString;
+
+}  // namespace ROCKSDB_CUSTOM_NAMESPACE / rocksdb
 
 namespace myrocks {
 
@@ -345,6 +356,9 @@ const std::vector<std::string> parse_into_tokens(const std::string &s,
     const char *data, std::size_t data_len,
     std::size_t maxsize = RDB_MAX_HEXDUMP_LEN);
 
+[[nodiscard]] std::string rdb_hexdump_range(
+    const rocksdb::EndpointWithString &left,
+    const rocksdb::EndpointWithString &right);
 /*
   Helper function to return dir + '/' + file
  */

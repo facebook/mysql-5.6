@@ -2356,6 +2356,9 @@ The following options may be given as the first argument:
  and newtransaction will be started.
  --rocksdb-max-latest-deadlocks=# 
  Maximum number of recent deadlocks to store
+ --rocksdb-max-lock-memory=# 
+ Range-locking mode: Maximum amount of memory that locks
+ from all transactions can use at a time
  --rocksdb-max-log-file-size=# 
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
@@ -2594,6 +2597,10 @@ The following options may be given as the first argument:
  RocksDB
  --rocksdb-use-io-uring 
  Use io_uring for RocksDB
+ --rocksdb-use-range-lock-manager-as-point 
+ Use Range Lock Manager as point
+ --rocksdb-use-range-locking 
+ Use Range Locking
  --rocksdb-use-write-buffer-manager 
  For experiment only. Use write buffer manager
  --rocksdb-validate-tables=# 
@@ -3932,6 +3939,7 @@ rocksdb-max-compaction-history 64
 rocksdb-max-file-opening-threads 16
 rocksdb-max-intrinsic-tmp-table-write-count 1000
 rocksdb-max-latest-deadlocks 5
+rocksdb-max-lock-memory 1073741824
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 1073741824
 rocksdb-max-manual-compactions 10
@@ -4011,6 +4019,8 @@ rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
 rocksdb-use-hyper-clock-cache FALSE
 rocksdb-use-io-uring FALSE
+rocksdb-use-range-lock-manager-as-point FALSE
+rocksdb-use-range-locking FALSE
 rocksdb-use-write-buffer-manager FALSE
 rocksdb-validate-tables 1
 rocksdb-vector-index ON

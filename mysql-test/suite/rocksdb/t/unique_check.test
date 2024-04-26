@@ -2,6 +2,11 @@
 --source include/have_debug_sync.inc
 --source include/count_sessions.inc
 
+# Doesn't work with range locking because lock tree waits do not set 
+#   state="Waiting for row lock" in I_S.PROCESSLIST. See MDEV-17873 for
+#   details.
+--source suite/rocksdb/include/not_range_locking.inc
+
 # For GitHub issue#167 -- Unique key check doesn't work
 
 connect (con1, localhost, root,,);

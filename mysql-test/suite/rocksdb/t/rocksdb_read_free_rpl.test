@@ -78,7 +78,7 @@ update t1 set c2=100 where c1=3;
 delete from t1 where c1 <= 2;
 --source include/sync_slave_sql_with_master.inc
 --source include/rpl_connection_slave.inc
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when (@@rocksdb_use_range_locking=1 OR variable_value-@up > 0) then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t1;
 
 --echo

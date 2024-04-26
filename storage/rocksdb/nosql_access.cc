@@ -1506,9 +1506,9 @@ class select_exec {
     }
 
     [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
-        rocksdb::ColumnFamilyHandle &cf, bool use_bloom,
+        rocksdb::ColumnFamilyHandle &cf, const Rdb_key_def &kd, bool use_bloom,
         const rocksdb::Slice &lower_bound, const rocksdb::Slice &upper_bound) {
-      return rdb_tx_get_iterator(m_thd, cf, !use_bloom, lower_bound,
+      return rdb_tx_get_iterator(m_thd, cf, kd, !use_bloom, lower_bound,
                                  upper_bound, nullptr, m_table_type);
     }
 

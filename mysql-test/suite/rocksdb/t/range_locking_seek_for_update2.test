@@ -1,0 +1,4 @@
+
+--let cf=rlsfu_test
+--source range_locking_seek_for_update2.inc
+

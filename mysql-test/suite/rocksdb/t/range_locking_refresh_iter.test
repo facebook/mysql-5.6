@@ -1,0 +1,70 @@
+--source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_range_locking.inc
+--source include/have_debug_sync.inc
+
+select @@rocksdb_use_range_locking;
+
+--disable_warnings
+set debug_sync='RESET';
+--enable_warnings
+#
+# Testcase for iterator snapshot refresh
+#
+create table ten(a int primary key);
+insert into ten values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table one_k(a int primary key);
+insert into one_k select A.a + B.a* 10 + C.a * 100 from ten A, ten B, ten C;
+
+create table t1 (
+  pk int primary key,
+  a int
+) engine=rocksdb;
+
+insert into t1 select a,a from ten;
+insert into t1 select a+40, a+40 from ten;
+insert into t1 select a+100, a+100 from one_k;
+delete from t1 where pk=44;
+set global rocksdb_force_flush_memtable_and_lzero_now=1;
+
+# Ok, now the table has these PK ranges:
+#    0..9   40..49  100...1000
+# and all rows have pk=a
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+connection con1;
+begin;
+set debug_sync='rocksdb.check_flags_iri SIGNAL con1_stopped WAIT_FOR con1_cont';
+send
+update t1 set a=a+100 where pk < 3 or pk between 10 and 50;
+
+# The query is how stuck at the start of the second range.
+
+
+## con2>
+connection con2;
+set debug_sync='now WAIT_FOR con1_stopped';
+
+# Make some changes to check if the iterator is reading current data or
+# snapshot
+insert into t1 values (44,5000);
+delete from t1 where pk= 42;
+update t1 set a=5000 where pk between 40 and 45;
+set global rocksdb_force_flush_memtable_and_lzero_now=1;
+
+set debug_sync='now SIGNAL con1_cont';
+
+connection con1;
+#--error ER_GET_ERRMSG
+reap;
+select * from t1 where pk<100;
+
+commit;
+disconnect con1;
+disconnect con2;
+connection default;
+set debug_sync='RESET';
+
+drop table t1, ten, one_k;
+

@@ -40,6 +40,7 @@
 #include "rocksdb/env.h"
 #include "rocksdb/file_system.h"
 #include "rocksdb/io_status.h"
+#include "rocksdb/utilities/transaction_db.h"
 
 namespace myrocks {
 
@@ -271,6 +272,29 @@ std::string rdb_concat_paths(std::string_view dir, std::string_view file) {
   result += FN_LIBCHAR;
   result += file;
   return result;
+}
+
+/*
+  Print the range in hex, in "start_endpoint-end_endpoint" form
+*/
+
+std::string rdb_hexdump_range(const rocksdb::EndpointWithString &start,
+                              const rocksdb::EndpointWithString &end) {
+  auto res = rdb_hexdump(start.slice.data(), start.slice.length());
+
+  // For keys: :0 keys should look like point keys
+  if (!start.inf_suffix && !end.inf_suffix && (start.slice == end.slice))
+    // This is a single-point range, show it like a key
+    return res;
+
+  if (start.inf_suffix) res.append(":1");
+
+  res.append("-");
+
+  const auto key2 = rdb_hexdump(end.slice.c_str(), end.slice.length());
+  res.append(key2);
+  if (end.inf_suffix) res.append(":1");
+  return res;
 }
 
 /*
