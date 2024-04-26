@@ -30,6 +30,8 @@
 
 namespace myrocks {
 
+class Rdb_key_def;
+
 /** for infomation schema */
 class Rdb_vector_index_info {
  public:
@@ -112,7 +114,7 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
                          const std::string &db_name,
                          const FB_vector_index_config index_def,
                          std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
-                         const Index_id index_id,
+                         const Rdb_key_def &kd, const Index_id index_id,
                          std::unique_ptr<Rdb_vector_index> &index);
 
 /**

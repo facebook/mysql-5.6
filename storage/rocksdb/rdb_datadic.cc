@@ -3557,8 +3557,8 @@ uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
   }
 
   return create_vector_index(cmd_srv_helper, tbl_def.base_dbname(),
-                             m_vector_index_config, m_cf_handle, m_index_number,
-                             m_vector_index);
+                             m_vector_index_config, m_cf_handle, *this,
+                             m_index_number, m_vector_index);
 }
 
 // See Rdb_charset_space_info::spaces_xfrm

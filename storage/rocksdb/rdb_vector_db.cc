@@ -177,7 +177,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
  public:
   Rdb_vector_iterator(Rdb_faiss_inverted_list_context *context,
                       Index_id index_id, rocksdb::ColumnFamilyHandle &cf,
-                      const uint code_size, size_t list_id)
+                      const Rdb_key_def &kd, uint code_size, size_t list_id)
       : m_context(context),
         m_index_id(index_id),
         m_list_id(list_id),
@@ -190,7 +190,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     write_inverted_list_key(upper_key_writer, index_id, list_id + 1);
     m_iterator_upper_bound_key.PinSelf(upper_key_writer.to_slice());
     m_iterator = rdb_tx_get_iterator(
-        context->m_thd, cf, /* skip_bloom_filter */ true,
+        context->m_thd, cf, kd, /* skip_bloom_filter */ true,
         m_iterator_lower_bound_key, m_iterator_upper_bound_key,
         /* snapshot */ nullptr, TABLE_TYPE::USER_TABLE);
     m_iterator->SeekToFirst();
@@ -270,8 +270,11 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
 class Rdb_faiss_inverted_list : public faiss::InvertedLists {
  public:
   Rdb_faiss_inverted_list(Index_id index_id, rocksdb::ColumnFamilyHandle &cf,
-                          uint nlist, uint code_size)
-      : InvertedLists(nlist, code_size), m_index_id(index_id), m_cf(cf) {
+                          const Rdb_key_def &kd, uint nlist, uint code_size)
+      : InvertedLists(nlist, code_size),
+        m_index_id(index_id),
+        m_cf(cf),
+        m_kd(kd) {
     use_iterator = true;
   }
   ~Rdb_faiss_inverted_list() override = default;
@@ -293,7 +296,7 @@ class Rdb_faiss_inverted_list : public faiss::InvertedLists {
     return new Rdb_vector_iterator(
         reinterpret_cast<Rdb_faiss_inverted_list_context *>(
             inverted_list_context),
-        m_index_id, m_cf, code_size, list_no);
+        m_index_id, m_cf, m_kd, code_size, list_no);
   }
 
   const uint8_t *get_codes(size_t list_no) const override {
@@ -353,14 +356,18 @@ class Rdb_faiss_inverted_list : public faiss::InvertedLists {
  private:
   Index_id m_index_id;
   rocksdb::ColumnFamilyHandle &m_cf;
+  const Rdb_key_def &m_kd;
 };
 
 class Rdb_vector_index_ivf : public Rdb_vector_index {
  public:
   Rdb_vector_index_ivf(const FB_vector_index_config index_def,
                        std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
-                       const Index_id index_id)
-      : m_index_id{index_id}, m_index_def{index_def}, m_cf_handle{cf_handle} {}
+                       const Rdb_key_def &kd, const Index_id index_id)
+      : m_index_id{index_id},
+        m_index_def{index_def},
+        m_cf_handle{cf_handle},
+        m_kd{kd} {}
 
   virtual ~Rdb_vector_index_ivf() override = default;
 
@@ -446,8 +453,8 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     for (std::size_t i = 0; i < m_list_size_stats.size(); i++) {
       std::size_t list_size = 0;
       Rdb_faiss_inverted_list_context context(thd);
-      Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle,
-                                      m_index_l2->code_size, i);
+      Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle.get(),
+                                      m_kd, m_index_l2->code_size, i);
       while (vector_iter.is_available()) {
         uint rtn = vector_iter.get_pk_and_codes(pk, codes);
         if (rtn) {
@@ -524,7 +531,8 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
     // create inverted list
     m_inverted_list = std::make_unique<Rdb_faiss_inverted_list>(
-        m_index_id, *m_cf_handle, m_index_l2->nlist, m_index_l2->code_size);
+        m_index_id, *m_cf_handle.get(), m_kd, m_index_l2->nlist,
+        m_index_l2->code_size);
     m_index_l2->replace_invlists(m_inverted_list.get());
     m_index_ip->replace_invlists(m_inverted_list.get());
 
@@ -589,6 +597,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
   Index_id m_index_id;
   FB_vector_index_config m_index_def;
   std::shared_ptr<rocksdb::ColumnFamilyHandle> m_cf_handle;
+  const Rdb_key_def &m_kd;
   std::atomic<uint> m_hit{0};
   std::unique_ptr<faiss::IndexFlatL2> m_quantizer;
   std::unique_ptr<faiss::IndexIVF> m_index_l2;
@@ -683,13 +692,14 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
                          const std::string &db_name,
                          const FB_vector_index_config index_def,
                          std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle,
+                         const Rdb_key_def &kd,
                          const Index_id index_id,
                          std::unique_ptr<Rdb_vector_index> &index) {
   if (index_def.type() == FB_VECTOR_INDEX_TYPE::FLAT ||
       index_def.type() == FB_VECTOR_INDEX_TYPE::IVFFLAT ||
       index_def.type() == FB_VECTOR_INDEX_TYPE::IVFPQ) {
     index =
-        std::make_unique<Rdb_vector_index_ivf>(index_def, cf_handle, index_id);
+        std::make_unique<Rdb_vector_index_ivf>(index_def, cf_handle, kd, index_id);
   } else {
     assert(false);
     return HA_ERR_UNSUPPORTED;
@@ -700,14 +710,11 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
 #else
 
 // dummy implementation for non-fbvectordb builds
-uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]],
-                         const std::string &db_name [[maybe_unused]],
-                         const FB_vector_index_config index_def
-                         [[maybe_unused]],
-                         std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle
-                         [[maybe_unused]],
-                         const Index_id index_id [[maybe_unused]],
-                         std::unique_ptr<Rdb_vector_index> &index) {
+uint create_vector_index(Rdb_cmd_srv_helper &, const std::string &,
+                         const FB_vector_index_config,
+                         std::shared_ptr<rocksdb::ColumnFamilyHandle>,
+                         const Rdb_key_def, const Index_id,
+                         std::unique_ptr<Rdb_vector_index> &) {
   index = nullptr;
   return HA_ERR_UNSUPPORTED;
 }
