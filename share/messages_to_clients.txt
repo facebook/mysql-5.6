@@ -10405,6 +10405,11 @@ OBSOLETE_ER_RDB_DDSE_CANNOT_DISABLE_LARGE_PREFIX
 ER_ALTER_SYSTEM_TABLE_WITH_NOT_DDSE
   eng "System table [%s.%s] couldn't use specified engine %s. System tables should always use default-dd-system-storage-engine."
 
+ER_INVALID_VECTOR
+  eng "Invalid vector value."
+
+ER_COPY_VECTOR_OPERATION_NOT_SUPPORTED
+  eng "Can't copy to the vector field. %s."
 
 #
 # End of 8.0 FB MySQL error messages.

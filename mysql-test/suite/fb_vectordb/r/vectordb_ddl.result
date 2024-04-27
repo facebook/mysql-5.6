@@ -1,5 +1,32 @@
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `id` bigint NOT NULL,
+  `vector1` json NOT NULL FB_VECTOR_DIMENSION 4,
+  PRIMARY KEY (`id`),
+  KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 4
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+INDEX_TYPE	DIMENSION	NTOTAL	HIT
+flat	4	0	0
+insert into t1 values (1, '[1,2,3,0]'), (2, '[2,22,31,0]');
+select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	dis
+1	101
+2	996
+SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+INDEX_TYPE	DIMENSION	NTOTAL	HIT
+flat	4	2	1
+drop table t1;
+SELECT INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+INDEX_TYPE
+CREATE TABLE t1 (
+id BIGINT NOT NULL PRIMARY KEY,
 vector1 JSON,
 INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
 );
@@ -11,33 +38,23 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`id`),
   KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 1024
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
-INDEX_TYPE	DIMENSION	NTOTAL	HIT
-flat	1024	0	0
-insert into t1 values (1, '[1,2,3]'), (2, '[2,22,31]');
-select id, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
-id	dis
-1	101
-2	996
-SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
-INDEX_TYPE	DIMENSION	NTOTAL	HIT
-flat	1024	2	1
+SELECT INDEX_TYPE, DIMENSION FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+INDEX_TYPE	DIMENSION
+flat	1024
 drop table t1;
-SELECT INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
-INDEX_TYPE
 error case, vector index is not allowed on ttl table
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 ) COMMENT "ttl_duration=3600;";
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
 insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 1)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]');
 insert into VECTORDB_DATA values ('id2', 'metadata', 0, '{"version": 2}'), ('id2', 'quantizer', 0, '[0, 0, 0, 0]');
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 INDEX_TYPE	DIMENSION	NTOTAL	HIT
@@ -46,35 +63,35 @@ drop table t1;
 error case, ivf index require trained index table
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat'
 );
 ERROR HY000: Incorrect arguments to missing trained index options
 error case, ivf index require valid trained index table
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA2' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA2' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 ERROR HY000: Error in command service backend interface, because of : "Table 'test.VECTORDB_DATA2' doesn't exist"
 error case, ivf index require valid trained index id
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id100'
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id100'
 );
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
 error case, ivf index require valid version number
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id2'
+vector1 JSON NOT NULL fb_vector_dimension 4,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id2'
 );
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
 error case, quantizer size does not match dimension
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 8 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+vector1 JSON NOT NULL fb_vector_dimension 8,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine

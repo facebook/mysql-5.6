@@ -81,6 +81,7 @@ Create_field::Create_field(Field *old_field, Field *orig_field)
       is_array(old_field->is_array()),
       m_engine_attribute(old_field->m_engine_attribute),
       m_secondary_engine_attribute(old_field->m_secondary_engine_attribute),
+      m_fb_vector_dimension(old_field->m_fb_vector_dimension),
       m_max_display_width_in_codepoints(old_field->char_length()) {
   switch (sql_type) {
     case MYSQL_TYPE_TINY_BLOB:

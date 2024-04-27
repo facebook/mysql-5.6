@@ -13,17 +13,17 @@ insert into VECTORDB_DATA (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1
 
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
-  vector1 JSON,
+  vector1 JSON NOT NULL fb_vector_dimension 4,
   name varchar(64),
-  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 
 # insert 10 vectors close to centroid 0
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 9) SELECT i, json_array(i*0.0001, i*0.0001), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 9) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
 # insert 30 vectors close to centroid 1
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 29) SELECT i+100, json_array(1+i*0.0001, 1-i*0.0001), concat('val', i+100) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 29) SELECT i+100, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+100) from a);
 # insert 20 vectors close to centroid 4
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 19) SELECT i+400, json_array(4+i*0.0001, 4-i*0.0001), concat('val', i+400) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 19) SELECT i+400, json_array(4+i*0.0001, 4-i*0.0001, 0, 0), concat('val', i+400) from a);
 
 set global rocksdb_table_stats_use_table_scan=on;
 
@@ -31,9 +31,9 @@ analyze table t1;
 select NTOTAL, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE, MEDIAN_LIST_SIZE from information_schema.rocksdb_vector_index where table_name='t1';
 
 # insert 10 vectors to centroid 2
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 9) SELECT i+200, json_array(2+i*0.0001, 2-i*0.0001), concat('val', i+200) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 9) SELECT i+200, json_array(2+i*0.0001, 2-i*0.0001, 0, 0), concat('val', i+200) from a);
 # insert 20 vectors to centroid 3
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 19) SELECT i+300, json_array(3+i*0.0001, 3-i*0.0001), concat('val', i+300) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 19) SELECT i+300, json_array(3+i*0.0001, 3-i*0.0001, 0, 0), concat('val', i+300) from a);
 
 # the stats should change
 analyze table t1;

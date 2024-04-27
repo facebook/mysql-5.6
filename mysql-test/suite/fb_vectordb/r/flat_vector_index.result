@@ -1,8 +1,8 @@
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
+vector1 JSON NOT NULL fb_vector_dimension 3,
 name varchar(64),
-INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 );
 insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10,6,5]', 'val3'), (4, '[3,9,4]', 'val4');
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10) from a);

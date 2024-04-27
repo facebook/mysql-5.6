@@ -4952,3 +4952,21 @@ PT_base_index_option *make_fb_vector_trained_index_table_attribute(
         return false;
       });
 }
+
+PT_column_attr_base *make_column_fb_vector_dimension_attribute(
+    MEM_ROOT *mem_root, ulong attr) {
+  return new (mem_root) PT_attribute<ulong, PT_column_attr_base>(
+      attr, +[](ulong a, Column_parse_context *pc) {
+        // Note that a std::function is created from the lambda and constructed
+        // directly in the vector.
+        // This means it is necessary to ensure that the elements of the vector
+        // are destroyed. This will not happen automatically when the vector is
+        // moved to the Alter_info struct which is allocated on the mem_root
+        // and not destroyed.
+        pc->cf_appliers.emplace_back([=](Create_field *cf, Alter_info *) {
+          cf->m_fb_vector_dimension = a;
+          return false;
+        });
+        return false;
+      });
+}

@@ -13,22 +13,22 @@ insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1
 
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
-  vector1 JSON,
+  vector1 JSON NOT NULL fb_vector_dimension 4,
   name varchar(64),
-  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 
 # insert 5 vectors close to each of the centroid
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i, json_array(i*0.0001, i*0.0001), concat('val', i) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001), concat('val', i+1000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+2000, json_array(2+i*0.0001, 2-i*0.0001), concat('val', i+2000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+3000, json_array(3+i*0.0001, 3-i*0.0001), concat('val', i+3000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+4000, json_array(4+i*0.0001, 4-i*0.0001), concat('val', i+4000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+5000, json_array(5+i*0.0001, 5-i*0.0001), concat('val', i+5000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+6000, json_array(6+i*0.0001, 6-i*0.0001), concat('val', i+6000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+7000, json_array(7+i*0.0001, 7-i*0.0001), concat('val', i+7000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+8000, json_array(8+i*0.0001, 8-i*0.0001), concat('val', i+8000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+9000, json_array(9+i*0.0001, 9-i*0.0001), concat('val', i+9000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+1000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+2000, json_array(2+i*0.0001, 2-i*0.0001, 0, 0), concat('val', i+2000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+3000, json_array(3+i*0.0001, 3-i*0.0001, 0, 0), concat('val', i+3000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+4000, json_array(4+i*0.0001, 4-i*0.0001, 0, 0), concat('val', i+4000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+5000, json_array(5+i*0.0001, 5-i*0.0001, 0, 0), concat('val', i+5000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+6000, json_array(6+i*0.0001, 6-i*0.0001, 0, 0), concat('val', i+6000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+7000, json_array(7+i*0.0001, 7-i*0.0001, 0, 0), concat('val', i+7000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+8000, json_array(8+i*0.0001, 8-i*0.0001, 0, 0), concat('val', i+8000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+9000, json_array(9+i*0.0001, 9-i*0.0001, 0, 0), concat('val', i+9000) from a);
 
 # check default value of nprobe
 --echo Check the default value of nprobe
@@ -78,8 +78,8 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 # add more vectors into the database and check that they are reflected in the search
 --echo
 --echo Add new vectors into the vector database to verify that they become part of the search
-insert into t1 values (1010, json_array(0.32, 0.32), 'val1010');
-insert into t1 values (1011, json_array(0.28, 0.28), 'val1011');
+insert into t1 values (1010, json_array(0.32, 0.32, 0, 0), 'val1010');
+insert into t1 values (1011, json_array(0.28, 0.28, 0, 0), 'val1011');
 
 # same search as the last one should have the 2 new vectors
 --echo

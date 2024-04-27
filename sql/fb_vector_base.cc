@@ -90,6 +90,8 @@ bool parse_fb_vector(Json_wrapper &wrapper, std::vector<float> &data) {
   data.reserve(arr->size());
   for (auto it = arr->begin(); it != arr->end(); ++it) {
     const auto ele_type = (*it)->json_type();
+    // also update ensure_fb_vector when the types here
+    // changes
     if (ele_type == enum_json_type::J_DOUBLE) {
       Json_double &val = down_cast<Json_double &>(**it);
       data.push_back(val.value());
@@ -111,6 +113,33 @@ bool parse_fb_vector(Json_wrapper &wrapper, std::vector<float> &data) {
       Json_boolean &val = down_cast<Json_boolean &>(**it);
       data.push_back(val.value() ? 1.0 : 0.0);
     } else {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ensure_fb_vector(const Json_dom *dom, FB_vector_dimension dimension) {
+  assert(dom);
+  if (dom->json_type() != enum_json_type::J_ARRAY) {
+    return true;
+  }
+
+  auto *arr = down_cast<const Json_array *>(dom);
+  if (arr->size() != dimension) {
+    return true;
+  }
+
+  for (auto it = arr->begin(); it != arr->end(); ++it) {
+    const auto ele_type = (*it)->json_type();
+    // also update parse_fb_vector when the types here
+    // changes
+    if (ele_type != enum_json_type::J_DOUBLE &&
+        ele_type != enum_json_type::J_INT &&
+        ele_type != enum_json_type::J_UINT &&
+        ele_type != enum_json_type::J_DECIMAL &&
+        ele_type != enum_json_type::J_BOOLEAN) {
       return true;
     }
   }

@@ -17,15 +17,15 @@ source include/sync_slave_sql_with_master.inc;
 connection master;
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
-  vector1 JSON,
+  vector1 JSON NOT NULL fb_vector_dimension 4,
   name varchar(64),
-  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 
 # insert 100 vectors close to centroid 0
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
 # insert 100 vectors close to centroid 1
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001), concat('val', i+1000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+1000) from a);
 
 source include/sync_slave_sql_with_master.inc;
 
@@ -36,7 +36,7 @@ select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit
 
 connection master;
 # the rank of 98 should go down in next query
-update t1 set vector1 = '[0.0097, 0.009]' where id = 98;
+update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
@@ -51,7 +51,7 @@ echo;
 # do some more writes on master
 connection master;
 delete from t1 where id = 99;
-update t1 set vector1 = '[0.00955, 0.00956]', name = 'newVal' where id = 94;
+update t1 set vector1 = '[0.00955, 0.00956, 0, 0]', name = 'newVal' where id = 94;
 
 echo;
 echo start replica;

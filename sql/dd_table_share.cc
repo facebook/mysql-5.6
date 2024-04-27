@@ -23,6 +23,7 @@
 #include "sql/dd_table_share.h"
 
 #include "dd/string_type.h"
+#include "fb_vector_base.h"
 #include "my_config.h"
 
 #include <string.h>
@@ -1132,6 +1133,12 @@ static bool fill_column_from_dd(THD *thd, TABLE_SHARE *share,
 
   reg_field->m_secondary_engine_attribute = LexStringDupRootUnlessEmpty(
       &share->mem_root, col_obj->secondary_engine_attribute());
+
+  if (column_options->exists("fb_vector_dimension")) {
+    FB_vector_dimension dim = 0;
+    column_options->get("fb_vector_dimension", &dim);
+    reg_field->m_fb_vector_dimension = dim;
+  }
 
   // Field is prepared. Store it in 'share'
   share->field[field_nr] = reg_field;

@@ -45,6 +45,7 @@
 #include "mysql_time.h"
 #include "mysqld_error.h"
 #include "sql/current_thd.h"
+#include "sql/fb_vector_base.h"
 #include "sql/field.h"
 #include "sql/item_timefunc.h"  // Item_func_now_local
 #include "sql/my_decimal.h"
@@ -552,6 +553,35 @@ static type_conversion_status do_varstring(Copy_field *,
   return TYPE_OK;
 }
 
+static type_conversion_status do_field_fb_vector(Copy_field *copy_field,
+                                                 const Field *from_field,
+                                                 Field *to_field) {
+  assert(to_field->m_fb_vector_dimension > 0);
+  // do not support changing dimension for now
+  if (from_field->m_fb_vector_dimension > 0) {
+    my_error(ER_COPY_VECTOR_OPERATION_NOT_SUPPORTED, MYF(0),
+             "The source vector field has a different dimension");
+    return TYPE_ERR_BAD_VALUE;
+  }
+  // check from_field could be converted to a fb_vector or not
+  if (to_field->type() != MYSQL_TYPE_JSON ||
+      from_field->type() != MYSQL_TYPE_JSON) {
+    my_error(ER_INVALID_VECTOR, MYF(0));
+    return TYPE_ERR_BAD_VALUE;
+  }
+  const Field_json *from_json = down_cast<const Field_json *>(from_field);
+  Json_wrapper wr;
+  if (from_json->val_json(&wr)) {
+    my_error(ER_INVALID_VECTOR, MYF(0));
+    return TYPE_ERR_BAD_VALUE;
+  }
+  if (ensure_fb_vector(wr.to_dom(), to_field->m_fb_vector_dimension)) {
+    my_error(ER_INVALID_VECTOR, MYF(0));
+    return TYPE_ERR_BAD_VALUE;
+  }
+  return do_field_eq(copy_field, from_field, to_field);
+}
+
 /***************************************************************************
 ** The different functions that fills in a Copy_field class
 ***************************************************************************/
@@ -604,6 +634,13 @@ void Copy_field::set(Field *to, Field *from) {
 Copy_field::Copy_func *Copy_field::get_copy_func() {
   THD *thd = current_thd;
   if (m_to_field->is_array() && m_from_field->is_array()) return do_copy_blob;
+
+  // if we are copying to a vector column and the dimensions are different
+  if (m_to_field->m_fb_vector_dimension > 0 &&
+      m_to_field->m_fb_vector_dimension !=
+          m_from_field->m_fb_vector_dimension) {
+    return do_field_fb_vector;
+  }
 
   bool compatible_db_low_byte_first =
       (m_to_field->table->s->db_low_byte_first ==

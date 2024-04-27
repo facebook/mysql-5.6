@@ -38,3 +38,36 @@ insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a whe
 select *, FB_VECTOR_L2(c2, '[20, 21, 10]') as dis from t1 order by dis limit 5;
 
 DROP TABLE t1;
+
+echo;
+echo vector column test cases;
+echo;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 4);
+error ER_INVALID_VECTOR;
+insert into t1 values(1, JSON_OBJECT('a', 1));
+error ER_INVALID_VECTOR;
+insert into t1 values(1, '{}');
+error ER_INVALID_VECTOR;
+insert into t1 values(1, json_array(1));
+error ER_INVALID_VECTOR;
+insert into t1 values(1, '[1]');
+error ER_INVALID_VECTOR;
+insert into t1 values(1, json_array(1, 2, 3, '4'));
+insert into t1 values(1, json_array(1, 2, 3, 4));
+insert into t1 values(2, '[2,3,4,5]');
+select * from t1;
+DROP TABLE t1;
+
+echo;
+echo vector column definetion error case;
+echo vector column should not be nullable;
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON FB_VECTOR_DIMENSION 4);
+echo vector column dimension should not exceed limits;
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 1);
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 10240);
+echo vector column should be json;
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 BIGINT NOT NULL FB_VECTOR_DIMENSION 4);

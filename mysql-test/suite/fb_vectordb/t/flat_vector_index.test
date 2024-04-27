@@ -6,9 +6,9 @@ enable_query_log;
 
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
-  vector1 JSON,
+  vector1 JSON NOT NULL fb_vector_dimension 3,
   name varchar(64),
-  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 );
 
 insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10,6,5]', 'val3'), (4, '[3,9,4]', 'val4');

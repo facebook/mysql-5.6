@@ -181,6 +181,7 @@ class Create_field {
 
   LEX_CSTRING m_engine_attribute = EMPTY_CSTR;
   LEX_CSTRING m_secondary_engine_attribute = EMPTY_CSTR;
+  uint m_fb_vector_dimension = 0;
 
   Create_field()
       : after(nullptr),

@@ -29,7 +29,7 @@ enum class FB_VECTOR_INDEX_TYPE { NONE, FLAT, IVFFLAT, IVFPQ };
 
 enum class FB_VECTOR_INDEX_METRIC { NONE, L2, IP, COSINE };
 
-using FB_vector_dimension = ulong;
+using FB_vector_dimension = uint;
 
 class FB_vector_index_config {
  public:
@@ -70,3 +70,5 @@ bool parse_fb_vector_index_metric(LEX_CSTRING str, FB_VECTOR_INDEX_METRIC &val);
 std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val);
 
 bool parse_fb_vector(Json_wrapper &wrapper, std::vector<float> &data);
+
+bool ensure_fb_vector(const Json_dom *dom, FB_vector_dimension dimension);

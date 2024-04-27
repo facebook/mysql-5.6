@@ -776,6 +776,10 @@ bool fill_dd_columns_from_create_fields(THD *thd, dd::Abstract_table *tab_obj,
           dd::String_type(def_val.ptr(), def_val.length()));
     col_obj->set_engine_attribute(field.m_engine_attribute);
     col_obj->set_secondary_engine_attribute(field.m_secondary_engine_attribute);
+
+    if (field.m_fb_vector_dimension > 0) {
+      col_options->set("fb_vector_dimension", field.m_fb_vector_dimension);
+    }
   }
 
   return false;

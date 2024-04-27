@@ -5352,4 +5352,7 @@ PT_base_index_option *make_fb_vector_trained_index_id_attribute(MEM_ROOT *,
                                                                 LEX_CSTRING);
 PT_base_index_option *make_fb_vector_trained_index_table_attribute(MEM_ROOT *,
                                                                    LEX_CSTRING);
+
+PT_column_attr_base *make_column_fb_vector_dimension_attribute(MEM_ROOT *,
+                                                               ulong);
 #endif /* PARSE_TREE_NODES_INCLUDED */

@@ -83,7 +83,7 @@ class KEY_CREATE_INFO {
   LEX_CSTRING m_engine_attribute = EMPTY_CSTR;
   LEX_CSTRING m_secondary_engine_attribute = EMPTY_CSTR;
   LEX_CSTRING m_fb_vector_index_type = EMPTY_CSTR;
-  ulong m_fb_vector_dimension = 0;
+  uint m_fb_vector_dimension = 0;
   LEX_CSTRING m_fb_vector_trained_index_id = EMPTY_CSTR;
   LEX_CSTRING m_fb_vector_trained_index_table = EMPTY_CSTR;
 };

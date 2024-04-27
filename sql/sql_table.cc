@@ -4501,6 +4501,29 @@ static bool prepare_enum_field(THD *thd, Create_field *sql_field) {
   return false;
 }
 
+static bool prepare_create_fb_vector_field(THD *thd, Create_field *sql_field) {
+  auto vector_dimension = sql_field->m_fb_vector_dimension;
+  if (vector_dimension <= 0) {
+    return false;
+  }
+  if (sql_field->sql_type != MYSQL_TYPE_JSON) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "fb_vector only supports json type");
+    return true;
+  }
+  if (sql_field->is_nullable) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0),
+             "fb_vector column should not be nullable");
+    return true;
+  }
+  if (vector_dimension < thd->variables.fb_vector_min_dimension ||
+      vector_dimension > thd->variables.fb_vector_max_dimension) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0),
+             "fb_vector_dimension out of configured bounds");
+    return true;
+  }
+  return false;
+}
+
 bool prepare_create_field(THD *thd, const char *error_schema_name,
                           const char *error_table_name,
                           HA_CREATE_INFO *create_info,
@@ -4727,6 +4750,10 @@ bool prepare_create_field(THD *thd, const char *error_schema_name,
   if (prepare_pack_create_field(thd, sql_field, file->ha_table_flags()))
     return true;
 
+  if (prepare_create_fb_vector_field(thd, sql_field)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -4922,6 +4949,23 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "fb_vector index only support json type");
       return true;
+    }
+    // in the future, we will require vector index column
+    // to have dimension option. do not enforce now this requirement
+    // for backward compatibility.
+    if (sql_field->m_fb_vector_dimension > 0) {
+      if (sql_field->is_nullable) {
+        my_error(ER_WRONG_ARGUMENTS, MYF(0),
+                 "fb_vector index column should not be nullable");
+        return true;
+      }
+      // use column's vector dimension here, in the future dimension
+      // on the vector index definition will be removed.
+      auto old_vector_config = key_info->fb_vector_index_config;
+      key_info->fb_vector_index_config = FB_vector_index_config(
+          old_vector_config.type(), sql_field->m_fb_vector_dimension,
+          old_vector_config.trained_index_table(),
+          old_vector_config.trained_index_id());
     }
   }
 
@@ -7217,10 +7261,15 @@ static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
     my_error(ER_WRONG_ARGUMENTS, MYF(0), "invalid fb_vector_index_type");
     return true;
   }
+
   ulong vector_dimension = key->key_create_info.m_fb_vector_dimension;
-  if (vector_dimension < thd->variables.fb_vector_min_dimension ||
-      vector_dimension > thd->variables.fb_vector_max_dimension) {
-    my_error(ER_WRONG_ARGUMENTS, MYF(0), "fb_vector_dimension out of bounds");
+  // vector dimension on index definetion is deprecated,
+  // will remove in the future
+  if (vector_dimension > 0 &&
+      (vector_dimension < thd->variables.fb_vector_min_dimension ||
+       vector_dimension > thd->variables.fb_vector_max_dimension)) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0),
+             "fb_vector_dimension out of configured bounds");
     return true;
   }
 
@@ -12831,6 +12880,17 @@ static bool is_inplace_alter_impossible(TABLE *table,
 
       if (field_geom->get_srid() != new_field_def.m_srid &&
           new_field_def.m_srid.has_value())
+        return true;
+    }
+
+    /**
+     If we are changing the vector dimension of a column, we must do
+     a COPY.
+    */
+    if (new_field_def.field != nullptr &&
+        new_field_def.m_fb_vector_dimension > 0) {
+      if (new_field_def.field->m_fb_vector_dimension !=
+          new_field_def.m_fb_vector_dimension)
         return true;
     }
   }

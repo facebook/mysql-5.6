@@ -7,47 +7,47 @@ insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1
 include/sync_slave_sql_with_master.inc
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
+vector1 JSON NOT NULL fb_vector_dimension 4,
 name varchar(64),
-INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001), concat('val', i) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001), concat('val', i+1000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+1000) from a);
 include/sync_slave_sql_with_master.inc
 
 verify data replication
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 id	vector1	name	dis
-99	[0.0099, 0.0099]	val99	0.1683160364627838
-98	[0.0098, 0.0098]	val98	0.1684321016073227
-97	[0.0097, 0.0097]	val97	0.16854819655418396
-96	[0.0096, 0.0096]	val96	0.16866432130336761
-95	[0.0095, 0.0095]	val95	0.16878052055835724
-94	[0.0094, 0.0094]	val94	0.16889671981334686
-93	[0.0093, 0.0093]	val93	0.16901300847530365
-92	[0.0092, 0.0092]	val92	0.16912928223609924
-91	[0.0091, 0.0091]	val91	0.169245645403862
-90	[0.0090, 0.0090]	val90	0.16936200857162476
-update t1 set vector1 = '[0.0097, 0.009]' where id = 98;
+99	[0.0099, 0.0099, 0, 0]	val99	0.1683160364627838
+98	[0.0098, 0.0098, 0, 0]	val98	0.1684321016073227
+97	[0.0097, 0.0097, 0, 0]	val97	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	0.16889671981334686
+93	[0.0093, 0.0093, 0, 0]	val93	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	0.16936200857162476
+update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
 include/sync_slave_sql_with_master.inc
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 id	vector1	name	dis
-99	[0.0099, 0.0099]	val99	0.1683160364627838
-97	[0.0097, 0.0097]	val97	0.16854819655418396
-96	[0.0096, 0.0096]	val96	0.16866432130336761
-95	[0.0095, 0.0095]	val95	0.16878052055835724
-94	[0.0094, 0.0094]	val94	0.16889671981334686
-98	[0.0097, 0.009]	val98	0.16895510256290436
-93	[0.0093, 0.0093]	val93	0.16901300847530365
-92	[0.0092, 0.0092]	val92	0.16912928223609924
-91	[0.0091, 0.0091]	val91	0.169245645403862
-90	[0.0090, 0.0090]	val90	0.16936200857162476
+99	[0.0099, 0.0099, 0, 0]	val99	0.1683160364627838
+97	[0.0097, 0.0097, 0, 0]	val97	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	0.16866432130336761
+95	[0.0095, 0.0095, 0, 0]	val95	0.16878052055835724
+94	[0.0094, 0.0094, 0, 0]	val94	0.16889671981334686
+98	[0.0097, 0.009, 0, 0]	val98	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	0.16936200857162476
 
 shutdown the replica
 include/rpl_stop_server.inc [server_number=2]
 
 delete from t1 where id = 99;
-update t1 set vector1 = '[0.00955, 0.00956]', name = 'newVal' where id = 94;
+update t1 set vector1 = '[0.00955, 0.00956, 0, 0]', name = 'newVal' where id = 94;
 
 start replica
 include/rpl_start_server.inc [server_number=2]
@@ -58,16 +58,16 @@ include/sync_slave_sql_with_master.inc
 verify the events written when replica was down are replicated
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 id	vector1	name	dis
-97	[0.0097, 0.0097]	val97	0.16854819655418396
-96	[0.0096, 0.0096]	val96	0.16866432130336761
-94	[0.00955, 0.00956]	newVal	0.16871660947799683
-95	[0.0095, 0.0095]	val95	0.16878052055835724
-98	[0.0097, 0.009]	val98	0.16895510256290436
-93	[0.0093, 0.0093]	val93	0.16901300847530365
-92	[0.0092, 0.0092]	val92	0.16912928223609924
-91	[0.0091, 0.0091]	val91	0.169245645403862
-90	[0.0090, 0.0090]	val90	0.16936200857162476
-89	[0.0089, 0.0089]	val89	0.16947844624519348
+97	[0.0097, 0.0097, 0, 0]	val97	0.16854819655418396
+96	[0.0096, 0.0096, 0, 0]	val96	0.16866432130336761
+94	[0.00955, 0.00956, 0, 0]	newVal	0.16871660947799683
+95	[0.0095, 0.0095, 0, 0]	val95	0.16878052055835724
+98	[0.0097, 0.009, 0, 0]	val98	0.16895510256290436
+93	[0.0093, 0.0093, 0, 0]	val93	0.16901300847530365
+92	[0.0092, 0.0092, 0, 0]	val92	0.16912928223609924
+91	[0.0091, 0.0091, 0, 0]	val91	0.169245645403862
+90	[0.0090, 0.0090, 0, 0]	val90	0.16936200857162476
+89	[0.0089, 0.0089, 0, 0]	val89	0.16947844624519348
 
 clean up
 drop table t1;

@@ -45,3 +45,37 @@ c1	c2	dis
 22	[22, 23, 12]	12
 18	[18, 19, 8]	12
 DROP TABLE t1;
+
+vector column test cases
+
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 4);
+insert into t1 values(1, JSON_OBJECT('a', 1));
+ERROR HY000: Invalid vector value.
+insert into t1 values(1, '{}');
+ERROR HY000: Invalid vector value.
+insert into t1 values(1, json_array(1));
+ERROR HY000: Invalid vector value.
+insert into t1 values(1, '[1]');
+ERROR HY000: Invalid vector value.
+insert into t1 values(1, json_array(1, 2, 3, '4'));
+ERROR HY000: Invalid vector value.
+insert into t1 values(1, json_array(1, 2, 3, 4));
+insert into t1 values(2, '[2,3,4,5]');
+select * from t1;
+c1	c2
+1	[1, 2, 3, 4]
+2	[2, 3, 4, 5]
+DROP TABLE t1;
+
+vector column definetion error case
+vector column should not be nullable
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON FB_VECTOR_DIMENSION 4);
+ERROR HY000: Incorrect arguments to fb_vector column should not be nullable
+vector column dimension should not exceed limits
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 1);
+ERROR HY000: Incorrect arguments to fb_vector_dimension out of configured bounds
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 10240);
+ERROR HY000: Incorrect arguments to fb_vector_dimension out of configured bounds
+vector column should be json
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 BIGINT NOT NULL FB_VECTOR_DIMENSION 4);
+ERROR HY000: Incorrect arguments to fb_vector only supports json type

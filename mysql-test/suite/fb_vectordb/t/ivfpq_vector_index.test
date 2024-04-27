@@ -10,9 +10,9 @@ set fb_vector_search_limit_multiplier=1;
 
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
-  vector1 JSON,
+  vector1 JSON NOT NULL fb_vector_dimension 4,
   name varchar(64),
-  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfpq' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfpq' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 echo;
 echo verify index config info in INFORMATION_SCHEMA;
@@ -21,9 +21,9 @@ SELECT INDEX_TYPE, CODE_SIZE, NLIST, PQ_M, PQ_NBITS FROM INFORMATION_SCHEMA.ROCK
 echo;
 echo populate test data;
 # insert 100 vectors to centroid 0
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(6.66+i*0.0001, 5.45-i*0.0001), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(6.66+i*0.0001, 5.45-i*0.0001, 0, 0), concat('val', i) from a);
 # insert 50 vectors to centroid 1
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 49) SELECT i+1000, json_array(9.52+i*0.0001, 7.79-i*0.0001), concat('val', i+1000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 49) SELECT i+1000, json_array(9.52+i*0.0001, 7.79-i*0.0001, 0, 0), concat('val', i+1000) from a);
 
 echo;
 select *, fb_vector_l2(vector1, '[3, 2]')  as dis from t1 order by dis limit 10;
@@ -31,8 +31,8 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 
 echo;
 echo test update, move id 0 to centroid 3, id 1 to centroid 2;
-update t1 set vector1='[1.249, 1.022]' where id=0;
-update t1 set vector1='[3.7, 3.05]' where id=1;
+update t1 set vector1='[1.249, 1.022, 0, 0]' where id=0;
+update t1 set vector1='[3.7, 3.05, 0, 0]' where id=1;
 select *, fb_vector_l2(vector1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 

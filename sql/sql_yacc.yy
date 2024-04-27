@@ -7693,6 +7693,10 @@ column_attribute:
           {
             $$ = NEW_PTN PT_column_visibility_attr($1);
           }
+        | FB_VECTOR_DIMENSION_SYM opt_equal ulong_num
+          {
+            $$ = make_column_fb_vector_dimension_attribute(YYMEM_ROOT, $3);
+          }
         ;
 
 column_format:

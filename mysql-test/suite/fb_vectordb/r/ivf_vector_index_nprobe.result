@@ -3,20 +3,20 @@ insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1
 ('id1', 'quantizer', 6, '[6, 6, 0, 0]'), ('id1', 'quantizer', 7, '[7, 7, 0, 0]'), ('id1', 'quantizer', 8, '[8, 8, 0, 0]'), ('id1', 'quantizer', 9, '[9, 9, 0, 0]');
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
-vector1 JSON,
+vector1 JSON NOT NULL fb_vector_dimension 4,
 name varchar(64),
-INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' fb_vector_dimension 4 FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i, json_array(i*0.0001, i*0.0001), concat('val', i) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001), concat('val', i+1000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+2000, json_array(2+i*0.0001, 2-i*0.0001), concat('val', i+2000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+3000, json_array(3+i*0.0001, 3-i*0.0001), concat('val', i+3000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+4000, json_array(4+i*0.0001, 4-i*0.0001), concat('val', i+4000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+5000, json_array(5+i*0.0001, 5-i*0.0001), concat('val', i+5000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+6000, json_array(6+i*0.0001, 6-i*0.0001), concat('val', i+6000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+7000, json_array(7+i*0.0001, 7-i*0.0001), concat('val', i+7000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+8000, json_array(8+i*0.0001, 8-i*0.0001), concat('val', i+8000) from a);
-insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+9000, json_array(9+i*0.0001, 9-i*0.0001), concat('val', i+9000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+1000, json_array(1+i*0.0001, 1-i*0.0001, 0, 0), concat('val', i+1000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+2000, json_array(2+i*0.0001, 2-i*0.0001, 0, 0), concat('val', i+2000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+3000, json_array(3+i*0.0001, 3-i*0.0001, 0, 0), concat('val', i+3000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+4000, json_array(4+i*0.0001, 4-i*0.0001, 0, 0), concat('val', i+4000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+5000, json_array(5+i*0.0001, 5-i*0.0001, 0, 0), concat('val', i+5000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+6000, json_array(6+i*0.0001, 6-i*0.0001, 0, 0), concat('val', i+6000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+7000, json_array(7+i*0.0001, 7-i*0.0001, 0, 0), concat('val', i+7000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+8000, json_array(8+i*0.0001, 8-i*0.0001, 0, 0), concat('val', i+8000) from a);
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 4) SELECT i+9000, json_array(9+i*0.0001, 9-i*0.0001, 0, 0), concat('val', i+9000) from a);
 Check the default value of nprobe
 show variables like 'fb_vector_search_nprobe';
 Variable_name	Value
@@ -39,21 +39,21 @@ fb_vector_search_nprobe	3
 In spite of LIMIT 100, the following select should only have limited results due to the session nprobe value
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
-1000	[1, 1]	val1000	0.9799999594688416
-1001	[1.0001, 0.9999]	val1001	0.9800000190734863
-1002	[1.0002, 0.9998]	val1002	0.9800001382827759
-1004	[1.0004, 0.9996]	val1004	0.9800001978874207
-1003	[1.0003, 0.9997]	val1003	0.9800002574920654
-2001	[2.0001, 1.9999]	val2001	5.779999732971191
-2003	[2.0003, 1.9997]	val2003	5.779999732971191
-2000	[2, 2]	val2000	5.78000020980835
-2002	[2.0002, 1.9998]	val2002	5.780000686645508
-2004	[2.0004, 1.9996]	val2004	5.780000686645508
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
+1000	[1, 1, 0, 0]	val1000	0.9799999594688416
+1001	[1.0001, 0.9999, 0, 0]	val1001	0.9800000190734863
+1002	[1.0002, 0.9998, 0, 0]	val1002	0.9800001382827759
+1004	[1.0004, 0.9996, 0, 0]	val1004	0.9800001978874207
+1003	[1.0003, 0.9997, 0, 0]	val1003	0.9800002574920654
+2001	[2.0001, 1.9999, 0, 0]	val2001	5.779999732971191
+2003	[2.0003, 1.9997, 0, 0]	val2003	5.779999732971191
+2000	[2, 2, 0, 0]	val2000	5.78000020980835
+2002	[2.0002, 1.9998, 0, 0]	val2002	5.780000686645508
+2004	[2.0004, 1.9996, 0, 0]	val2004	5.780000686645508
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	2	5	5	5
@@ -62,11 +62,11 @@ Query hint can be used to override the default nprobe
 The following SELECT should have only 5 result rows
 select /*+ SET_VAR(fb_vector_search_nprobe = 1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	3	5	5	5
@@ -80,11 +80,11 @@ fb_vector_search_nprobe	1
 Less results expected now
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	4	5	5	5
@@ -93,49 +93,49 @@ Query hint can be used to override the default nprobe and expand search space
 The following SELECT should have 15 result rows
 select /*+ SET_VAR(fb_vector_search_nprobe = 3) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
-1000	[1, 1]	val1000	0.9799999594688416
-1001	[1.0001, 0.9999]	val1001	0.9800000190734863
-1002	[1.0002, 0.9998]	val1002	0.9800001382827759
-1004	[1.0004, 0.9996]	val1004	0.9800001978874207
-1003	[1.0003, 0.9997]	val1003	0.9800002574920654
-2001	[2.0001, 1.9999]	val2001	5.779999732971191
-2003	[2.0003, 1.9997]	val2003	5.779999732971191
-2000	[2, 2]	val2000	5.78000020980835
-2002	[2.0002, 1.9998]	val2002	5.780000686645508
-2004	[2.0004, 1.9996]	val2004	5.780000686645508
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
+1000	[1, 1, 0, 0]	val1000	0.9799999594688416
+1001	[1.0001, 0.9999, 0, 0]	val1001	0.9800000190734863
+1002	[1.0002, 0.9998, 0, 0]	val1002	0.9800001382827759
+1004	[1.0004, 0.9996, 0, 0]	val1004	0.9800001978874207
+1003	[1.0003, 0.9997, 0, 0]	val1003	0.9800002574920654
+2001	[2.0001, 1.9999, 0, 0]	val2001	5.779999732971191
+2003	[2.0003, 1.9997, 0, 0]	val2003	5.779999732971191
+2000	[2, 2, 0, 0]	val2000	5.78000020980835
+2002	[2.0002, 1.9998, 0, 0]	val2002	5.780000686645508
+2004	[2.0004, 1.9996, 0, 0]	val2004	5.780000686645508
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	5	5	5	5
 
 Add new vectors into the vector database to verify that they become part of the search
-insert into t1 values (1010, json_array(0.32, 0.32), 'val1010');
-insert into t1 values (1011, json_array(0.28, 0.28), 'val1011');
+insert into t1 values (1010, json_array(0.32, 0.32, 0, 0), 'val1010');
+insert into t1 values (1011, json_array(0.28, 0.28, 0, 0), 'val1011');
 
 Newly added vectors should show up in the previous search
 select /*+ SET_VAR(fb_vector_search_nprobe = 3) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
-1000	[1, 1]	val1000	0.9799999594688416
-1001	[1.0001, 0.9999]	val1001	0.9800000190734863
-1002	[1.0002, 0.9998]	val1002	0.9800001382827759
-1004	[1.0004, 0.9996]	val1004	0.9800001978874207
-1003	[1.0003, 0.9997]	val1003	0.9800002574920654
-2001	[2.0001, 1.9999]	val2001	5.779999732971191
-2003	[2.0003, 1.9997]	val2003	5.779999732971191
-2000	[2, 2]	val2000	5.78000020980835
-2002	[2.0002, 1.9998]	val2002	5.780000686645508
-2004	[2.0004, 1.9996]	val2004	5.780000686645508
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
+1000	[1, 1, 0, 0]	val1000	0.9799999594688416
+1001	[1.0001, 0.9999, 0, 0]	val1001	0.9800000190734863
+1002	[1.0002, 0.9998, 0, 0]	val1002	0.9800001382827759
+1004	[1.0004, 0.9996, 0, 0]	val1004	0.9800001978874207
+1003	[1.0003, 0.9997, 0, 0]	val1003	0.9800002574920654
+2001	[2.0001, 1.9999, 0, 0]	val2001	5.779999732971191
+2003	[2.0003, 1.9997, 0, 0]	val2003	5.779999732971191
+2000	[2, 2, 0, 0]	val2000	5.78000020980835
+2002	[2.0002, 1.9998, 0, 0]	val2002	5.780000686645508
+2004	[2.0004, 1.9996, 0, 0]	val2004	5.780000686645508
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	6	5	7	5
@@ -144,13 +144,13 @@ Valid values for nprobe are between 1 and 10000
 By providing nprobe as < 1 or > 10000, the nprobe hint will get truncated to the min/max limits (1 and 10000). Examples below: 
 select /*+ SET_VAR(fb_vector_search_nprobe = 0) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 Warnings:
 Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '0'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -177,13 +177,13 @@ On providing value other than unsigned int, the nprobe hint will become ineffect
 Example of bad syntax for nprobe query hint
 select /*+ SET_VAR(fb_vector_search_nprobe = -1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 Warnings:
 Warning	1064	Optimizer hint syntax error near '-1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) ' at line 1
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -191,13 +191,13 @@ NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	10	5	7	5
 select /*+ SET_VAR(fb_vector_search_nprobe = 0.1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 Warnings:
 Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -205,13 +205,13 @@ NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	11	5	7	5
 select /*+ SET_VAR(fb_vector_search_nprobe = 1.0) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 Warnings:
 Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -219,13 +219,13 @@ NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	12	5	7	5
 select /*+ SET_VAR(fb_vector_search_nprobe =A) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
-1010	[0.32, 0.32]	val1010	0.0007999984663911164
-1011	[0.28, 0.28]	val1011	0.0008000008529052138
-4	[0.0004, 0.0004]	val4	0.17952032387256622
-3	[0.0003, 0.0003]	val3	0.17964020371437073
-2	[0.0002, 0.0002]	val2	0.17976008355617523
-1	[0.0001, 0.0001]	val1	0.1798800528049469
-0	[0, 0]	val0	0.18000000715255737
+1010	[0.32, 0.32, 0, 0]	val1010	0.0007999984663911164
+1011	[0.28, 0.28, 0, 0]	val1011	0.0008000008529052138
+4	[0.0004, 0.0004, 0, 0]	val4	0.17952032387256622
+3	[0.0003, 0.0003, 0, 0]	val3	0.17964020371437073
+2	[0.0002, 0.0002, 0, 0]	val2	0.17976008355617523
+1	[0.0001, 0.0001, 0, 0]	val1	0.1798800528049469
+0	[0, 0, 0, 0]	val0	0.18000000715255737
 Warnings:
 Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
