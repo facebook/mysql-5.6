@@ -2138,6 +2138,10 @@ The following options may be given as the first argument:
  In case if cardinality is zero, overrides it with some
  value
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
+ --rocksdb-debug-skip-bloom-filter-check-on-iterator-bounds 
+ Allow iterator bounds to be set up for rocksdb even when
+ the query range conditions would otherwise allow bloom
+ filters to be used.
  --rocksdb-debug-ttl-ignore-pk 
  For debugging purposes only. If true, compaction
  filtering will not occur on PK TTL data. This variable is
@@ -3864,6 +3868,7 @@ rocksdb-debug-cardinality-multiplier 2
 rocksdb-debug-manual-compaction-delay 0
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
+rocksdb-debug-skip-bloom-filter-check-on-iterator-bounds FALSE
 rocksdb-debug-ttl-ignore-pk FALSE
 rocksdb-debug-ttl-read-filter-ts 0
 rocksdb-debug-ttl-rec-ts 0
