@@ -714,7 +714,7 @@ uint create_vector_index(Rdb_cmd_srv_helper &, const std::string &,
                          const FB_vector_index_config,
                          std::shared_ptr<rocksdb::ColumnFamilyHandle>,
                          const Rdb_key_def, const Index_id,
-                         std::unique_ptr<Rdb_vector_index> &) {
+                         std::unique_ptr<Rdb_vector_index> &index) {
   index = nullptr;
   return HA_ERR_UNSUPPORTED;
 }

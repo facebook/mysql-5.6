@@ -5084,10 +5084,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   void start_ignore_snapshot() {
     // This may be called several times for the same statement
-    if (in_snapshot_ignore_mode()) {
-      assert(m_read_opts[TABLE_TYPE::USER_TABLE].snapshot == nullptr);
-      return;
-    }
+    if (in_snapshot_ignore_mode()) return;
 
     assert(m_saved_snapshot == nullptr);
 
@@ -5303,7 +5300,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       return;
     }
 
-    if (has_snapshot(table_type)) {
+    if (!has_snapshot(table_type)) {
       const auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
           m_thd->get_explicit_snapshot());
       if (thd_ss) {
