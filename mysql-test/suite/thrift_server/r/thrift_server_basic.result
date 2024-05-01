@@ -8,13 +8,13 @@ SEQ_NUMBER	TYPE	VALUE
 1	row	[{"signedIntVal":1}, {"stringVal":"v1"}, {"signedIntVal":2}]
 2	row	[{"signedIntVal":2}, {"stringVal":"v2"}, {"signedIntVal":3}]
 3	row	[{"signedIntVal":3}, {"isNull":true}, {"signedIntVal":4}]
-4	okPacket	{"statusFlags":34,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+4	okPacket	{"statusFlags":34,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{}}
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT * from t1 where c1>10;';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 SEQ_NUMBER	TYPE	VALUE
 0	columnDefs	[{"name":"c1","type":108,"flags":20483,"charsetnr":8}, {"name":"c2","type":115,"flags":0,"charsetnr":255}, {"name":"c3","type":103,"flags":0,"charsetnr":8}]
-1	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+1	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{}}
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 SET GLOBAL THRIFT_SERVER_TESTER_INPUT='blah;';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
@@ -26,7 +26,7 @@ SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUM
 SEQ_NUMBER	TYPE	VALUE
 0	columnDefs	[{"name":"1","type":108,"flags":129,"charsetnr":8}, {"name":"2","type":108,"flags":129,"charsetnr":8}]
 1	row	[{"signedIntVal":1}, {"signedIntVal":2}]
-2	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+2	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{}}
 SET GLOBAL THRIFT_SERVER_TESTER_SESSION=ON;
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 SET GLOBAL THRIFT_SERVER_TESTER_INPUT='SELECT connection_id()';
@@ -43,6 +43,36 @@ SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUM
 SEQ_NUMBER	TYPE	VALUE
 0	columnDefs	[{"name":"1","type":108,"flags":129,"charsetnr":8}, {"name":"2","type":108,"flags":129,"charsetnr":8}]
 1	row	[{"signedIntVal":1}, {"signedIntVal":2}]
-2	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{}}
+2	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET time_zone = '+00:00'";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":2,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"time_zone":"+00:00"}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET autocommit = 0";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":0,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"autocommit":"OFF"}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET character_set_client = 'utf8mb4'";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":0,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"character_set_client":"utf8mb4"}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET character_set_results = 'utf8mb4'";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":0,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"character_set_results":"utf8mb4"}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET character_set_connection = 'utf8mb4'";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":0,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"character_set_connection":"utf8mb4"}}
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT="SET time_zone = '+00:00', autocommit = 0";
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+SEQ_NUMBER	TYPE	VALUE
+0	okPacket	{"statusFlags":0,"warningCount":0,"affectedRows":0,"lastInsertId":0,"stateInfo":{},"responseAttributes":{},"changedSysvars":{"autocommit":"OFF","time_zone":"+00:00"}}
 SET GLOBAL THRIFT_SERVER_TESTER_SESSION=OFF;
 DROP TABLE t1;
