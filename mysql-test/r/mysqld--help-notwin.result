@@ -505,6 +505,10 @@ The following options may be given as the first argument:
  --enable-deprecation-warning 
  If set to false, will not show deprecation warnings 
  (Defaults to on; use --skip-enable-deprecation-warning to disable.)
+ --enable-exactly-at-hlc 
+ exactly_at_hlc feature is enabled per query by the user.
+ Server can leverage this variable to disable
+ exactly_at_hlc feature for all queries if needed.
  --enable-failure-injection 
  Enables failure injection framework. This is a read-only
  variable and needs a server restart to prevent accidental
@@ -3502,6 +3506,7 @@ enable-block-stale-hlc-read FALSE
 enable-cputime-with-wallclock FALSE
 enable-dbtids FALSE
 enable-deprecation-warning TRUE
+enable-exactly-at-hlc FALSE
 enable-failure-injection FALSE
 enable-hlc-bound FALSE
 enable-json-binary-charset FALSE

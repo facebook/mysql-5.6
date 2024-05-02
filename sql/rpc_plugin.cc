@@ -546,6 +546,10 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
   ret.hlc_lower_bound_ts = applied_hlc;
 
+  if (enable_exactly_at_hlc) {
+    ret.read_hlc = applied_hlc;
+  }
+
   query_logger.general_log_write(thd, COM_QUERY, buf.c_ptr(), buf.length());
 
   mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, nullptr,

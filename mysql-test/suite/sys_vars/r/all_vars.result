@@ -48,6 +48,8 @@ disabled_storage_engines
 disabled_storage_engines
 enable_acl_db_cache
 enable_acl_db_cache
+enable_exactly_at_hlc
+enable_exactly_at_hlc
 enable_hlc_bound
 enable_hlc_bound
 enable_rocksdb_intrinsic_tmp_table

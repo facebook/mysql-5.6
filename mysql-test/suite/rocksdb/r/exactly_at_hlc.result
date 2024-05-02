@@ -1,0 +1,9 @@
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET GLOBAL DEBUG = '+d,exactly_at_hlc_test';
+CREATE TABLE t1 (id INT, value BIGINT PRIMARY KEY) ENGINE=rocksdB;
+INSERT INTO t1 VALUES(1, 2538630000000000002);
+drop table t1;
+SET GLOBAL DEBUG = '-d,exactly_at_hlc_test';
+SET @@global.maximum_hlc_drift_ns = 300000000000;
+SET @@global.minimum_hlc_ns = 0;

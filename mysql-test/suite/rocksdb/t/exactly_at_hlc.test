@@ -1,0 +1,21 @@
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+SET GLOBAL DEBUG = '+d,exactly_at_hlc_test';
+
+CREATE TABLE t1 (id INT, value BIGINT PRIMARY KEY) ENGINE=rocksdB;
+let $hlc = get_response_attribute(hlc_ts);
+INSERT INTO t1 VALUES(1, 2538630000000000002);
+let $hlc = get_response_attribute(hlc_ts);
+
+let log_path = $MYSQLTEST_VARDIR/log/mysqld.1.err;
+
+exec /usr/bin/python3 suite/rocksdb/t/exactly_at_hlc.py root 127.0.0.1 $MASTER_MYPORT test t1 100 10 $log_path;
+
+drop table t1;
+SET GLOBAL DEBUG = '-d,exactly_at_hlc_test';
+SET @@global.maximum_hlc_drift_ns = 300000000000;
+SET @@global.minimum_hlc_ns = 0;

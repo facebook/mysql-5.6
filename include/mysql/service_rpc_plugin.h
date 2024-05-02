@@ -124,6 +124,7 @@ struct myrocks_select_from_rpc {
   myrocks_bypass_rpc_send_row_fn send_row;
   uint64_t hlc_lower_bound_ts;  // 0 if hlc lower bound is not given
   std::string comment;
+  uint64_t exactly_at_hlc;
 };
 
 struct bypass_rpc_exception {
@@ -131,6 +132,7 @@ struct bypass_rpc_exception {
   std::string sqlstate;
   std::string message;
   uint64_t hlc_lower_bound_ts = 0;  // current HLC lower bound
+  uint64_t read_hlc = 0;
 };
 
 extern "C" struct rpc_plugin_service_st {

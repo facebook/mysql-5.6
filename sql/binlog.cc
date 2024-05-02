@@ -193,6 +193,7 @@ const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
 const char *hlc_ts_upper_bound = "hlc_ts_upper_bound";
 const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 const char *exact_at_hlc = "exact_at_hlc";
+const char *read_hlc_str = "read_hlc";
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -2944,11 +2945,12 @@ uint64_t HybridLogicalClock::get_selected_database_hlc(
   return it != database_map_.end() ? it->second->max_applied_hlc() : 0;
 }
 
-bool HybridLogicalClock::str_to_hlc(const char *hlc_str, uint64_t *hlc) {
+bool HybridLogicalClock::str_to_hlc(const char *hlc_str, uint64_t *hlc,
+                                    bool allow_max) {
   char *endptr = nullptr;
   uint64_t requested_hlc = strtoull(hlc_str, &endptr, 10);
   if (!endptr || *endptr != '\0' ||
-      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+      !HybridLogicalClock::is_valid_hlc(requested_hlc, allow_max)) {
     my_error(ER_INVALID_HLC, MYF(0), hlc_str);
     return false;
   }
@@ -2984,6 +2986,12 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
     }
   }
 
+  DBUG_EXECUTE_IF("exactly_at_hlc_test", {
+    // set fake hlc_ts_str and hlc_ts_str to avoid early return
+    hlc_ts_str = "2538630000000000000";
+    hlc_wait_timeout_str = "3000000";
+  });
+
   // No lower bound HLC ts specified, skip early
   if (!hlc_ts_str) {
     return false;
@@ -2991,7 +2999,10 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
 
   // Behavior of this feature on reads inside of a transaction is complex
   // and not supported at this point in time.
-  if (thd->in_active_multi_stmt_transaction()) {
+  auto is_in_active_multi_stmt_txn = thd->in_active_multi_stmt_transaction();
+  DBUG_EXECUTE_IF("exactly_at_hlc_test",
+                  { is_in_active_multi_stmt_txn = false; });
+  if (is_in_active_multi_stmt_txn) {
     my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
     return true;
   }
@@ -3030,15 +3041,34 @@ bool HybridLogicalClock::wait_for_hlc_applied(THD *thd) {
     return true;
   }
 
-  if (exactly_at_hlc_str) {
+  DBUG_EXECUTE_IF("exactly_at_hlc_test", {
+    static std::string max_uint64 =
+        std::to_string(std::numeric_limits<uint64_t>::max());
+    exactly_at_hlc_str = max_uint64.c_str();
+  });
+
+  if (enable_exactly_at_hlc && exactly_at_hlc_str) {
     uint64_t read_hlc;
-    if (!str_to_hlc(exactly_at_hlc_str, &read_hlc)) {
+    if (!str_to_hlc(exactly_at_hlc_str, &read_hlc, true /*max_allow*/)) {
       return true;
     }
     if (read_hlc == std::numeric_limits<uint64_t>::max()) {
       thd->read_hlc = applied_hlc;
     } else {
       thd->read_hlc = read_hlc;
+    }
+
+    DBUG_EXECUTE_IF("exactly_at_hlc_test", {
+      // NO_LINT_DEBUG
+      sql_print_information("Debug read_hlc: %llu", thd->read_hlc);
+    });
+
+    auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+    if (thd->variables.response_attrs_contain_hlc && tracker->is_enabled()) {
+      LEX_CSTRING key = {STRING_WITH_LEN(read_hlc_str)};
+      std::string value_str = std::to_string(thd->hlc_time_ns_next);
+      const LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+      tracker->mark_as_changed(thd, key, &value);
     }
   }
 

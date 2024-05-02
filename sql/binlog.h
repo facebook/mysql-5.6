@@ -266,12 +266,13 @@ class HybridLogicalClock {
   uint64_t get_selected_database_hlc(const std::string &database);
 
   /**
-   * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
+   * Verify if the given HLC value is 'valid', by default it isn't 0 or intmax
    *
-   * @param [in] The HLC value to validate
+   * @param hlc [in] The HLC value to validate
+   * @param allow_max [in] If true, then intmax is considered valid
    */
-  static bool is_valid_hlc(uint64_t hlc) {
-    return hlc != 0 && hlc != ULLONG_MAX;
+  static bool is_valid_hlc(uint64_t hlc, bool allow_max = false) {
+    return hlc != 0 && (allow_max || hlc != ULLONG_MAX);
   }
 
   /**
@@ -282,10 +283,13 @@ class HybridLogicalClock {
    * @param hlc [out] a pointer to a numeric variable that will receive the
    *              HLC value read from "hlc_str"
    *
+   * @param allow_max [in] If true, then intmax is considered valid
+   *
    * @return "true" if the conversion was successfull and "hlc" parameter
    *         was updated with the conversion result, "false" otherwise.
    */
-  static bool str_to_hlc(const char *hlc_str, uint64_t *hlc);
+  static bool str_to_hlc(const char *hlc_str, uint64_t *hlc,
+                         bool allow_max = false);
 
   /**
    * Clear database HLC map

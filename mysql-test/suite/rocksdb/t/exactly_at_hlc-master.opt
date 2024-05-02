@@ -1,0 +1,4 @@
+--enable_binlog_hlc=true --maintain_database_hlc=true
+--allow_noncurrent_db_rw=off --enable_block_stale_hlc_read=true
+--session-track-response-attributes=ON --response_attrs_contain_hlc=true
+--rocksdb_enable_udt_in_mem=true --transaction-isolation=READ-COMMITTED --enable_exactly_at_hlc=true

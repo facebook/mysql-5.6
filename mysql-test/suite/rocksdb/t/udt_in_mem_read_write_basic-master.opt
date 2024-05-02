@@ -2,3 +2,4 @@
 --allow_noncurrent_db_rw=off --enable_block_stale_hlc_read=true 
 --rocksdb_enable_udt_in_mem=true
 --transaction-isolation=READ-COMMITTED
+--enable_exactly_at_hlc=true
