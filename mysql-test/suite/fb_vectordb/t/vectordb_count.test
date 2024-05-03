@@ -1,10 +1,9 @@
-
 CREATE TABLE t1 (
-  id BIGINT NOT NULL PRIMARY KEY,   
-  a int, 
-  b int, 
-  vector1 JSON,   
-  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 3 
+  id BIGINT NOT NULL PRIMARY KEY,
+  a int,
+  b int,
+  vector1 JSON NOT NULL fb_vector_dimension 3,
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 );
 
 insert into t1 values (1, 2, 2, '[1,2,3]'), (2, 1, 2, '[2,22,31]');
@@ -16,13 +15,13 @@ insert into t1 values (9, 1, 1, '[20,10,30]'), (10, 1, 2, '[25,25,41]');
 disable_warnings;
 
 --echo
---echo 1. Verify basic COUNT(*) on the table 
+--echo 1. Verify basic COUNT(*) on the table
 --echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain select COUNT(*) from t1; 
+explain select COUNT(*) from t1;
 
---echo 
+--echo
 
 SELECT COUNT(*) from t1;
 
@@ -31,31 +30,31 @@ SELECT COUNT(*) from t1;
 --echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 WHERE id = 2; 
+explain
+select COUNT(*) from t1 WHERE id = 2;
 SELECT COUNT(*) from t1 WHERE id = 2;
 
---echo 
+--echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2; 
-select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2; 
+explain
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2;
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2;
 
 --echo
 --echo 3. Verify COUNT(*) with WHERE clause with RANGE
 --echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 WHERE id > 2 and id < 10; 
+explain
+select COUNT(*) from t1 WHERE id > 2 and id < 10;
 SELECT COUNT(*) from t1 WHERE id > 2 and id < 10;
 
---echo 
+--echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id > 2 and id < 10; 
+explain
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id > 2 and id < 10;
 SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id > 2 and id < 10;
 
 --echo
@@ -63,27 +62,27 @@ SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id > 2 and id < 10;
 --echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4; 
+explain
+select COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4;
 SELECT COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4;
 
---echo 
+--echo
 
 --replace_column 10 ROWS 11 FILTERED
-explain 
-select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE a > 1 and b < 3 and id > 4; 
+explain
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE a > 1 and b < 3 and id > 4;
 SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE a > 1 and b < 3 and id > 4;
 
 enable_warnings;
 
 --echo
---echo 5. Verify COUNT(*) with GROUP BY on non-key column 
+--echo 5. Verify COUNT(*) with GROUP BY on non-key column
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
 explain format=tree select a, COUNT(*) from t1 group by a;
 
---echo 
+--echo
 
 SELECT a, COUNT(*) from t1 GROUP BY a;
 
@@ -92,14 +91,14 @@ SELECT a, COUNT(*) from t1 GROUP BY a;
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-explain format=tree 
+explain format=tree
 select a, b, COUNT(*) from t1 group by a, b;
 SELECT a, b, COUNT(*) FROM t1 GROUP BY a, b;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-explain format=tree 
+explain format=tree
 select a, b, COUNT(*) from t1 FORCE INDEX (vector_key_1) group by a, b;
 SELECT a, b, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, b;
 
@@ -108,14 +107,14 @@ SELECT a, b, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, b;
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT a, id, COUNT(*) FROM t1 GROUP BY a, id;
 SELECT a, id, COUNT(*) FROM t1 GROUP BY a, id;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT a, id, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, id;
 SELECT a, id, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, id;
 
@@ -124,14 +123,14 @@ SELECT a, id, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, id;
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, a, COUNT(*) from t1 GROUP BY id, a;
 SELECT id, a, COUNT(*) from t1 GROUP BY id, a;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, a, COUNT(*) from t1 FORCE INDEX (vector_key_1) GROUP BY id, a;
 SELECT id, a, COUNT(*) from t1 FORCE INDEX (vector_key_1) GROUP BY id, a;
 
@@ -140,14 +139,14 @@ SELECT id, a, COUNT(*) from t1 FORCE INDEX (vector_key_1) GROUP BY id, a;
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT a, vector1, COUNT(*) FROM t1 GROUP BY a, vector1;
 SELECT a, vector1, COUNT(*) FROM t1 GROUP BY a, vector1;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT a, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, vector1;
 SELECT a, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, vector1;
 
@@ -156,14 +155,14 @@ SELECT a, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY a, vecto
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, a,  COUNT(*) FROM t1 GROUP BY vector1, a;
 SELECT vector1, a,  COUNT(*) FROM t1 GROUP BY vector1, a;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, a,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, a;
 SELECT vector1, a,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, a;
 
@@ -172,14 +171,14 @@ SELECT vector1, a,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, id,  COUNT(*) FROM t1 GROUP BY vector1, id;
 SELECT vector1, id,  COUNT(*) FROM t1 GROUP BY vector1, id;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, id,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, id;
 SELECT vector1, id,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, id;
 
@@ -188,14 +187,14 @@ SELECT vector1, id,  COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, vector1, COUNT(*) FROM t1 GROUP BY id, vector1;
 SELECT id, vector1, COUNT(*) FROM t1 GROUP BY id, vector1;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1;
 SELECT id, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1;
 
@@ -204,14 +203,14 @@ SELECT id, vector1, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vec
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, id, a, COUNT(*) FROM t1 GROUP BY vector1, id, a;
 SELECT vector1, id, a, COUNT(*) FROM t1 GROUP BY vector1, id, a;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT vector1, id, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, id, a;
 SELECT vector1, id, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vector1, id, a;
 
@@ -220,14 +219,14 @@ SELECT vector1, id, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY vect
 --echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
 SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
 
---echo 
+--echo
 
 --replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE 
+EXPLAIN FORMAT=TREE
 SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1, a;
 SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1, a;
 

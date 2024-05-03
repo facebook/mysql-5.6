@@ -9,7 +9,7 @@ t1	CREATE TABLE `t1` (
   `id` bigint NOT NULL,
   `vector1` json NOT NULL FB_VECTOR_DIMENSION 4,
   PRIMARY KEY (`id`),
-  KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 4
+  KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SELECT INDEX_TYPE, DIMENSION, NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 INDEX_TYPE	DIMENSION	NTOTAL	HIT
@@ -25,23 +25,13 @@ flat	4	2	1
 drop table t1;
 SELECT INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 INDEX_TYPE
+error case vector index column requires dimension
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,
 vector1 JSON,
-INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 );
-SHOW CREATE TABLE t1;
-Table	Create Table
-t1	CREATE TABLE `t1` (
-  `id` bigint NOT NULL,
-  `vector1` json DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `vector_key_1` (`vector1`) FB_VECTOR_INDEX_TYPE 'flat' FB_VECTOR_DIMENSION 1024
-) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-SELECT INDEX_TYPE, DIMENSION FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
-INDEX_TYPE	DIMENSION
-flat	1024
-drop table t1;
+ERROR HY000: Incorrect arguments to fb_vector index column should have dimension set
 error case, vector index is not allowed on ttl table
 CREATE TABLE t1 (
 id BIGINT NOT NULL PRIMARY KEY,

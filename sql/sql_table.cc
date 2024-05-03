@@ -4943,30 +4943,29 @@ static bool prepare_key_column(THD *thd, HA_CREATE_INFO *create_info,
     key_info->flags |= HA_VIRTUAL_GEN_KEY;
   }
 
-  // fb_vector index only support json type
+  // fb_vector index only support type `json not null fb_vector_dimension`
   if (key_info->is_fb_vector_index()) {
     if (sql_field->sql_type != MYSQL_TYPE_JSON) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "fb_vector index only support json type");
       return true;
     }
-    // in the future, we will require vector index column
-    // to have dimension option. do not enforce now this requirement
-    // for backward compatibility.
-    if (sql_field->m_fb_vector_dimension > 0) {
-      if (sql_field->is_nullable) {
-        my_error(ER_WRONG_ARGUMENTS, MYF(0),
-                 "fb_vector index column should not be nullable");
-        return true;
-      }
-      // use column's vector dimension here, in the future dimension
-      // on the vector index definition will be removed.
-      auto old_vector_config = key_info->fb_vector_index_config;
-      key_info->fb_vector_index_config = FB_vector_index_config(
-          old_vector_config.type(), sql_field->m_fb_vector_dimension,
-          old_vector_config.trained_index_table(),
-          old_vector_config.trained_index_id());
+    if (sql_field->m_fb_vector_dimension <= 0) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0),
+               "fb_vector index column should have dimension set");
+      return true;
     }
+    if (sql_field->is_nullable) {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0),
+               "fb_vector index column should not be nullable");
+      return true;
+    }
+    // use column's vector dimension here
+    auto old_vector_config = key_info->fb_vector_index_config;
+    key_info->fb_vector_index_config = FB_vector_index_config(
+        old_vector_config.type(), sql_field->m_fb_vector_dimension,
+        old_vector_config.trained_index_table(),
+        old_vector_config.trained_index_id());
   }
 
   // JSON columns cannot be used as keys.
@@ -7228,8 +7227,7 @@ static bool prepare_preexisting_foreign_key(
 /**
   set vector index info to key_info
 */
-static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
-                                    KEY *key_info) {
+static bool prepare_fb_vector_index(const Key_spec *key, KEY *key_info) {
   if (key->key_create_info.m_fb_vector_index_type.length == 0) {
     // not a vector index, do nothing and return
     return false;
@@ -7262,17 +7260,6 @@ static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
     return true;
   }
 
-  ulong vector_dimension = key->key_create_info.m_fb_vector_dimension;
-  // vector dimension on index definetion is deprecated,
-  // will remove in the future
-  if (vector_dimension > 0 &&
-      (vector_dimension < thd->variables.fb_vector_min_dimension ||
-       vector_dimension > thd->variables.fb_vector_max_dimension)) {
-    my_error(ER_WRONG_ARGUMENTS, MYF(0),
-             "fb_vector_dimension out of configured bounds");
-    return true;
-  }
-
   if (fb_vector_index_type == FB_VECTOR_INDEX_TYPE::IVFFLAT ||
       fb_vector_index_type == FB_VECTOR_INDEX_TYPE::IVFPQ) {
     if (key->key_create_info.m_fb_vector_trained_index_id.length == 0 ||
@@ -7288,8 +7275,10 @@ static bool prepare_fb_vector_index(THD *thd, const Key_spec *key,
     }
   }
 
+  // dimension will be populated in prepare_key_column
+  constexpr FB_vector_dimension dummy_dimension = 0;
   key_info->fb_vector_index_config = FB_vector_index_config(
-      fb_vector_index_type, vector_dimension,
+      fb_vector_index_type, dummy_dimension,
       key->key_create_info.m_fb_vector_trained_index_table,
       key->key_create_info.m_fb_vector_trained_index_id);
   return false;
@@ -7500,7 +7489,7 @@ static bool prepare_key(
 
   if (key_info->block_size) key_info->flags |= HA_USES_BLOCK_SIZE;
 
-  if (prepare_fb_vector_index(thd, key, key_info)) {
+  if (prepare_fb_vector_index(key, key_info)) {
     return true;
   }
 
@@ -14685,8 +14674,6 @@ static void prepare_fb_vector_key(KEY *key_info,
       fb_vector_index_type_to_string(key_info->fb_vector_index_config.type());
   key_create_info.m_fb_vector_index_type = LEX_CSTRING{
       .str = vector_index_type.data(), .length = vector_index_type.length()};
-  key_create_info.m_fb_vector_dimension =
-      key_info->fb_vector_index_config.dimension();
   if (key_info->fb_vector_index_config.trained_index_id().length > 0) {
     key_create_info.m_fb_vector_trained_index_id =
         key_info->fb_vector_index_config.trained_index_id();

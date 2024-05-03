@@ -5346,8 +5346,6 @@ PT_base_index_option *make_index_secondary_engine_attribute(MEM_ROOT *,
 
 PT_base_index_option *make_fb_vector_index_type_attribute(MEM_ROOT *,
                                                           LEX_CSTRING);
-PT_base_index_option *make_fb_vector_index_dimension_attribute(MEM_ROOT *,
-                                                               ulong);
 PT_base_index_option *make_fb_vector_trained_index_id_attribute(MEM_ROOT *,
                                                                 LEX_CSTRING);
 PT_base_index_option *make_fb_vector_trained_index_table_attribute(MEM_ROOT *,

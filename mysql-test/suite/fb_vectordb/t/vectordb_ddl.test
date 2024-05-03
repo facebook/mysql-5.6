@@ -27,18 +27,13 @@ drop table t1;
 
 SELECT INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
-# success case. verify deprecated syntax where dimension defined on index definetion works
+echo error case vector index column requires dimension;
+error ER_WRONG_ARGUMENTS;
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
   vector1 JSON,
-  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 1024
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
 );
-
-SHOW CREATE TABLE t1;
-
-SELECT INDEX_TYPE, DIMENSION FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
-
-drop table t1;
 
 echo error case, vector index is not allowed on ttl table;
 error ER_GET_ERRNO;

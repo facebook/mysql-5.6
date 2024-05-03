@@ -1,11 +1,9 @@
---source include/have_rocksdb.inc
-
 CREATE TABLE t1 (
-  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, 
-  color varchar(20) not null, 
-  vector1 JSON,   
-  INDEX vector_key_1(vector1) 
-  FB_VECTOR_INDEX_TYPE 'flat' fb_vector_dimension 3 
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  color varchar(20) not null,
+  vector1 JSON NOT NULL fb_vector_dimension 3,
+  INDEX vector_key_1(vector1)
+  FB_VECTOR_INDEX_TYPE 'flat'
 );
 
 let $i=1;
@@ -20,21 +18,21 @@ while ($i <= 10) {
 --expr $red2 = $i + $one
 --expr $red3 = $i + $two
 
-eval insert into t1 (color, vector1) values 
+eval insert into t1 (color, vector1) values
     ('red', '[$red1, $red2, $red3]');
 
 --expr $green1 = $red1 * $one
 --expr $green2 = $red2 * $one
 --expr $green3 = $red3 * $one
 
-eval insert into t1 (color, vector1) values 
+eval insert into t1 (color, vector1) values
     ('green', '[$green1, $green2, $green3]');
 
 --expr $blue1 = $red1 * $two
 --expr $blue2 = $red2 * $two
 --expr $blue3 = $red3 * $two
 
-eval insert into t1 (color, vector1) values 
+eval insert into t1 (color, vector1) values
     ('blue', '[$blue1, $blue2, $blue3]');
 
 inc $i;
@@ -46,7 +44,7 @@ inc $i;
 
 --echo
 --echo Vector distance ordering for reference:
-explain 
+explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
 --echo

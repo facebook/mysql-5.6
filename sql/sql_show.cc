@@ -2712,10 +2712,6 @@ static void store_fb_vector_index_options(String *packet, KEY *key_info) {
   packet->append(fb_vector_index_type_str);
   packet->append("'");
 
-  packet->append(" FB_VECTOR_DIMENSION ");
-  auto dimension_str = std::to_string(vector_index_info.dimension());
-  packet->append(dimension_str);
-
   auto trained_index_table = vector_index_info.trained_index_table();
   if (trained_index_table.length > 0) {
     packet->append(" FB_VECTOR_TRAINED_INDEX_TABLE '");

@@ -4904,22 +4904,6 @@ PT_base_index_option *make_fb_vector_index_type_attribute(MEM_ROOT *mem_root,
 }
 
 /**
-   create a fb_vector index dimension attribute
-   @param mem_root Memory arena.
-   @param attr     Attribute value from parser.
-
-   @return PT_base_index_option* to PT_attribute object.
- */
-PT_base_index_option *make_fb_vector_index_dimension_attribute(
-    MEM_ROOT *mem_root, ulong attr) {
-  return new (mem_root) PT_attribute<ulong, PT_base_index_option>(
-      attr, +[](ulong a, Table_ddl_parse_context *pc) {
-        pc->key_create_info->m_fb_vector_dimension = a;
-        return false;
-      });
-}
-
-/**
    create a fb_vector trained index id attribute
 
    @param mem_root Memory arena.
