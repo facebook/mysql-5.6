@@ -25,18 +25,9 @@ extern bool enable_raft_plugin;
 #endif
 class RaftListenerQueueIf;
 
-#if MYSQL_VERSION_ID >= 80004
 struct IO_CACHE;
 struct mysql_cond_t;
 struct mysql_mutex_t;
-#else
-struct st_io_cache;
-typedef struct st_io_cache IO_CACHE;
-struct st_mysql_cond;
-typedef struct st_mysql_cond mysql_cond_t;
-struct st_mysql_mutex;
-typedef struct st_mysql_mutex mysql_mutex_t;
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,11 +88,7 @@ typedef struct Raft_replication_observer {
     // Log name for the last log
     char *endpos_log_name = nullptr;
     // Last position of in the last log
-#if MYSQL_VERSION_ID >= 80004
     std::atomic<unsigned long long> *endpos = nullptr;
-#else
-    unsigned long long *endpos = nullptr;
-#endif
     // Number of times changes to endpos was signalled
     unsigned long *signal_cnt = nullptr;
 
