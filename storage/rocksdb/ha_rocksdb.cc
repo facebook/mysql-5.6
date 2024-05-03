@@ -3610,6 +3610,15 @@ class Rdb_transaction {
   bool m_bulk_index_transaction = false;
   bool m_dd_transaction = false;
 
+  /** Set in rocksdb_rollback whenever a single-statement autocommit transaction
+  or a statement in a multistatement transaction is being rolled back. Its value
+  is used by ha_rocksdb::external_lock to commit or rollback the autocommit
+  transactions if the last table is unlocked. The value is not used in the case
+  of multistatement transactions. Since there is no handler API that gets
+  reliably called for every single statement start and finish, the value is
+  reset in many places as needed. */
+  bool m_was_last_stmt_rolledback = false;
+
  protected:
   THD *m_thd = nullptr;
 
@@ -3625,7 +3634,6 @@ class Rdb_transaction {
   /* Maximum number of locks the transaction can have */
   ulonglong m_max_row_locks;
 
-  bool m_is_tx_failed = false;
   bool m_rollback_only = false;
 
   std::shared_ptr<Rdb_snapshot_notifier> m_notifier;
@@ -3644,6 +3652,8 @@ class Rdb_transaction {
     @param wb
    */
   rocksdb::Status merge_auto_incr_map(rocksdb::WriteBatchBase *const wb) {
+    assert(!was_last_stmt_rolledback());
+
     // Iterate through the merge map merging all keys into data dictionary.
     rocksdb::Status s;
     for (auto &it : m_auto_incr_map) {
@@ -3662,7 +3672,10 @@ class Rdb_transaction {
     m_dd_transaction = false;
   }
 
- protected:
+  [[nodiscard]] bool was_last_stmt_rolledback() const noexcept {
+    return m_was_last_stmt_rolledback;
+  }
+
   /*
     The following two are helper functions to be overloaded by child classes.
     They should provide RocksDB's savepoint semantics.
@@ -3718,6 +3731,7 @@ class Rdb_transaction {
                        const Rdb_key_def &kd, const Rdb_tbl_def *const tbl_def,
                        Rdb_table_handler *const table_handler
                            MY_ATTRIBUTE((unused))) {
+    assert(!was_last_stmt_rolledback());
     assert(!s.ok());
     assert(tbl_def != nullptr);
 
@@ -3812,6 +3826,7 @@ class Rdb_transaction {
 
   void update_bytes_written(ulonglong bytes_written, TABLE_TYPE table_type) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::USER_TABLE) {
       if (m_tbl_io_perf != nullptr) {
@@ -3838,6 +3853,8 @@ class Rdb_transaction {
 
   void set_bulk_index_transaction() {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
+
     m_bulk_index_transaction = true;
   }
 
@@ -3846,6 +3863,9 @@ class Rdb_transaction {
   }
 
   void set_dd_transaction() {
+    // This might be called with has_stmt_failed() == true from
+    // ha_rocksdb::external_lock i.e. to cleanup a failed CREATE TABLE ...
+    // SELECT statement
     assert(default_dd_system_storage_engine == DEFAULT_DD_ROCKSDB);
     assert(!is_ac_nl_ro_rc_transaction());
 
@@ -3871,24 +3891,28 @@ class Rdb_transaction {
 
   void incr_insert_count(TABLE_TYPE table_type) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::USER_TABLE) ++m_insert_count;
   }
 
   void incr_update_count(TABLE_TYPE table_type) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::USER_TABLE) ++m_update_count;
   }
 
   void incr_delete_count(TABLE_TYPE table_type) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::USER_TABLE) ++m_delete_count;
   }
 
   void incr_row_lock_count(TABLE_TYPE table_type) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::USER_TABLE) ++m_row_lock_count;
   }
@@ -3920,18 +3944,21 @@ class Rdb_transaction {
 
   virtual bool prepare() = 0;
 
-  bool commit_or_rollback() {
+  [[nodiscard]] bool commit_or_rollback_autocommit_trx() {
     bool res;
-    if (m_is_tx_failed) {
+    if (was_last_stmt_rolledback()) {
       rollback();
       res = false;
     } else {
       res = commit();
     }
+    set_last_stmt_rollback(false);
     return res;
   }
 
   bool commit() {
+    assert(!was_last_stmt_rolledback());
+
     if (get_write_count() == 0) {
       rollback();
       return false;
@@ -3969,10 +3996,13 @@ class Rdb_transaction {
   virtual void rollback() = 0;
 
   [[nodiscard]] bool can_acquire_snapshot_without_conflicts() const {
+    assert(!was_last_stmt_rolledback());
+
     return my_core::thd_tx_isolation(m_thd) <= ISO_READ_COMMITTED;
   }
 
   void snapshot_created(const rocksdb::Snapshot *const snapshot) {
+    assert(!was_last_stmt_rolledback());
     assert(snapshot != nullptr);
 
     m_read_opts[USER_TABLE].snapshot = snapshot;
@@ -4046,6 +4076,7 @@ class Rdb_transaction {
   rocksdb::Status ingest_bulk_load_files(
       const std::vector<rocksdb::IngestExternalFileArg> &args) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     rocksdb::Status s = rdb->IngestExternalFiles(args);
     if (!s.ok() &&
@@ -4076,6 +4107,7 @@ class Rdb_transaction {
                                   rocksdb::ColumnFamilyHandle &cf,
                                   Rdb_index_merge **key_merge) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     int res;
     auto it = m_key_merge.find(kd_gl_id);
@@ -4109,6 +4141,7 @@ class Rdb_transaction {
     }
 
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (THDVAR(m_thd, trace_sst_api)) {
       // NO_LINT_DEBUG
@@ -4566,6 +4599,7 @@ class Rdb_transaction {
   int check_duplicate_sk(const Rdb_key_def &key_def, const rocksdb::Slice *key,
                          struct unique_sk_buf_info *sk_info) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     uint n_null_fields = 0;
     const auto *const index_comp = key_def.get_cf().GetComparator();
@@ -4593,6 +4627,7 @@ class Rdb_transaction {
   [[nodiscard]] bool add_index_to_sst_partitioner(
       rocksdb::ColumnFamilyHandle &cf, const Rdb_key_def &kd) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     return m_bulk_load_index_registry.add_index(rdb, cf, kd.get_index_number());
   }
@@ -4600,6 +4635,8 @@ class Rdb_transaction {
   int start_bulk_load(ha_rocksdb *const bulk_load,
                       std::shared_ptr<Rdb_sst_info> sst_info) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
+
     /*
      If we already have an open bulk load of a table and the name doesn't
      match the current one, close out the currently running one.  This allows
@@ -4673,6 +4710,8 @@ class Rdb_transaction {
       inserts while inside a multi-statement transaction.
   */
   bool flush_batch(TABLE_TYPE table_type) {
+    assert(!was_last_stmt_rolledback());
+
     if (get_write_count(table_type) == 0) return false;
 
     /* Commit the current transaction */
@@ -4685,6 +4724,7 @@ class Rdb_transaction {
 
   void set_auto_incr(const GL_INDEX_ID &gl_index_id, ulonglong curr_id) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     auto &existing = m_auto_incr_map[gl_index_id];
     existing = std::max(existing, curr_id);
@@ -4692,6 +4732,8 @@ class Rdb_transaction {
 
 #ifndef NDEBUG
   ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
+    assert(!was_last_stmt_rolledback());
+
     auto iter = m_auto_incr_map.find(gl_index_id);
     if (m_auto_incr_map.end() != iter) {
       return iter->second;
@@ -4748,6 +4790,7 @@ class Rdb_transaction {
     // want a snapshot) and create_snapshot which makes sure we create
     // a snapshot
     assert(!read_current || !create_snapshot);
+    assert(!was_last_stmt_rolledback());
 
     if (create_snapshot) acquire_snapshot(true, table_type);
 
@@ -4778,11 +4821,19 @@ class Rdb_transaction {
   virtual bool is_tx_started(TABLE_TYPE table_type) const = 0;
   virtual void start_tx(TABLE_TYPE table_type) = 0;
   virtual void start_stmt() = 0;
+  virtual void start_autocommit_stmt() = 0;
   virtual void set_name() = 0;
 
- protected:
+ private:
   // Non-virtual functions with actions to be done on transaction start and
-  // commit.
+  // finish.
+  void on_finish() {
+    modified_tables.clear();
+
+    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
+  }
+
+ protected:
   void on_commit(TABLE_TYPE table_type) {
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) return;
     time_t tm;
@@ -4790,15 +4841,10 @@ class Rdb_transaction {
     for (auto &it : modified_tables) {
       it->m_update_time = tm;
     }
-    modified_tables.clear();
-
-    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
+    on_finish();
   }
 
-  void on_rollback() {
-    modified_tables.clear();
-    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
-  }
+  void on_rollback() { on_finish(); }
 
  private:
   std::atomic<uint64_t> m_binlog_ttl_read_filtering_ts{0};
@@ -4806,16 +4852,21 @@ class Rdb_transaction {
  public:
   void log_table_write_op(Rdb_tbl_def *tbl) {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (tbl->get_table_type() == TABLE_TYPE::USER_TABLE)
       modified_tables.insert(tbl);
   }
 
   void set_ttl_read_filtering_ts(uint64_t ts) {
+    assert(!was_last_stmt_rolledback());
+
     m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = ts;
   }
 
   uint64_t get_or_create_ttl_read_filtering_ts() {
+    assert(!was_last_stmt_rolledback());
+
     if (!rdb_is_binlog_ttl_enabled()) {
       return static_cast<uint64_t>(m_snapshot_timestamp);
     }
@@ -4857,6 +4908,8 @@ class Rdb_transaction {
     successfully and its changes become part of the transaction's changes.
   */
   int make_stmt_savepoint_permanent() {
+    assert(!was_last_stmt_rolledback());
+
     // Take another RocksDB savepoint only if we had changes since the last
     // one. This is very important for long transactions doing lots of
     // SELECTs.
@@ -4900,7 +4953,10 @@ class Rdb_transaction {
 
   virtual void rollback_stmt() = 0;
 
-  void set_tx_failed(bool failed_arg) { m_is_tx_failed = failed_arg; }
+  void set_last_stmt_rollback(bool was_rolledback) noexcept {
+    assert(!was_last_stmt_rolledback() || !was_rolledback);
+    m_was_last_stmt_rolledback = was_rolledback;
+  }
 
   bool can_prepare() const {
     if (m_rollback_only) {
@@ -4936,6 +4992,8 @@ class Rdb_transaction {
     needed by information_schema queries.
   */
   void add_to_global_trx_list() {
+    assert(!was_last_stmt_rolledback());
+
     RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
     s_tx_list.insert(this);
     RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
@@ -5003,6 +5061,9 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
  public:
   void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) override {
+    // This might be called with has_stmt_failed() == true from
+    // ha_rocksdb::external_lock before any other code had chance to clear that
+    // flag, thus do not assert its value.
     assert(!is_ac_nl_ro_rc_transaction());
 
     if (m_rocksdb_tx[table_type]) {
@@ -5012,6 +5073,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void set_sync(bool sync) override {
+    assert(!was_last_stmt_rolledback());
+
     m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetWriteOptions()->sync = sync;
   }
 
@@ -5050,6 +5113,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   bool prepare() override {
+    assert(!was_last_stmt_rolledback());
+
     rocksdb::Status s;
 
     s = merge_auto_incr_map(
@@ -5078,6 +5143,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   bool commit_no_binlog(TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     bool res = false;
     rocksdb::Status s;
@@ -5167,6 +5233,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void acquire_snapshot(bool acquire_now, TABLE_TYPE table_type) override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == INTRINSIC_TMP) {
       return;
     }
@@ -5224,6 +5292,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
                                     TABLE_TYPE table_type,
                                     bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     ++m_write_count[table_type];
     return m_rocksdb_tx[table_type]->Put(&column_family, key, value,
@@ -5234,6 +5303,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
       TABLE_TYPE table_type, bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     ++m_write_count[table_type];
     return m_rocksdb_tx[table_type]->Delete(&column_family, key,
@@ -5244,6 +5314,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
       TABLE_TYPE table_type, bool assume_tracked) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     ++m_write_count[table_type];
     return m_rocksdb_tx[table_type]->SingleDelete(&column_family, key,
@@ -5262,6 +5333,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   rocksdb::WriteBatchBase *get_write_batch() override {
+    assert(!was_last_stmt_rolledback());
+
     if (is_two_phase()) {
       return m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetCommitTimeWriteBatch();
     }
@@ -5277,6 +5350,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::WriteBatchBase *get_indexed_write_batch(
       TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     ++m_write_count[table_type];
     return m_rocksdb_tx[table_type]->GetWriteBatch();
@@ -5286,6 +5360,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
                                     const rocksdb::Slice &key,
                                     rocksdb::PinnableSlice *const value,
                                     TABLE_TYPE table_type) const override {
+    assert(!was_last_stmt_rolledback());
+
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
@@ -5315,6 +5391,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
                  const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
                  TABLE_TYPE table_type, rocksdb::Status *statuses,
                  bool sorted_input) const override {
+    assert(!was_last_stmt_rolledback());
+
     m_rocksdb_tx[table_type]->MultiGet(m_read_opts[table_type], &column_family,
                                        num_keys, keys, values, statuses,
                                        sorted_input);
@@ -5327,6 +5405,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
                                  const bool do_validate,
                                  bool no_wait) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == INTRINSIC_TMP) {
       assert(false);
@@ -5381,6 +5460,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle &column_family,
       TABLE_TYPE table_type) override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == USER_TABLE) {
       global_stats.queries[QUERIES_RANGE].inc();
     }
@@ -5449,6 +5530,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void set_name() override {
+    assert(!was_last_stmt_rolledback());
+
     XID xid;
     thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
     auto name = m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetName();
@@ -5469,7 +5552,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
   void do_set_savepoint() override {
     m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetSavePoint();
   }
+
   rocksdb::Status do_pop_savepoint() override {
+    assert(!was_last_stmt_rolledback());
+
     return m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->PopSavePoint();
   }
 
@@ -5487,10 +5573,13 @@ class Rdb_transaction_impl : public Rdb_transaction {
     ha_rocksdb::external_lock().
   */
   void start_stmt() override {
+    set_last_stmt_rollback(false);
     // Set the snapshot to delayed acquisition (SetSnapshotOnNextOperation)
     acquire_snapshot(can_acquire_snapshot_without_conflicts(),
                      TABLE_TYPE::USER_TABLE);
   }
+
+  void start_autocommit_stmt() override { set_last_stmt_rollback(false); }
 
   /*
     This must be called when last statement is rolled back, but the transaction
@@ -5568,10 +5657,15 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
  private:
-  bool prepare() override { return true; }
+  bool prepare() override {
+    assert(!was_last_stmt_rolledback());
+
+    return true;
+  }
 
   bool commit_no_binlog(TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     bool res = false;
     if (table_type == INTRINSIC_TMP) {
@@ -5613,6 +5707,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void do_set_savepoint() override { m_batch->SetSavePoint(); }
 
   rocksdb::Status do_pop_savepoint() override {
+    assert(!was_last_stmt_rolledback());
+
     return m_batch->PopSavePoint();
   }
 
@@ -5624,11 +5720,16 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void set_lock_timeout(int timeout_sec_arg MY_ATTRIBUTE((unused)),
                         TABLE_TYPE /*table_type*/) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     // Nothing to do here.
   }
 
-  void set_sync(bool sync) override { write_opts.sync = sync; }
+  void set_sync(bool sync) override {
+    assert(!was_last_stmt_rolledback());
+
+    write_opts.sync = sync;
+  }
 
   void release_lock(const Rdb_key_def &key_descr MY_ATTRIBUTE((unused)),
                     const std::string &rowkey MY_ATTRIBUTE((unused)),
@@ -5654,6 +5755,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   void acquire_snapshot(bool acquire_now MY_ATTRIBUTE((unused)),
                         TABLE_TYPE table_type) override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5678,6 +5781,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                     const rocksdb::Slice &value,
                                     TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
       return rocksdb::Status::NotSupported(
@@ -5696,6 +5800,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
       TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
       assert(false);
@@ -5712,6 +5817,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       rocksdb::ColumnFamilyHandle &column_family, const rocksdb::Slice &key,
       TABLE_TYPE table_type, bool) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
       assert(false);
@@ -5727,11 +5833,17 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     return m_batch->GetWriteBatch()->Count() > 0;
   }
 
-  rocksdb::WriteBatchBase *get_write_batch() override { return m_batch; }
+  rocksdb::WriteBatchBase *get_write_batch() override {
+    assert(!was_last_stmt_rolledback());
+
+    return m_batch;
+  }
 
   rocksdb::WriteBatchBase *get_indexed_write_batch(
       TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
       assert(false);
       return nullptr;
@@ -5745,6 +5857,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                     const rocksdb::Slice &key,
                                     rocksdb::PinnableSlice *const value,
                                     TABLE_TYPE table_type) const override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return rocksdb::Status::NotSupported(
@@ -5759,6 +5873,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                  const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
                  TABLE_TYPE table_type, rocksdb::Status *statuses,
                  bool sorted_input) const override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -5775,6 +5891,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                  const bool /* do_validate */,
                                  bool /* no_wait */) override {
     assert(!is_ac_nl_ro_rc_transaction());
+    assert(!was_last_stmt_rolledback());
 
     if (table_type == INTRINSIC_TMP) {
       assert(false);
@@ -5795,6 +5912,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
       const rocksdb::ReadOptions &options, rocksdb::ColumnFamilyHandle &,
       TABLE_TYPE table_type) override {
+    assert(!was_last_stmt_rolledback());
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return nullptr;
@@ -5831,6 +5950,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void set_name() override {}
 
   void start_stmt() override {}
+
+  void start_autocommit_stmt() override {}
 
   void rollback_stmt() override {
     if (m_batch) rollback_to_stmt_savepoint();
@@ -6243,6 +6364,12 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
    */
   if (prepare_tx || is_autocommit(*thd)) {
     assert(tx->is_two_phase() || tx->is_writebatch_trx());
+
+    // It is possible for prepare to be called right after the previous
+    // statement in the transaction failing and having rolled back, thus we have
+    // to reset its failure flag here too.
+    tx->set_last_stmt_rollback(false);
+
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
     if (tx->is_two_phase()) {
@@ -6471,6 +6598,11 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
   Rdb_transaction *tx = get_tx_from_thd(thd);
 
+  // It is possible for commit to be called right after the previous statement
+  // in the transaction failing and having rolled back, thus we have to reset
+  // its failure flag here too.
+  tx->set_last_stmt_rollback(false);
+
   /* this will trigger saving of perf_context information */
   Rdb_perf_context_guard guard(tx, thd);
 
@@ -6488,7 +6620,6 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       /*
         We get here when committing a statement within a transaction.
       */
-      tx->set_tx_failed(false);
       tx->make_stmt_savepoint_permanent();
     }
 
@@ -6519,6 +6650,7 @@ static int rocksdb_rollback(handlerton *const hton MY_ATTRIBUTE((__unused__)),
         Discard the changes made by the transaction
       */
       tx->rollback();
+      tx->set_last_stmt_rollback(false);
     } else {
       /*
         We get here when
@@ -6528,7 +6660,7 @@ static int rocksdb_rollback(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       */
 
       tx->rollback_stmt();
-      tx->set_tx_failed(true);
+      tx->set_last_stmt_rollback(true);
     }
 
     if (my_core::thd_tx_isolation(thd) <= ISO_READ_COMMITTED) {
@@ -7303,6 +7435,8 @@ static inline void rocksdb_register_tx(
   if (!is_autocommit(*thd)) {
     tx->start_stmt();
     trans_register_ha(thd, true, rocksdb_hton, NULL);
+  } else {
+    tx->start_autocommit_stmt();
   }
 }
 
@@ -14520,12 +14654,8 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         /*
           Do like InnoDB: when we get here, it's time to commit a
           single-statement transaction.
-
-          If the statement involved multiple tables, this code will be executed
-          for each of them, but that's ok because non-first tx->commit() calls
-          will be no-ops.
         */
-        if (tx->commit_or_rollback()) {
+        if (tx->commit_or_rollback_autocommit_trx()) {
           res = HA_ERR_INTERNAL_ERROR;
         }
       }
