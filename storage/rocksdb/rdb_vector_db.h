@@ -29,6 +29,7 @@
 #include "sql/sql_class.h"
 
 namespace myrocks {
+using faiss_ivf_list_id = int64_t;
 
 /** for infomation schema */
 class Rdb_vector_index_info {
@@ -66,26 +67,27 @@ class Rdb_vector_search_params {
 };
 
 /**
+  vector index assignment
+*/
+class Rdb_vector_index_assignment {
+ public:
+  faiss_ivf_list_id m_list_id;
+  std::string m_codes;
+};
+
+/**
   vector index base class
 */
 class Rdb_vector_index {
  public:
   Rdb_vector_index() = default;
   virtual ~Rdb_vector_index() = default;
-  /**
-    add a vector and its associated pk to the index.
-  */
-  virtual uint add_vector(rocksdb::WriteBatchBase *write_batch,
-                          const rocksdb::Slice &pk, std::vector<float> &value,
-                          const rocksdb::Slice &old_pk,
-                          std::vector<float> &old_value) = 0;
 
   /**
-    add a vector and its associated pk to the index.
+    assign a vector to the index
   */
-  virtual uint delete_vector(rocksdb::WriteBatchBase *write_batch,
-                             const rocksdb::Slice &pk,
-                             std::vector<float> &old_value) = 0;
+  virtual void assign_vector(const std::vector<float> &value,
+                             Rdb_vector_index_assignment &assignment) = 0;
 
   virtual uint knn_search(
       THD *thd, std::vector<float> &query_vector,
@@ -122,17 +124,6 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
 class Rdb_vector_db_handler {
  public:
   Rdb_vector_db_handler();
-  uint decode_value(Field *field, FB_vector_dimension dimension) {
-    return decode_value_to_buffer(field, dimension, m_buffer);
-  }
-  uint decode_value2(Field *field, FB_vector_dimension dimension) {
-    return decode_value_to_buffer(field, dimension, m_buffer2);
-  }
-  /**
-   get the buffer to store the vector value.
-  */
-  std::vector<float> &get_buffer() { return m_buffer; }
-  std::vector<float> &get_buffer2() { return m_buffer2; }
 
   bool has_more_results() {
     return !m_search_result.empty() &&
@@ -145,7 +136,7 @@ class Rdb_vector_db_handler {
     }
   }
 
-  std::string current_pk(const Index_id pk_index_id) const;
+  std::string current_key() const;
 
   uint knn_search(THD *thd, Rdb_vector_index *index);
 
@@ -201,10 +192,7 @@ class Rdb_vector_db_handler {
 
  private:
   // input vector from the USER query,
-  // new vector for index write
   std::vector<float> m_buffer;
-  // old vector for index write
-  std::vector<float> m_buffer2;
   std::vector<std::pair<std::string, float>> m_search_result;
   decltype(m_search_result.cbegin()) m_vector_db_result_iter;
   FB_VECTOR_INDEX_METRIC m_metric = FB_VECTOR_INDEX_METRIC::NONE;

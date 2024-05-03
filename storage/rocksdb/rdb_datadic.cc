@@ -436,7 +436,7 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def,
     assert(res2 == HA_EXIT_SUCCESS);
 
     size_t max_len = INDEX_NUMBER_SIZE;
-    int unpack_len = 0;
+    constexpr int unpack_len = 0;
     int max_part_len = 0;
     bool simulating_extkey = false;
     bool store_covered_bitmap = false;
@@ -480,8 +480,14 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def,
 
         if (field && field->is_nullable()) max_len += 1;  // NULL-byte
 
+        uint16 key_length = key_part ? key_part->length : 0;
+        if (dst_i == 0 &&
+            m_vector_index_config.type() != FB_VECTOR_INDEX_TYPE::NONE) {
+          // the size of vector list id, not the vector itself
+          key_length = sizeof(faiss_ivf_list_id);
+        }
         m_pack_info[dst_i].setup(this, field, keyno_to_set, keypart_to_set,
-                                 key_part ? key_part->length : 0);
+                                 key_length);
         m_pack_info[dst_i].m_unpack_data_offset = unpack_len;
 
         if (pk_info) {
@@ -1265,6 +1271,7 @@ uchar *Rdb_key_def::pack_field(
       (unpack_info &&  // we were requested to generate unpack_info
        pack_info->uses_unpack_info());  // and this keypart uses it
   Rdb_pack_field_context pack_ctx(unpack_info);
+  pack_ctx.vector_index = m_vector_index.get();
 
   // Set the offset for methods which do not take an offset as an argument
   assert(
@@ -2668,6 +2675,47 @@ void Rdb_key_def::pack_with_varlength_encoding(
   pack_variable_format(buf, xfrm_len, dst);
 }
 
+/**
+  Pack a vector index field. The vector field is stored as a list id.
+*/
+static void pack_vector(Rdb_field_packing *const fpi [[maybe_unused]],
+                        Field *const field, uchar *buf [[maybe_unused]],
+                        uchar **dst, Rdb_pack_field_context *const pack_ctx) {
+  assert(dst != nullptr);
+  assert(*dst != nullptr);
+  assert(pack_ctx->vector_index);
+
+  // when we reach this point, the field should store a valid vector.
+  // it is impossible to have invalid data here.
+  Field_json *field_json = down_cast<Field_json *>(field);
+  if (field_json == nullptr) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "unexpected field type for vector index");
+    assert(false);
+  }
+  Json_wrapper wrapper;
+  field_json->val_json(&wrapper);
+  std::vector<float> buffer;
+  if (parse_fb_vector(wrapper, buffer)) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "failed to parse vector for vector index");
+    assert(false);
+  }
+
+  auto dimension = pack_ctx->vector_index->dimension();
+  if (buffer.size() != dimension) {
+    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "vector dimension does not match index dimension");
+    assert(false);
+  }
+
+  Rdb_vector_index_assignment assignment;
+  pack_ctx->vector_index->assign_vector(buffer, assignment);
+  pack_ctx->vector_codes = assignment.m_codes;
+  rdb_netbuf_store_uint64(*dst, assignment.m_list_id);
+  *dst += sizeof(assignment.m_list_id);
+}
+
 /*
   Compare the string suffix with a hypothetical infinite string of
   spaces. It could be that the first difference is beyond the end of
@@ -3264,6 +3312,16 @@ void Rdb_key_def::make_unpack_unknown_varlength(
     memcpy(&blob, field->field_ptr() + length_bytes, sizeof(char *));
     pack_ctx->writer->write(blob, len);
   }
+}
+
+/**
+ write vector codes. the codes are calcuated in pack_vector
+*/
+static void make_unpack_vector(const Rdb_field_packing *const fpi
+                                   MY_ATTRIBUTE((__unused__)),
+                               const Field *const field [[maybe_unused]],
+                               Rdb_pack_field_context *const pack_ctx) {
+  pack_ctx->writer->write_string(pack_ctx->vector_codes);
 }
 
 /*
@@ -3945,7 +4003,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           !"Unexpected MYSQL_TYPE_JSON seen in packing for none vector index");
         return false;
       }
-      m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
+      m_pack_func = pack_vector;
+      m_max_image_len = sizeof(faiss_ivf_list_id);
       break;
 
     default:
@@ -4143,6 +4202,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_covered = Rdb_key_def::KEY_NOT_COVERED;
       }
     }
+  }
+
+  if (key_descr->is_vector_index()) {
+    assert(!m_make_unpack_info_func);
+    assert(!m_unpack_func);
+    m_make_unpack_info_func = make_unpack_vector;
   }
 
   return m_covered == Rdb_key_def::KEY_COVERED;

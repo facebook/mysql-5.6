@@ -106,6 +106,8 @@ class Rdb_pack_field_context {
 
   // NULL means we're not producing unpack_info.
   Rdb_string_writer *writer;
+  Rdb_vector_index *vector_index;
+  std::string vector_codes;
 };
 
 /*

@@ -11159,9 +11159,21 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &pk =
-        vector_db_handler->current_pk(m_pk_descr->get_index_number());
-    rc = get_row_by_rowid(buf, pk.data(), pk.size(), nullptr, false, false);
+    const auto &vector_index_key = vector_db_handler->current_key();
+    rocksdb::Slice key(vector_index_key);
+    rocksdb::Slice value;
+    rc = kd.unpack_record(table, buf, &key, &value,
+                          m_converter->get_verify_row_debug_checksums());
+    const uint size =
+        kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
+    if (size == RDB_INVALID_KEY_LEN) {
+      rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+      DBUG_RETURN(rc);
+    }
+
+    m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
+    bool skip_row = false;
+    rc = secondary_index_read(active_index, buf, &key, &value, &skip_row);
     DBUG_RETURN(rc);
   }
 
@@ -11872,9 +11884,21 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
     if (!vector_db_handler->has_more_results()) {
       DBUG_RETURN(HA_ERR_END_OF_FILE);
     }
-    const auto &pk =
-        vector_db_handler->current_pk(m_pk_descr->get_index_number());
-    rc = get_row_by_rowid(buf, pk.data(), pk.size(), nullptr, false, false);
+    const auto &vector_index_key = vector_db_handler->current_key();
+    rocksdb::Slice key(vector_index_key);
+    rocksdb::Slice value;
+    rc = kd.unpack_record(table, buf, &key, &value,
+                          m_converter->get_verify_row_debug_checksums());
+    const uint size =
+        kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
+    if (size == RDB_INVALID_KEY_LEN) {
+      rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+      DBUG_RETURN(rc);
+    }
+
+    m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
+    bool skip_row = false;
+    rc = secondary_index_read(active_index, buf, &key, &value, &skip_row);
     DBUG_RETURN(rc);
   }
 
@@ -13167,45 +13191,6 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     return HA_EXIT_SUCCESS;
   }
 
-  if (kd.is_vector_index()) {
-    // TODO delete vector for row_info.old_pk_slice
-    auto vector_db_handler = get_vector_db_handler();
-    auto field = kd.get_table_field_for_part_no((TABLE *)table_arg, 0);
-    uint rtn = vector_db_handler->decode_value(
-        field, kd.get_vector_index_config().dimension());
-    if (rtn) {
-      return rtn;
-    }
-    auto pk = row_info.new_pk_slice;
-    if (row_info.old_data != nullptr) {
-      ptrdiff_t ptrdiff = row_info.old_data - table->record[0];
-      uchar *save_record_0 = table_arg->record[0];
-      if (ptrdiff) {
-        table->record[0] = const_cast<uchar *>(row_info.old_data);
-        field->move_field_offset(ptrdiff);
-      }
-      auto grd = create_scope_guard([&]() {
-        if (ptrdiff) {
-          table->record[0] = save_record_0;
-          field->move_field_offset(-ptrdiff);
-        }
-      });
-      rtn = vector_db_handler->decode_value2(
-          field, kd.get_vector_index_config().dimension());
-      if (rtn) {
-        return rtn;
-      }
-    }
-    rtn = kd.get_vector_index()->add_vector(
-        row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type()), pk,
-        vector_db_handler->get_buffer(), row_info.old_pk_slice,
-        vector_db_handler->get_buffer2());
-    if (rtn) {
-      return rtn;
-    }
-    return HA_EXIT_SUCCESS;
-  }
-
   bool store_row_debug_checksums = should_store_row_debug_checksums();
   new_packed_size =
       kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
@@ -13866,35 +13851,6 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
     if (!is_pk(i, *table, *m_tbl_def)) {
       int packed_size;
       const Rdb_key_def &kd = *m_key_descr_arr[i];
-
-      if (kd.is_vector_index()) {
-        auto vector_db_handler = get_vector_db_handler();
-        auto field = kd.get_table_field_for_part_no(table, 0);
-        ptrdiff_t ptrdiff = buf - table->record[0];
-        uchar *save_record_0 = table->record[0];
-        if (ptrdiff) {
-          table->record[0] = const_cast<uchar *>(buf);
-          field->move_field_offset(ptrdiff);
-        }
-        auto grd = create_scope_guard([&]() {
-          if (ptrdiff) {
-            table->record[0] = save_record_0;
-            field->move_field_offset(-ptrdiff);
-          }
-        });
-        uint rtn = vector_db_handler->decode_value(
-            field, kd.get_vector_index_config().dimension());
-        if (rtn) {
-          DBUG_RETURN(rtn);
-        }
-        rtn = kd.get_vector_index()->delete_vector(
-            tx->get_indexed_write_batch(m_tbl_def->get_table_type()), key_slice,
-            vector_db_handler->get_buffer());
-        if (rtn) {
-          DBUG_RETURN(rtn);
-        }
-        continue;
-      }
 
       // The unique key should be locked so that behavior is
       // similar to InnoDB and reduce conflicts. The key
@@ -16804,42 +16760,6 @@ int ha_rocksdb::inplace_populate_sk(
       if ((res = fill_virtual_columns())) {
         ha_rnd_end();
         DBUG_RETURN(res);
-      }
-
-      // populate vector index
-      if (index->is_vector_index()) {
-        auto vector_db_handler = get_vector_db_handler();
-        auto field = index->get_table_field_for_part_no(new_table_arg, 0);
-        // field is from new_table_arg, but the data is in table->record[0]
-        ptrdiff_t ptrdiff = table->record[0] - new_table_arg->record[0];
-        uchar *save_record_0 = new_table_arg->record[0];
-        if (ptrdiff) {
-          new_table_arg->record[0] = table->record[0];
-          field->move_field_offset(ptrdiff);
-        }
-        auto grd = create_scope_guard([&]() {
-          if (ptrdiff) {
-            new_table_arg->record[0] = save_record_0;
-            field->move_field_offset(-ptrdiff);
-          }
-        });
-        res = vector_db_handler->decode_value(
-            field, index->get_vector_index_config().dimension());
-        if (res) {
-          ha_rnd_end();
-          DBUG_RETURN(res);
-        }
-        // pass an empty slice as old pk
-        rocksdb::Slice old_pk;
-        res = index->get_vector_index()->add_vector(
-            tx->get_indexed_write_batch(m_tbl_def->get_table_type()),
-            m_iterator->key(), vector_db_handler->get_buffer(), old_pk,
-            vector_db_handler->get_buffer2());
-        if (res) {
-          ha_rnd_end();
-          DBUG_RETURN(res);
-        }
-        continue;
       }
 
       /* Create new secondary index entry */
