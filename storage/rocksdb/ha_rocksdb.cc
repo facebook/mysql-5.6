@@ -3640,7 +3640,6 @@ class Rdb_transaction {
   /* Maximum number of locks the transaction can have */
   ulonglong m_max_row_locks;
 
-  bool m_is_tx_failed = false;
   bool m_rollback_only = false;
 
   std::shared_ptr<Rdb_snapshot_notifier> m_notifier;
@@ -3934,17 +3933,6 @@ class Rdb_transaction {
                             const std::string &rowkey, bool force = false) = 0;
 
   virtual bool prepare() = 0;
-
-  bool commit_or_rollback() {
-    bool res;
-    if (m_is_tx_failed) {
-      rollback();
-      res = false;
-    } else {
-      res = commit();
-    }
-    return res;
-  }
 
   bool commit() {
     if (get_write_count() == 0) {
@@ -4914,8 +4902,6 @@ class Rdb_transaction {
   }
 
   virtual void rollback_stmt() = 0;
-
-  void set_tx_failed(bool failed_arg) { m_is_tx_failed = failed_arg; }
 
   bool can_prepare() const {
     if (m_rollback_only) {
@@ -6503,7 +6489,6 @@ static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       /*
         We get here when committing a statement within a transaction.
       */
-      tx->set_tx_failed(false);
       tx->make_stmt_savepoint_permanent();
     }
 
@@ -6543,7 +6528,7 @@ static int rocksdb_rollback(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       */
 
       tx->rollback_stmt();
-      tx->set_tx_failed(true);
+      if (is_autocommit(*thd)) tx->rollback();
     }
 
     if (my_core::thd_tx_isolation(thd) <= ISO_READ_COMMITTED) {
@@ -14532,13 +14517,10 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
       if (tx->m_n_mysql_tables_in_use == 0 && is_autocommit(*thd)) {
         /*
           Do like InnoDB: when we get here, it's time to commit a
-          single-statement transaction.
-
-          If the statement involved multiple tables, this code will be executed
-          for each of them, but that's ok because non-first tx->commit() calls
-          will be no-ops.
+          single-statement transaction. In the case of rollback, it will already
+          be done in rocksdb_rollback, and the commit call will be a no-op.
         */
-        if (tx->commit_or_rollback()) {
+        if (tx->commit()) {
           res = HA_ERR_INTERNAL_ERROR;
         }
       }
