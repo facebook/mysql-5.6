@@ -15711,11 +15711,13 @@ static int calculate_stats(
     }
   }
 
-  if (scan_type == SCAN_TYPE_FULL_TABLE) {
+  THD *thd = thd_get_current_thd();
+  // if this is initiated from background thread, current thd is not set.
+  if (scan_type == SCAN_TYPE_FULL_TABLE && thd) {
     for (auto &key : to_recalc) {
       if (key.second->is_vector_index()) {
-        ret = key.second->get_vector_index()->analyze(
-            thd_get_current_thd(), max_num_rows_scanned, killed);
+        ret = key.second->get_vector_index()->analyze(thd, max_num_rows_scanned,
+                                                      killed);
         if (ret) {
           DBUG_RETURN(ret);
         }

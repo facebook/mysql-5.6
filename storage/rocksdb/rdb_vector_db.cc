@@ -440,6 +440,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
   virtual uint analyze(THD *thd, uint64_t max_num_rows_scanned,
                        std::atomic<THD::killed_state> *killed) override {
+    assert(thd);
     std::string pk;
     rocksdb::Slice codes;
     uint64_t ntotal = 0;

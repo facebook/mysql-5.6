@@ -1,0 +1,29 @@
+set global rocksdb_table_stats_use_table_scan=on;
+set global rocksdb_table_stats_recalc_threshold_count=0;
+set @old_debug = @@global.debug;
+CREATE TABLE t (
+id BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL fb_vector_dimension 4,
+name varchar(64),
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+);
+set @@global.debug = '+d,rocksdb_is_bg_thread';
+insert into t (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 99) SELECT i, json_array(i*0.0001, i*0.0001, 0, 0), concat('val', i) from a);
+waiting for Rdb_index_stats_thread background thread run
+set debug_sync = "now signal ready_to_calculate_index_stats";
+set debug_sync = "now wait_for index_stats_calculation_done";
+the background thread does not populate the vector index stats
+select NTOTAL from information_schema.rocksdb_vector_index where table_name='t';
+NTOTAL
+0
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+analyze table populates the vector index stats
+select NTOTAL from information_schema.rocksdb_vector_index where table_name='t';
+NTOTAL
+100
+set @@global.debug = @old_debug;
+set global rocksdb_table_stats_use_table_scan=default;
+set global rocksdb_table_stats_recalc_threshold_count=default;
+drop table t;
