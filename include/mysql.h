@@ -225,6 +225,7 @@ enum mysql_option {
   MYSQL_OPT_TLS_CERT_CALLBACK,
   MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT,
   MYSQL_OPT_TOS,
+  MYSQL_OPT_SSL_SESSION,
 };
 
 /**
@@ -482,6 +483,7 @@ bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
 void *STDCALL mysql_get_ssl_session_data(MYSQL *mysql, unsigned int n_ticket,
                                          unsigned int *out_len);
 bool STDCALL mysql_free_ssl_session_data(MYSQL *mysql, void *data);
+void *STDCALL mysql_get_ssl_session(MYSQL *mysql);
 /*
   Take ownership of the OpenSSL SSL_CTX instance associated with this
   connection.  In general, SSL_CTX objects should be re-used.  Either one can

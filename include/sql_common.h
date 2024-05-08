@@ -221,6 +221,7 @@ struct st_mysql_options_extention {
   const void *server_cert_validator_context;
 #endif
   unsigned int tos;
+  void *ssl_session;
 };
 
 struct MYSQL_METHODS {

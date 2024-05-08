@@ -523,6 +523,7 @@ enum mysql_option {
   MYSQL_OPT_TLS_CERT_CALLBACK,
   MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT,
   MYSQL_OPT_TOS,
+  MYSQL_OPT_SSL_SESSION,
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
@@ -683,6 +684,7 @@ bool mysql_get_ssl_session_reused(MYSQL *mysql);
 void * mysql_get_ssl_session_data(MYSQL *mysql, unsigned int n_ticket,
                                          unsigned int *out_len);
 bool mysql_free_ssl_session_data(MYSQL *mysql, void *data);
+void * mysql_get_ssl_session(MYSQL *mysql);
 void * mysql_take_ssl_context_ownership(MYSQL *mysql);
 bool mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
