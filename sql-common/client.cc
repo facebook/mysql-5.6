@@ -1585,7 +1585,8 @@ bool cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
       Return to READY_FOR_COMMAND protocol stage in case server reports error
       or sends OK packet.
     */
-    if (result || mysql->net.read_pos[0] == 0x00)
+    if (result ||
+        (mysql->net.buff != nullptr && mysql->net.read_pos[0] == 0x00))
       MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
 #endif
   }
@@ -1698,11 +1699,17 @@ net_async_status cli_advanced_command_nonblocking(
       Return to READY_FOR_COMMAND protocol stage in case server reports
       error or sends OK packet.
     */
-    if (!result || mysql->net.read_pos[0] == 0x00)
+    if (!result ||
+        (mysql->net.buff != nullptr && mysql->net.read_pos[0] == 0x00))
       MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
 #endif
   }
 end:
+  /*
+    end_server can be called during cli_safe_read_with_ok_nonblocking(),
+    so re-check net_async
+  */
+  net_async = NET_ASYNC_DATA(net);
   if (net_async)
     net_async->async_send_command_status = NET_ASYNC_SEND_COMMAND_IDLE;
   DBUG_PRINT("exit", ("result: %d", result));
