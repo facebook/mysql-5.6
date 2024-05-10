@@ -865,7 +865,7 @@ net_async_status net_write_command_nonblocking(NET *net, uchar command,
       }
       return NET_ASYNC_NOT_READY;
     default:
-      assert(false);
+      assert(command == COM_QUIT);
       *res = true;
       return NET_ASYNC_COMPLETE;
   }
