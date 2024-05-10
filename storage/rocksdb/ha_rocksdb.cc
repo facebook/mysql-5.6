@@ -372,10 +372,10 @@ static void rocksdb_flush_all_memtables() {
   }
 }
 
-static void rocksdb_delete_column_family_stub(THD *const /* thd */,
-                                              struct SYS_VAR *const /* var */,
-                                              void *const /* var_ptr */,
-                                              const void *const /* save */) {}
+// A stub sysvar update function that does nothing. Used instead of nullptr to
+// indicate that the sysvar is not read-only.
+static void rocksdb_rw_sysvar_update_noop(THD *const, SYS_VAR *const,
+                                          void *const, const void *const) {}
 
 static int rocksdb_delete_column_family(THD *const /* thd */,
                                         struct SYS_VAR *const /* var */,
@@ -502,14 +502,6 @@ static int rocksdb_create_checkpoint_validate(
   return HA_EXIT_FAILURE;
 }
 
-/* This method is needed to indicate that the
-   ROCKSDB_CREATE_CHECKPOINT command is not read-only */
-static void rocksdb_create_checkpoint_update(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
-
 static int rocksdb_create_temporary_checkpoint_validate(
     THD *const thd, struct SYS_VAR *const var, void *const save,
     struct st_mysql_value *const value);
@@ -543,12 +535,6 @@ static void rocksdb_select_bypass_rejected_query_history_size_update(
     void *const var_ptr, const void *const save);
 
 static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices);
-
-static void rocksdb_force_flush_memtable_now_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_force_flush_memtable_now(
     THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -657,12 +643,6 @@ static int rocksdb_compact_lzero() {
   return num_errors == 0 ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
 }
 
-static void rocksdb_compact_lzero_now_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
-
 static int rocksdb_compact_lzero_now(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -679,12 +659,6 @@ static int rocksdb_compact_lzero_now(
 
   return rocksdb_compact_lzero();
 }
-
-static void rocksdb_force_flush_memtable_and_lzero_now_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_force_flush_memtable_and_lzero_now(
     THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -710,12 +684,6 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
 
   return rocksdb_compact_lzero();
 }
-
-static void rocksdb_cancel_manual_compactions_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_cancel_manual_compactions(
     THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -1474,12 +1442,6 @@ static int rocksdb_validate_protection_bytes_per_key(
 
   return HA_EXIT_SUCCESS;
 }
-
-static void rocksdb_compact_column_family_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)),
-    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_compact_column_family(THD *const thd,
                                          struct SYS_VAR *const var,
@@ -2480,16 +2442,16 @@ static MYSQL_SYSVAR_UINT(debug_cardinality_multiplier,
 static MYSQL_SYSVAR_STR(compact_cf, rocksdb_compact_cf_name,
                         PLUGIN_VAR_RQCMDARG, "Compact column family",
                         rocksdb_compact_column_family,
-                        rocksdb_compact_column_family_stub, "");
+                        rocksdb_rw_sysvar_update_noop, "");
 
 static MYSQL_SYSVAR_STR(delete_cf, rocksdb_delete_cf_name, PLUGIN_VAR_RQCMDARG,
                         "Delete column family", rocksdb_delete_column_family,
-                        rocksdb_delete_column_family_stub, "");
+                        rocksdb_rw_sysvar_update_noop, "");
 
 static MYSQL_SYSVAR_STR(create_checkpoint, rocksdb_checkpoint_name,
                         PLUGIN_VAR_RQCMDARG, "Checkpoint directory",
                         rocksdb_create_checkpoint_validate,
-                        rocksdb_create_checkpoint_update, "");
+                        rocksdb_rw_sysvar_update_noop, "");
 
 static MYSQL_THDVAR_STR(create_temporary_checkpoint,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
@@ -2660,27 +2622,26 @@ static MYSQL_SYSVAR_BOOL(
     force_flush_memtable_now, rocksdb_force_flush_memtable_now_var,
     PLUGIN_VAR_RQCMDARG,
     "Forces memstore flush which may block all write requests so be careful",
-    rocksdb_force_flush_memtable_now, rocksdb_force_flush_memtable_now_stub,
-    false);
+    rocksdb_force_flush_memtable_now, rocksdb_rw_sysvar_update_noop, false);
 
 static MYSQL_SYSVAR_BOOL(compact_lzero_now, rocksdb_compact_lzero_now_var,
                          PLUGIN_VAR_RQCMDARG, "Compacts all L0 files.",
                          rocksdb_compact_lzero_now,
-                         rocksdb_compact_lzero_now_stub, false);
+                         rocksdb_rw_sysvar_update_noop, false);
 
 static MYSQL_SYSVAR_BOOL(
     force_flush_memtable_and_lzero_now,
     rocksdb_force_flush_memtable_and_lzero_now_var, PLUGIN_VAR_RQCMDARG,
     "Acts similar to force_flush_memtable_now, but also compacts all L0 files.",
-    rocksdb_force_flush_memtable_and_lzero_now,
-    rocksdb_force_flush_memtable_and_lzero_now_stub, false);
+    rocksdb_force_flush_memtable_and_lzero_now, rocksdb_rw_sysvar_update_noop,
+    false);
 
 static MYSQL_SYSVAR_BOOL(cancel_manual_compactions,
                          rocksdb_cancel_manual_compactions_var,
                          PLUGIN_VAR_RQCMDARG,
                          "Cancelling all ongoing manual compactions.",
                          rocksdb_cancel_manual_compactions,
-                         rocksdb_cancel_manual_compactions_stub, false);
+                         rocksdb_rw_sysvar_update_noop, false);
 
 static MYSQL_SYSVAR_UINT(
     seconds_between_stat_computes, rocksdb_seconds_between_stat_computes,
