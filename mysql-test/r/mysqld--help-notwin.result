@@ -1868,6 +1868,9 @@ The following options may be given as the first argument:
  --reset-period-status-vars 
  Enable atomic reset of period status vars when they are
  shown.
+ --reset-rli-lock-index 
+ Whether to lock global binlog index during reset rli
+ (Defaults to on; use --skip-reset-rli-lock-index to disable.)
  --reset-seconds-behind-master 
  When TRUE reset Seconds_Behind_Master to 0 when SQL
  thread catches up to the IO thread. This is the original
@@ -3792,6 +3795,7 @@ report-port 0
 report-user (No default value)
 require-secure-transport FALSE
 reset-period-status-vars FALSE
+reset-rli-lock-index TRUE
 reset-seconds-behind-master TRUE
 response-attrs-contain-binlog-row-image-delta FALSE
 response-attrs-contain-hlc FALSE

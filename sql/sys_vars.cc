@@ -9395,6 +9395,11 @@ static Sys_var_bool Sys_strict_enforce_binlog_cache_size(
     GLOBAL_VAR(opt_strict_enforce_binlog_cache_size), CMD_LINE(OPT_ARG),
     DEFAULT(true));
 
+static Sys_var_bool Sys_reset_rli_lock_index(
+    "reset_rli_lock_index",
+    "Whether to lock global binlog index during reset rli",
+    GLOBAL_VAR(opt_reset_rli_lock_index), CMD_LINE(OPT_ARG), DEFAULT(true));
+
 #ifndef __APPLE__
 
 static bool update_session_dscp_on_socket(sys_var *, THD *thd,

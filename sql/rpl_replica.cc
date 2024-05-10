@@ -1464,6 +1464,20 @@ int rli_relay_log_raft_reset(
                   dirname_length(raft_log_applied_upto_pos.first.c_str()));
 
   /*
+    Acquiring the index lock for mysql_bin_log is crucial since the relay log
+    might be identical to the global mysql_bin_log. If the index lock is not
+    obtained, there is a possibility of collision between this method and
+    purge_logs() when manipulating the same index file.
+
+    Specifically, while this method may recreate the index file, purge_logs()
+    could delete the original index file, then rename the modified copy to the
+    original path, but ultimately fail due to the index file already being
+    recreated by this method.
+  */
+  bool lock_global_log_index = opt_reset_rli_lock_index;
+  if (lock_global_log_index) mysql_bin_log.lock_index();
+
+  /*
     We need a mutex while we are changing master info parameters to
     keep other threads from reading bogus info
   */
@@ -1511,7 +1525,6 @@ int rli_relay_log_raft_reset(
       sql_print_error(
           "Failed to initialize the relay log info structure"
           " or the master.info structure");
-       error = 1;
       error = 1;
       goto end;
     }
@@ -1607,6 +1620,7 @@ end:
 
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
+  if (lock_global_log_index) mysql_bin_log.unlock_index();
   channel_map.unlock();
   DBUG_RETURN(error);
 }

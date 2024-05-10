@@ -1,0 +1,71 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key);
+"Case 1: PURGE RAFT LOGS BEFORE <TIME>"
+"Inserting rows into t1 on leader: server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+set debug_sync='rebuild_index_after_delete SIGNAL rebuild_reached WAIT_FOR rebuild_continue';
+PURGE RAFT LOGS BEFORE NOW();
+set debug_sync='now WAIT_FOR rebuild_reached';
+SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID = "server2_uuid";
+set debug_sync='now SIGNAL rebuild_continue';
+Warnings:
+Warning	1868	file ./binary-logs-13000.000002 was not purged because it is the active log file.
+"Moving leadership back to server_1"
+include/raft_promote_to_leader.inc
+"Case 2: PURGE RAFT LOGS TO <LOG>"
+"Inserting rows into t1 on leader: server_1"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+show raft logs;
+Log_name	File_size	Encrypted
+binary-logs-13000.000002	#	No
+binary-logs-13000.000003	#	No
+binary-logs-13000.000004	#	No
+set debug_sync='rebuild_index_after_delete SIGNAL rebuild_reached WAIT_FOR rebuild_continue';
+purge raft logs to 'binary-logs-13000.000004';
+set debug_sync='now WAIT_FOR rebuild_reached';
+SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID = "server2_uuid";
+set debug_sync='now SIGNAL rebuild_continue';
+"Moving leadership back to server_1"
+include/raft_promote_to_leader.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

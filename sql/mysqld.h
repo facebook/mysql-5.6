@@ -534,6 +534,9 @@ extern bool set_read_only_on_shutdown;
 extern bool show_binlogs_encryption;
 extern long replica_sql_thread_os_priority;
 
+/* Whether to lock global binlog index during reset rli */
+extern bool opt_reset_rli_lock_index;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */

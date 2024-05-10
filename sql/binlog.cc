@@ -6973,6 +6973,8 @@ int MYSQL_BIN_LOG::move_crash_safe_index_file_to_index_file(
     }
   }
 
+  DEBUG_SYNC(thd, "rebuild_index_after_delete");
+
   DBUG_EXECUTE_IF("crash_create_before_rename_index_file", DBUG_SUICIDE(););
   /*
     Sometimes an outsider can lock index files for temporary viewing

@@ -1271,6 +1271,7 @@ bool recover_raft_log = false;
 bool raft_send_replica_statistics = false;
 bool skip_backup_lock_for_stop_replica = false;
 bool enable_json_binary_charset = false;
+bool opt_reset_rli_lock_index = true;
 
 // Apply log related variables for raft
 char *opt_apply_logname = nullptr;
