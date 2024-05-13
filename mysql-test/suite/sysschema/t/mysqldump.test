@@ -11,6 +11,11 @@
 # Remove the sys schema
 DROP DATABASE sys;
 
+# For rocksdb DDSE, without this, it will fail
+# to create mysql.gtid_executed table due to its engine is innodb
+# while DDSE is rocksdb.
+SET @@global.SKIP_SYS_TABLES_ENGINE_CHECK = 1;
+
 # Reload the dump
 --exec $MYSQL < $MYSQLTEST_VARDIR/tmp/bug20902791.sql
 

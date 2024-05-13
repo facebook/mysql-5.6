@@ -18,3 +18,8 @@
 --
 
 ALTER TABLE sys_config CHARACTER SET utf8mb4;
+SET @cmd = IF(@ddse = 'ROCKSDB', "ALTER TABLE sys_config ENGINE=ROCKSDB",
+"SET @dummy = 0");
+PREPARE stmt FROM @cmd;
+EXECUTE stmt;
+DROP PREPARE stmt;
