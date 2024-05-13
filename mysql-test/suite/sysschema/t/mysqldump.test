@@ -1,5 +1,7 @@
 -- source include/no_valgrind_without_big.inc
 
+SET @@global.SKIP_SYS_TABLES_ENGINE_CHECK = 1;
+
 # Dump all databases
 --exec $MYSQL_DUMP -uroot --all-databases > $MYSQLTEST_VARDIR/tmp/bug20902791.sql
 

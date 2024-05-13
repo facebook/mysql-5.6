@@ -1,3 +1,4 @@
+SET @@global.SKIP_SYS_TABLES_ENGINE_CHECK = 1;
 CREATE TABLE mysql.tmp_backup_tables_priv AS SELECT * FROM mysql.tables_priv;
 CREATE TABLE mysql.tmp_backup_user AS SELECT * FROM mysql.user;
 DROP DATABASE sys;
