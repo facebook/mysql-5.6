@@ -363,7 +363,7 @@ Rdb_cmd_srv_status Rdb_cmd_srv_helper::read_codes(const std::string &db_name,
       return status;
     }
     Json_wrapper wrapper(std::move(dom_ptr));
-    if (parse_fb_vector(wrapper, row_codes)) {
+    if (parse_fb_vector_from_json(wrapper, row_codes)) {
       return Rdb_cmd_srv_status("failed to parser vector codes");
     }
     codes.insert(codes.end(), row_codes.begin(), row_codes.end());

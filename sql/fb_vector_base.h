@@ -18,6 +18,7 @@
 
 #include "lex_string.h"
 #include "sql-common/json_dom.h"
+#include "sql_const.h"
 
 #ifdef WITH_FB_VECTORDB
 constexpr bool FB_VECTORDB_ENABLED = true;
@@ -69,6 +70,10 @@ bool parse_fb_vector_index_metric(LEX_CSTRING str, FB_VECTOR_INDEX_METRIC &val);
 
 std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val);
 
-bool parse_fb_vector(Json_wrapper &wrapper, std::vector<float> &data);
+// Parse item containing blob field values into data
+bool parse_fb_vector_from_blob(Item *item, std::vector<float> &data);
+
+// Parse json values into data
+bool parse_fb_vector_from_json(Json_wrapper &wrapper, std::vector<float> &data);
 
 bool ensure_fb_vector(const Json_dom *dom, FB_vector_dimension dimension);

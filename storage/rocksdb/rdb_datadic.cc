@@ -2696,7 +2696,7 @@ static void pack_vector(Rdb_field_packing *const fpi [[maybe_unused]],
   Json_wrapper wrapper;
   field_json->val_json(&wrapper);
   std::vector<float> buffer;
-  if (parse_fb_vector(wrapper, buffer)) {
+  if (parse_fb_vector_from_json(wrapper, buffer)) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "failed to parse vector for vector index");
     assert(false);

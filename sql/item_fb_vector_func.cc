@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "sql/item_fb_vector_func.h"
+#include <cassert>
 #include "sql/fb_vector_base.h"
 #ifdef WITH_FB_VECTORDB
 #include <faiss/utils/distances.h>
@@ -30,11 +31,22 @@
 
 bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
                                const char *func_name, Fb_vector &vector) {
-  if (get_json_wrapper(args, arg_idx, &str, func_name, &vector.wrapper)) {
-    return true;
+  if (args[arg_idx]->data_type() == MYSQL_TYPE_VARCHAR ||
+      args[arg_idx]->data_type() == MYSQL_TYPE_JSON) {
+    if (get_json_wrapper(args, arg_idx, &str, func_name, &vector.wrapper)) {
+      return true;
+    }
+
+    if (parse_fb_vector_from_json(vector.wrapper, vector.data)) {
+      my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
+               func_name);
+      return true;
+    }
+    return false;
   }
 
-  if (parse_fb_vector(vector.wrapper, vector.data)) {
+  // convert from blob type
+  if (parse_fb_vector_from_blob(args[arg_idx], vector.data)) {
     my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
              func_name);
     return true;
@@ -134,6 +146,49 @@ enum Item_func::Functype Item_func_fb_vector_normalize_l2::functype() const {
   return FB_VECTOR_NORMALIZE_L2;
 }
 
+Item_func_fb_vector_blob_to_json::Item_func_fb_vector_blob_to_json(
+    THD *thd, const POS &pos, PT_item_list *a)
+    : Item_json_func(thd, pos, a) {}
+
+bool Item_func_fb_vector_blob_to_json::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_BLOB)) return true;
+  set_nullable(true);
+
+  return false;
+}
+
+Item_func::enum_const_item_cache
+Item_func_fb_vector_blob_to_json::can_cache_json_arg(Item *arg) {
+  return arg == args[0] ? CACHE_JSON_VALUE : CACHE_NONE;
+}
+
+const char *Item_func_fb_vector_blob_to_json::func_name() const {
+  return "fb_vector_blob_to_json";
+}
+
+enum Item_func::Functype Item_func_fb_vector_blob_to_json::functype() const {
+  return FB_VECTOR_BLOB_TO_JSON;
+}
+
+Item_func_fb_vector_json_to_blob::Item_func_fb_vector_json_to_blob(
+    const POS &pos, PT_item_list *a)
+    : Item_str_func(pos, a) {}
+
+bool Item_func_fb_vector_json_to_blob::resolve_type(THD *thd) {
+  if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_JSON)) return true;
+  set_data_type_string(MAX_BLOB_WIDTH, &my_charset_bin);
+  set_nullable(true);
+  return false;
+}
+
+const char *Item_func_fb_vector_json_to_blob::func_name() const {
+  return "fb_vector_json_to_blob";
+}
+
+enum Item_func::Functype Item_func_fb_vector_json_to_blob::functype() const {
+  return FB_VECTOR_JSON_TO_BLOB;
+}
+
 #ifdef WITH_FB_VECTORDB
 float Item_func_fb_vector_l2::compute_distance(float *v1, float *v2,
                                                size_t dimension) {
@@ -171,6 +226,45 @@ bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
   return false;
 }
 
+String *Item_func_fb_vector_json_to_blob::val_str(String *) {
+  assert(fixed);
+  if (args[0]->null_value) {
+    return error_str();
+  }
+  Fb_vector vector;
+  if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector)) {
+    return error_str();
+  }
+  assert(m_value.is_empty());
+  const size_t size = vector.data.size() * sizeof(float);
+  m_value.copy((const char *)vector.data.data(), size, &my_charset_bin);
+  return &m_value;
+}
+
+bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
+  if (args[0]->null_value) {
+    return error_json();
+  }
+  try {
+    Fb_vector vector1;
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
+      return error_json();
+    }
+    Json_array_ptr array = create_dom_ptr<Json_array>();
+    for (float v : vector1.data) {
+      Json_double d(v);
+      if (array->append_clone(&d)) {
+        return error_json();
+      }
+    }
+    *wr = Json_wrapper(std::move(array));
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_json();
+  }
+  return false;
+}
+
 #else
 
 // dummy implementation when not compiled with fb_vector
@@ -196,4 +290,16 @@ bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr
   FB_VECTORDB_DISABLED_ERR;
   return error_bool();
 }
+
+bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr
+                                                [[maybe_unused]]) {
+  FB_VECTORDB_DISABLED_ERR;
+  return error_json();
+}
+
+String *Item_func_fb_vector_json_to_blob::val_str(String *) {
+  FB_VECTORDB_DISABLED_ERR;
+  return error_str();
+}
+
 #endif

@@ -19,6 +19,7 @@
 #include <map>
 #include <string_view>
 #include "fb_vector_base.h"
+#include "item.h"
 #include "sql/error_handler.h"
 
 static const std::map<std::string_view, FB_VECTOR_INDEX_TYPE>
@@ -80,7 +81,28 @@ std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val) {
   return "";
 }
 
-bool parse_fb_vector(Json_wrapper &wrapper, std::vector<float> &data) {
+bool parse_fb_vector_from_blob(Item *item, std::vector<float> &data) {
+  if (item->data_type() != MYSQL_TYPE_BLOB) {
+    return true;
+  }
+  if (item->type() == Item::FIELD_ITEM) {
+    const Item_field *fi = down_cast<const Item_field *>(item);
+    const Field_blob *field_blob = down_cast<const Field_blob *>(fi->field);
+    const uint32 blob_length = field_blob->get_length();
+    const uchar *const blob_data = field_blob->get_blob_data();
+    if (blob_length % sizeof(float)) {
+      return true;
+    }
+    data.resize(blob_length / sizeof(float));
+    memcpy(data.data(), blob_data, blob_length);
+  } else {
+    return true;
+  }
+  return false;
+}
+
+bool parse_fb_vector_from_json(Json_wrapper &wrapper,
+                               std::vector<float> &data) {
   if (wrapper.type() != enum_json_type::J_ARRAY) {
     return true;
   }
@@ -133,7 +155,7 @@ bool ensure_fb_vector(const Json_dom *dom, FB_vector_dimension dimension) {
 
   for (auto it = arr->begin(); it != arr->end(); ++it) {
     const auto ele_type = (*it)->json_type();
-    // also update parse_fb_vector when the types here
+    // also update parse_fb_vector_from_json when the types here
     // changes
     if (ele_type != enum_json_type::J_DOUBLE &&
         ele_type != enum_json_type::J_INT &&

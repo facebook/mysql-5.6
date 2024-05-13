@@ -79,3 +79,21 @@ ERROR HY000: Incorrect arguments to fb_vector_dimension out of configured bounds
 vector column should be json
 CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 BIGINT NOT NULL FB_VECTOR_DIMENSION 4);
 ERROR HY000: Incorrect arguments to fb_vector only supports json type
+
+blob and json convert functions
+select HEX(FB_VECTOR_JSON_TO_BLOB('[1,2,3]'));
+HEX(FB_VECTOR_JSON_TO_BLOB('[1,2,3]'))
+0000803F0000004000004040
+select HEX(FB_VECTOR_JSON_TO_BLOB(JSON_ARRAY(1,2,3)));
+HEX(FB_VECTOR_JSON_TO_BLOB(JSON_ARRAY(1,2,3)))
+0000803F0000004000004040
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL);
+insert into t1 values(1, UNHEX('0000803F0000004000004040'));
+select FB_VECTOR_BLOB_TO_JSON(blob1) from t1 where id=1;
+FB_VECTOR_BLOB_TO_JSON(blob1)
+[1.0, 2.0, 3.0]
+insert into t1 values(2, UNHEX('0000803F00000040000040400'));
+FB_VECTOR_BLOB_TO_JSON only accepts blob length multiple of sizeof(float)
+select FB_VECTOR_BLOB_TO_JSON(blob1) from t1 where id=2;
+ERROR HY000: Incorrect type for argument 0 in function fb_vector_blob_to_json.
+DROP TABLE t1;

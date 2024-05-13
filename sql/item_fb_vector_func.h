@@ -85,6 +85,35 @@ class Item_func_fb_vector_normalize_l2 final : public Item_json_func {
 };
 
 /**
+  Represents the function FB_VECTOR_BLOB_TO_JSON()
+*/
+class Item_func_fb_vector_blob_to_json final : public Item_json_func {
+ public:
+  Item_func_fb_vector_blob_to_json(THD *thd, const POS &pos, PT_item_list *a);
+  const char *func_name() const override;
+  enum Functype functype() const override;
+  bool resolve_type(THD *thd) override;
+  enum_const_item_cache can_cache_json_arg(Item *arg) override;
+  bool val_json(Json_wrapper *wr) override;
+};
+
+/**
+  Represents the function FB_VECTOR_JSON_TO_BLOB()
+*/
+class Item_func_fb_vector_json_to_blob final : public Item_str_func {
+ public:
+  Item_func_fb_vector_json_to_blob(const POS &pos, PT_item_list *a);
+  const char *func_name() const override;
+  enum Functype functype() const override;
+  bool resolve_type(THD *thd) override;
+  String *val_str(String *) override;
+
+ private:
+  // String used to store val_str() result.
+  String m_value;
+};
+
+/**
  helper class to parse json to float vector
 */
 class Fb_vector {

@@ -301,7 +301,9 @@ class Item_func : public Item_result_field {
     // vector db functions
     FB_VECTOR_L2,
     FB_VECTOR_IP,
-    FB_VECTOR_NORMALIZE_L2
+    FB_VECTOR_NORMALIZE_L2,
+    FB_VECTOR_BLOB_TO_JSON,
+    FB_VECTOR_JSON_TO_BLOB,
   };
   enum optimize_type {
     OPTIMIZE_NONE,

@@ -71,3 +71,16 @@ CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 JSON NOT NULL FB_VECTOR_DIMENSION 1024
 echo vector column should be json;
 error ER_WRONG_ARGUMENTS;
 CREATE TABLE t1(c1 BIGINT PRIMARY KEY, c2 BIGINT NOT NULL FB_VECTOR_DIMENSION 4);
+
+echo;
+echo blob and json convert functions;
+select HEX(FB_VECTOR_JSON_TO_BLOB('[1,2,3]'));
+select HEX(FB_VECTOR_JSON_TO_BLOB(JSON_ARRAY(1,2,3)));
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL);
+insert into t1 values(1, UNHEX('0000803F0000004000004040'));
+select FB_VECTOR_BLOB_TO_JSON(blob1) from t1 where id=1;
+insert into t1 values(2, UNHEX('0000803F00000040000040400'));
+echo FB_VECTOR_BLOB_TO_JSON only accepts blob length multiple of sizeof(float);
+error ER_INCORRECT_TYPE;
+select FB_VECTOR_BLOB_TO_JSON(blob1) from t1 where id=2;
+DROP TABLE t1;
