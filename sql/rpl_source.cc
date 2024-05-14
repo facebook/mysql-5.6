@@ -1775,9 +1775,6 @@ bool show_binlogs(THD *thd, bool with_gtid) {
     field_list.push_back(
         new Item_empty_string("Prev_gtid_set",
                               0));  // max_size seems not to matter
-  if (thd->send_result_metadata(field_list,
-                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
-    return true;
 
   mysql_mutex_lock(mysql_bin_log.get_binlog_end_pos_lock());
   DEBUG_SYNC(thd, "show_binlogs_after_lock_log_before_lock_index");
@@ -1790,9 +1787,13 @@ bool show_binlogs(THD *thd, bool with_gtid) {
 
   reinit_io_cache(index_file, READ_CACHE, (my_off_t)0, false, false);
 
+  std::vector<BinlogInfoRow> binlog_info_rows;
+
   /* The file ends with EOF or empty line */
   while ((length = my_b_gets(index_file, file_name_and_gtid_set_length,
                              FN_REFLEN + 22)) > 1) {
+    BinlogInfoRow binlog_info_row;
+
     size_t dir_len;
     int encrypted_header_size = 0;
     ulonglong file_length = 0;  // Length if open fails
@@ -1805,10 +1806,9 @@ bool show_binlogs(THD *thd, bool with_gtid) {
     }
     char *fname = file_name_and_gtid_set_length;
     length = strlen(fname);
-    protocol->start_row();
     dir_len = dirname_length(fname);
     length -= dir_len;
-    protocol->store_string(fname + dir_len, length, &my_charset_bin);
+    binlog_info_row.file_name = std::string(fname + dir_len, length);
 
     if (!(strncmp(fname + dir_len, cur.log_file_name + cur_dir_len, length))) {
       /* Encryption header size shall be accounted in the file_length */
@@ -1835,11 +1835,10 @@ bool show_binlogs(THD *thd, bool with_gtid) {
         mysql_file_close(file, MYF(0));
       }
     }
-    protocol->store(file_length);
-    protocol->store(encrypted_header_size < 0
-                        ? "NULL"
-                        : encrypted_header_size ? "Yes" : "No",
-                    &my_charset_bin);
+    binlog_info_row.file_length = file_length;
+    binlog_info_row.encryption = encrypted_header_size < 0 ? "NULL"
+                                 : encrypted_header_size   ? "Yes"
+                                                           : "No";
 
     if (with_gtid) {
       const auto previous_gtid_set_map =
@@ -1853,22 +1852,39 @@ bool show_binlogs(THD *thd, bool with_gtid) {
                                    gtid_str_it->second.length(), nullptr);
         char *buf;
         gtid_set.to_string(&buf, false, &Gtid_set::commented_string_format);
-        protocol->store_string(buf, strlen(buf), &my_charset_bin);
+        binlog_info_row.prev_gtid_set = std::string(buf);
         my_free(buf);
-      } else {
-        protocol->store_string("", 0, &my_charset_bin);
       }
+    }
+    binlog_info_rows.push_back(std::move(binlog_info_row));
+  }
+  if (index_file->error == -1) goto err;
+  mysql_bin_log.unlock_index();
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+
+  for (const BinlogInfoRow &binlog_info_row : binlog_info_rows) {
+    protocol->start_row();
+    protocol->store_string(binlog_info_row.file_name.c_str(),
+                           binlog_info_row.file_name.length(), &my_charset_bin);
+    protocol->store(binlog_info_row.file_length);
+    protocol->store(binlog_info_row.encryption.c_str(), &my_charset_bin);
+    if (with_gtid) {
+      protocol->store_string(binlog_info_row.prev_gtid_set.c_str(),
+                             binlog_info_row.prev_gtid_set.length(),
+                             &my_charset_bin);
     }
     if (protocol->end_row()) {
       DBUG_PRINT(
           "info",
           ("stopping dump thread because protocol->write failed at line %d",
            __LINE__));
-      goto err;
+      return true;
     }
   }
-  if (index_file->error == -1) goto err;
-  mysql_bin_log.unlock_index();
+
   my_eof(thd);
   return false;
 

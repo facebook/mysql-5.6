@@ -2013,4 +2013,11 @@ uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
   */
 bool is_binlog_advanced(const char *b1, my_off_t p1, const char *b2,
                         my_off_t p2);
+
+struct BinlogInfoRow {
+  std::string file_name;
+  ulonglong file_length;
+  std::string encryption;
+  std::string prev_gtid_set;
+};
 #endif /* BINLOG_H_INCLUDED */

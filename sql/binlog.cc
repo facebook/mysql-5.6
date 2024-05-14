@@ -4241,19 +4241,17 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
                               0));  // max_size seems not to matter
 
   int error = 0;
-  if (thd->send_result_metadata(field_list,
-                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
-    error = 1;
-    errmsg = "Protocol failed to send metadata";
-    goto err;
-  }
 
   reinit_io_cache(index_file, READ_CACHE, (my_off_t)0, 0, 0);
+
+  std::vector<BinlogInfoRow> binlog_info_rows;
 
   /* The file ends with EOF or empty line */
   while ((length = my_b_gets(index_file, file_name_and_gtid_set_length,
                              FN_REFLEN + 22)) > 1 &&
          !exit_loop) {
+    BinlogInfoRow binlog_info_row;
+
     int dir_len;
     ulonglong file_length = 0;  // Length if open fails
 
@@ -4269,8 +4267,7 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
     dir_len = dirname_length(fname);
     length -= dir_len;
 
-    protocol->start_row();
-    protocol->store_string(fname + dir_len, length, &my_charset_bin);
+    binlog_info_row.file_name = std::string(fname + dir_len, length);
 
     if (!(strncmp(fname + dir_len, cur.log_file_name + dir_len, length))) {
       /* Reached the position of the current file in the index. State the size
@@ -4285,7 +4282,7 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
         mysql_file_close(file, MYF(0));
       }
     }
-    protocol->store(file_length);
+    binlog_info_row.file_length = file_length;
 
     if (with_gtid) {
       const auto previous_gtid_set_map =
@@ -4299,18 +4296,11 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
                                    gtid_str_it->second.length(), nullptr);
         char *buf;
         gtid_set.to_string(&buf, false, &Gtid_set::commented_string_format);
-        protocol->store_string(buf, strlen(buf), &my_charset_bin);
+        binlog_info_row.prev_gtid_set = std::string(buf);
         my_free(buf);
-      } else {
-        protocol->store_string("", 0, &my_charset_bin);
       }
     }
-
-    if (protocol->end_row()) {
-      error = 1;
-      errmsg = "Failure in protocol write";
-      goto err;
-    }
+    binlog_info_rows.push_back(std::move(binlog_info_row));
   }
 
   if (index_file->error == -1) {
@@ -4318,8 +4308,36 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
     errmsg = "Index file error";
     goto err;
   }
+  rli->relay_log.unlock_index();
+  unlock_master_info(active_mi);
+
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    errmsg = "Protocol failed to send metadata";
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW RAFT LOGS", errmsg);
+    return 1;
+  }
+
+  for (const BinlogInfoRow &binlog_info_row : binlog_info_rows) {
+    protocol->start_row();
+    protocol->store_string(binlog_info_row.file_name.c_str(),
+                           binlog_info_row.file_name.length(), &my_charset_bin);
+    protocol->store(binlog_info_row.file_length);
+    if (with_gtid) {
+      protocol->store_string(binlog_info_row.prev_gtid_set.c_str(),
+                             binlog_info_row.prev_gtid_set.length(),
+                             &my_charset_bin);
+    }
+    if (protocol->end_row()) {
+      errmsg = "Failure in protocol write";
+      my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW RAFT LOGS",
+               errmsg);
+      return 1;
+    }
+  }
 
   my_eof(thd);
+  return 0;
 
 err:
   rli->relay_log.unlock_index();
