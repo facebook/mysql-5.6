@@ -28,43 +28,43 @@ INSERT INTO id_table_bloom values (1, 4, 4, 104);
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
-WHERE id3=1;
+WHERE id3=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
-WHERE id3=1;
+WHERE id3=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 --echo # Range query with full PK+SK
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
-WHERE id3=1 AND id1=1;
+WHERE id3=1 AND id1=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
-WHERE id3=1 AND id1=1 AND id2=1;
+WHERE id3=1 AND id1=1 AND id2=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (unique_id3)
-WHERE id3=1 AND id1=1 AND id2>=1;
+WHERE id3=1 AND id1=1 AND id2>=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
-WHERE id3=1 AND id1=1;
+WHERE id3=1 AND id1=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
-WHERE id3=1 AND id1=1 AND id2=1;
+WHERE id3=1 AND id1=1 AND id2=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ val FROM id_table_bloom FORCE INDEX (id3)
-WHERE id3=1 AND id1=1 AND id2>=1;
+WHERE id3=1 AND id1=1 AND id2>=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 DROP TABLE id_table_bloom;
@@ -200,7 +200,7 @@ ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
 
 # Partial keys should not be unpacked
 let bypass_query=
-SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1;
+SELECT /*+ bypass */ data from link_table6 FORCE INDEX (id1_type) where id1=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # time >= ONLY crashes
@@ -223,28 +223,28 @@ ORDER BY time DESC, id2 DESC LIMIT 0, 500;
 let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type FROM link_table
 WHERE link_type=3 and id1 in (1, 2, 3)
-ORDER BY link_type, id1, id2;
+ORDER BY link_type, id1, id2 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # IN expression multiplexing in middle
 let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
 WHERE link_type=3 and id1 IN (1, 2, 3) and id2=1
-ORDER BY link_type, id1, id2;
+ORDER BY link_type, id1, id2 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # IN expression with multiple IN
 let bypass_query=
 SELECT /*+ bypass */ id1, id1_type, id2, id2_type from link_table
 WHERE link_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5)
-ORDER BY link_type, id1, id2;
+ORDER BY link_type, id1, id2 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # Decoding varchar with extra padding spaces from index
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, version, time
 FROM link_table FORCE INDEX (id1_type)
-WHERE id1=9 and link_type=5;
+WHERE id1=9 and link_type=5 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # Point query with duplicate items
@@ -271,37 +271,37 @@ WHERE id IN (5, 4, 3, 2, 1) AND type = 1 ORDER BY id DESC;
 # Range query with bloom filter
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
-WHERE link_type=1 and id1=2 and id2 > 1;
+WHERE link_type=1 and id1=2 and id2 > 1 LIMIT 1000;
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
-WHERE link_type=1 and id1=2 and id2 >= 1;
+WHERE link_type=1 and id1=2 and id2 >= 1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 --echo # Range query with PK key only
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
-WHERE link_type=1 and id1=2 and id2=1;
+WHERE link_type=1 and id1=2 and id2=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
-WHERE link_type=1 and id1=2 and id2=1;
+WHERE link_type=1 and id1=2 and id2=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
-WHERE link_type=1 and id1 >= 2 ORDER BY id1 ASC;
+WHERE link_type=1 and id1 >= 2 ORDER BY id1 ASC LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 --echo # Range query with PK key only with filters
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
-WHERE link_type=1 and id1=2 and id2 > 1;
+WHERE link_type=1 and id1=2 and id2 > 1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id2 FROM link_table5
-WHERE link_type=1 and id1=2 and id2 >= 1;
+WHERE link_type=1 and id1=2 and id2 >= 1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # Prefix query returning large rows causing reallocation m_row_buf
@@ -441,24 +441,24 @@ DROP TABLE meta_table;
 # Uncovered TEXT/VARCHAR in PK
 let bypass_query=
 SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (PRIMARY)
-WHERE id1=1 and link_type=3 and id2 >= 1;
+WHERE id1=1 and link_type=3 and id2 >= 1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id2, version, data from link_varchar FORCE INDEX (PRIMARY)
-WHERE id1=1 and link_type=3 and id2 >= 1;
+WHERE id1=1 and link_type=3 and id2 >= 1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # Uncovered TEXT/VARCHAR in SK
 let bypass_query=
 SELECT /*+ bypass */ id2, version, data from link_text FORCE INDEX (id1_type)
-WHERE id1=1 and link_type=3 and visibility=4 and time >= 10;
+WHERE id1=1 and link_type=3 and visibility=4 and time >= 10 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id2, version, data from link_varchar
 FORCE INDEX (id1_type) WHERE id1=1 and link_type=3 and visibility=4
-and time >= 10;
+and time >= 10 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # Multiple time ranges

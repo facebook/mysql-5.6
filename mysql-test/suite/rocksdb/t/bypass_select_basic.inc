@@ -198,11 +198,6 @@ variable_name="rows_sent";
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
-ORDER BY TIME DESC;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10;
 
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
@@ -214,11 +209,6 @@ SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1;
-
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
-ORDER BY TIME DESC LIMIT 0;
 
 SELECT variable_value INTO @bypass_executed_new FROM
 performance_schema.global_status WHERE
@@ -282,13 +272,6 @@ ORDER BY TIME ASC LIMIT 10;
 --source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query with SK with limits
-let bypass_query=
-SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
-FROM link_table FORCE INDEX (id1_type)
-WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
-ORDER BY TIME DESC;
---source ../include/verify_bypass_query.inc
-
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
@@ -432,25 +415,25 @@ ORDER BY TIME DESC LIMIT 10,0;
 --echo # Prefix range query with PK
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
-WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
+WHERE link_type=3 AND id1=1 ORDER BY id2 DESC LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
-WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
+WHERE link_type=3 AND id1=1 ORDER BY id2 ASC LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 --echo # Prefix range query with PK + value
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
-WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
+WHERE link_type=3 AND id1=1 ORDER BY id2 DESC LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
-WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
+WHERE link_type=3 AND id1=1 ORDER BY id2 ASC LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 --echo # Transaction
@@ -474,17 +457,17 @@ SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 
 --echo # Data types
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3";
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1="1";
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=True;
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=b'1';
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'01';
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=NULL;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" LIMIT 1000;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1="1" LIMIT 1000;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=True LIMIT 1000;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=b'1' LIMIT 1000;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'01' LIMIT 1000;
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=NULL LIMIT 1000;
 
 --echo # Full table scan
 let bypass_query=
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
-WHERE id1_type=1;
+WHERE id1_type=1 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 # 15+ fields
@@ -509,13 +492,13 @@ SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t5 WHERE pk=1;
 
 let bypass_query=
 SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
-WHERE pk<4;
+WHERE pk<4 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 let bypass_query=
 SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
                      a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
-                     WHERE pk >= 2;
+                     WHERE pk >= 2 LIMIT 1000;
 --source ../include/verify_bypass_query.inc
 
 DROP TABLE t5;
@@ -577,12 +560,12 @@ select @@rocksdb_select_bypass_debug_row_delay;
 set global rocksdb_select_bypass_debug_row_delay=1;
 select @@rocksdb_select_bypass_debug_row_delay;
 
-send select /*+ bypass */ id1 from link_table where link_type=3;
+send select /*+ bypass */ id1 from link_table where link_type=3 LIMIT 1000;
 
 connection default;
 let $wait_timeout= 10;
 let $wait_condition=select count(*)=1 from information_schema.processlist
-where info='select /*+ bypass */ id1 from link_table where link_type=3';
+where info='select /*+ bypass */ id1 from link_table where link_type=3 LIMIT 1000';
 --source include/wait_condition.inc
 
 disable_query_log;
@@ -591,7 +574,7 @@ enable_query_log;
 disconnect conn1;
 let $wait_timeout= 10;
 let $wait_condition=select count(*)=0 from information_schema.processlist
-where info='select /*+ bypass */ id1 from link_table where link_type=3';
+where info='select /*+ bypass */ id1 from link_table where link_type=3 LIMIT 1000';
 --source include/wait_condition.inc
 
 select @@rocksdb_select_bypass_debug_row_delay;

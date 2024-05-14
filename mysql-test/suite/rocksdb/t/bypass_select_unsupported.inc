@@ -119,111 +119,111 @@ SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND a = 1 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
 SELECT /*+ bypass */ pk from t1 WHERE pk = 1 AND a = 1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
 SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
-WHERE a = 1 AND b = 2 AND c = 3 AND d > 4;
+WHERE a = 1 AND b = 2 AND c = 3 AND d > 4 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
 SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
-WHERE a = 1 AND b = 2 AND c > 3 AND d > 4;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
-WHERE a = 1 AND b = 2 AND d > 4;
+WHERE a = 1 AND b = 2 AND c > 3 AND d > 4 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
 SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
-WHERE a = 1 AND b > 2 AND d > 4;
+WHERE a = 1 AND b = 2 AND d > 4 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
+SELECT /*+ bypass */ d from t1 FORCE INDEX (a)
+WHERE a = 1 AND b > 2 AND d > 4 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
-SHOW STATUS LIKE 'rocksdb_select_bypass%';
-SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0;
-
-
-if ($bypass_fallback==0) {
---error ER_NOT_SUPPORTED_YET
-}
-SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2 LIMIT 100;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2 LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2 LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2 LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2 LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2 LIMIT 100;
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2);
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2) LIMIT 100;
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0 LIMIT 100;
+
 
 if ($bypass_fallback==0) {
 --error ER_NOT_SUPPORTED_YET
 }
-SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0;
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2 LIMIT 100;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2 LIMIT 100;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
+
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 LIMIT 100;
+
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b in (1, 2) LIMIT 100;
+
+if ($bypass_fallback==0) {
+--error ER_NOT_SUPPORTED_YET
+}
+SELECT /*+ bypass */ a, b, c from t1 WHERE a > 0 and b > 0 and c > 0 LIMIT 100;
 
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 SELECT QUERY, ERROR_MSG, BYPASS_TYPE from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;

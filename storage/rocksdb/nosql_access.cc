@@ -1429,6 +1429,10 @@ class rpc_select_parser : public base_select_parser {
 
   bool parse_limit() {
     // thrift plugin already set it as uint64_t max if no limit is set
+    if (m_param->limit == 0) {
+      m_error_msg = "Unexpected LIMIT - must be nonzero";
+      return true;
+    }
     m_select_limit = m_param->limit;
     m_offset_limit = m_param->limit_offset;
 
@@ -2580,6 +2584,10 @@ int INLINE_ATTR select_exec::eval_and_send() {
 }
 
 bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
+  if (m_select_limit == std::numeric_limits<uint64_t>::max()) {
+    m_error_msg = "Range query without LIMIT clause is not supported";
+    return true;
+  }
   for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
     if (unlikely(handle_killed())) {
       return true;

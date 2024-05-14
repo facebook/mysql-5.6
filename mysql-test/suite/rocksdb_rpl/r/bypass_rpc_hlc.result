@@ -42,7 +42,7 @@ INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
-SELECT /*+ bypass */ val FROM a.table_a WHERE id3=1;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id1=1 AND id2=1;
 101 
 include/stop_slave.inc
 USE a;
@@ -51,13 +51,13 @@ INSERT INTO table_a values (2, 2, 2, 102);
 COMMIT;
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
-SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id1=2 AND id2=2;
 ERROR 50085: Requested HLC timestamp HLC_TS is higher than current engine HLC of HLC_TS for database a
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 INSTALL PLUGIN test_bypass_rpc_plugin_info SONAME 'TEST_BYPASS_RPC_PLUGIN';
 UNINSTALL PLUGIN test_bypass_rpc_plugin_info;
-SELECT /*+ bypass */ val FROM a.table_a WHERE id3=2;
+SELECT /*+ bypass */ val FROM a.table_a WHERE id1=2 AND id2=2;
 102 
 DROP DATABASE a;
 SET @@global.enable_binlog_hlc = default;

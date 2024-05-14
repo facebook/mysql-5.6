@@ -3,7 +3,7 @@ insert into t1 values (1, 'v1', 2), (2, 'v2', 3), (3, null, 4);
 
 TEST CASE simple select test
 
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 SEQ_NUMBER	TYPE	VALUE
 0	header	[{"type":2,"name":"c1"}, {"type":4,"name":"c2"}]

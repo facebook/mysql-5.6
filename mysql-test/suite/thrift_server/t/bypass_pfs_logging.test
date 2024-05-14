@@ -23,7 +23,7 @@ select @@performance_schema_esms_by_all;
 select @@bypass_rpc_pfs_logging;
 
 # select c1, c2 from t1 where c3 > 2
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all where query_sample_text like '%bypass rpc%';
@@ -43,7 +43,7 @@ select @@performance_schema_esms_by_all;
 select @@bypass_rpc_pfs_logging;
 
 # select c1, c2 from t1 where c3 > 2
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 
 select schema_name, digest, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all where query_sample_text like '%bypass rpc%';
@@ -62,7 +62,7 @@ select @@performance_schema_esms_by_all;
 select @@bypass_rpc_pfs_logging;
 
 # select c1, c2 from t1 where c3 > 2
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 
 select schema_name, digest, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated from performance_schema.events_statements_summary_by_all where query_sample_text like '%bypass rpc%';
@@ -81,15 +81,15 @@ select @@performance_schema_esms_by_all;
 select @@bypass_rpc_pfs_logging;
 
 # select c1, c2 from t1 where c3 > 2
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 # select c1, c2 from t1 where c3 > 3
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":3}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":3}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 # select c1, c2 from t1 where c3 > 2 and c3 < 4
-SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}},{"column":"c3","op":1,"value":{"signedIntVal":4}}]}';
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["c1", "c2"],"where":[{"column":"c3","op":2,"value":{"signedIntVal":2}},{"column":"c3","op":1,"value":{"signedIntVal":4}}],"limit":5}';
 SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
 TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
 
