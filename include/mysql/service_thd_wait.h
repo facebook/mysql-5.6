@@ -141,7 +141,12 @@ typedef enum _thd_wait_type_e {
   */
   THD_WAIT_RAFT_YIELD = 20,
 
-  THD_WAIT_LAST = 21,
+  /**
+    Used for create/delete table.
+  */
+  THD_WAIT_TABLE_FLUSH_SYNC = 21,
+
+  THD_WAIT_LAST = 22,
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {

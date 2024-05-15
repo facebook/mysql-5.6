@@ -4498,6 +4498,7 @@ dberr_t Fil_shard::space_delete(space_id_t space_id, buf_remove_t buf_remove) {
   ut_ad(!fsp_is_system_tablespace(space_id));
   ut_ad(!fsp_is_global_temporary(space_id));
 
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
   dberr_t err = wait_for_pending_operations(space_id, space, &path);
 
   if (err != DB_SUCCESS) {
@@ -5637,6 +5638,7 @@ static dberr_t fil_create_tablespace(space_id_t space_id, const char *name,
   ut_a(fsp_flags_is_valid(flags));
   ut_a(type == FIL_TYPE_TEMPORARY || type == FIL_TYPE_TABLESPACE);
 
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
   bool has_shared_space = FSP_FLAGS_GET_SHARED(flags);
   /* Create the subdirectories in the path, if they are
   not there already. */
@@ -6531,6 +6533,7 @@ bool Fil_shard::space_extend(fil_space_t *space, page_no_t size) {
   page_no_t prev_size = 0;
 #endif /* UNIV_HOTBACKUP */
 
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
   for (;;) {
     mutex_acquire();
     space = get_space_by_id(space->id);
