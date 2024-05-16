@@ -34,7 +34,7 @@ HIT	DIMENSION	INDEX_TYPE
 
 alter should fail when vector column is not valid
 alter table t1 add index vector_key_1(name) FB_VECTOR_INDEX_TYPE 'flat';
-ERROR HY000: Incorrect arguments to fb_vector index only support json type
+ERROR HY000: Incorrect arguments to fb_vector index only support json/blob type
 SELECT HIT, DIMENSION, INDEX_TYPE FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 HIT	DIMENSION	INDEX_TYPE
 

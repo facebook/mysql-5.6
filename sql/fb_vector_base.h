@@ -26,6 +26,8 @@ constexpr bool FB_VECTORDB_ENABLED = true;
 constexpr bool FB_VECTORDB_ENABLED = false;
 #endif
 
+class Field;
+
 enum class FB_VECTOR_INDEX_TYPE { NONE, FLAT, IVFFLAT, IVFPQ };
 
 enum class FB_VECTOR_INDEX_METRIC { NONE, L2, IP, COSINE };
@@ -70,8 +72,8 @@ bool parse_fb_vector_index_metric(LEX_CSTRING str, FB_VECTOR_INDEX_METRIC &val);
 
 std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val);
 
-// Parse item containing blob field values into data
-bool parse_fb_vector_from_blob(Item *item, std::vector<float> &data);
+// Parse field containing blob values into data
+bool parse_fb_vector_from_blob(Field *field, std::vector<float> &data);
 
 // Parse json values into data
 bool parse_fb_vector_from_json(Json_wrapper &wrapper, std::vector<float> &data);

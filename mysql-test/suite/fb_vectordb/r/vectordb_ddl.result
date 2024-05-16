@@ -85,3 +85,14 @@ vector1 JSON NOT NULL fb_vector_dimension 8,
 INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'ivfflat' FB_VECTOR_TRAINED_INDEX_TABLE 'VECTORDB_DATA' FB_VECTOR_TRAINED_INDEX_ID 'id1'
 );
 ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+
+test blob column
+creating vector index blob column with error
+1. vector column should not be nullable
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB FB_VECTOR_DIMENSION 1);
+ERROR HY000: Incorrect arguments to fb_vector column should not be nullable
+2. vector column dimension should not exceed limits
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL FB_VECTOR_DIMENSION 1);
+ERROR HY000: Incorrect arguments to fb_vector_dimension out of configured bounds
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL FB_VECTOR_DIMENSION 10240);
+ERROR HY000: Incorrect arguments to fb_vector_dimension out of configured bounds

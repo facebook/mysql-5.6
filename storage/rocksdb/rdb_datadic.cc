@@ -2687,19 +2687,24 @@ static void pack_vector(Rdb_field_packing *const fpi [[maybe_unused]],
 
   // when we reach this point, the field should store a valid vector.
   // it is impossible to have invalid data here.
-  Field_json *field_json = down_cast<Field_json *>(field);
-  if (field_json == nullptr) {
+  Field_blob *field_blob = down_cast<Field_blob *>(field);
+  if (field_blob == nullptr) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "unexpected field type for vector index");
     assert(false);
   }
-  Json_wrapper wrapper;
-  field_json->val_json(&wrapper);
+  Field_json *field_json = dynamic_cast<Field_json *>(field_blob);
   std::vector<float> buffer;
-  if (parse_fb_vector_from_json(wrapper, buffer)) {
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                    "failed to parse vector for vector index");
-    assert(false);
+  if (field_json == nullptr) {
+    parse_fb_vector_from_blob(field, buffer);
+  } else {
+    Json_wrapper wrapper;
+    field_json->val_json(&wrapper);
+    if (parse_fb_vector_from_json(wrapper, buffer)) {
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "failed to parse vector for vector index");
+      assert(false);
+    }
   }
 
   auto dimension = pack_ctx->vector_index->dimension();
@@ -3607,7 +3612,8 @@ uint Rdb_key_def::setup_vector_index(const TABLE &tbl,
     assert(false);
     return HA_ERR_UNSUPPORTED;
   }
-  if (key_info->key_part[0].field->real_type() != MYSQL_TYPE_JSON) {
+  if (key_info->key_part[0].field->real_type() != MYSQL_TYPE_JSON &&
+      key_info->key_part[0].field->real_type() != MYSQL_TYPE_BLOB) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "vector index only supports json field");
     assert(false);
@@ -3941,7 +3947,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     case MYSQL_TYPE_MEDIUM_BLOB:
     case MYSQL_TYPE_LONG_BLOB:
     case MYSQL_TYPE_BLOB: {
-      m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
+      if (key_descr->is_vector_index()) {
+        m_pack_func = pack_vector;
+        m_max_image_len = sizeof(faiss_ivf_list_id);
+      } else {
+        m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
+      }
       break;  // handling below
     }
     case MYSQL_TYPE_SET:
@@ -4015,6 +4026,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       // MYSQL_TYPE_GEOMETRY is not supported by MyRocks yet
       SHIP_ASSERT(!"Unexpected MYSQL_TYPE_* seen in packing");
       return false;
+  }
+
+  // set up vector unpack func
+  if (key_descr->is_vector_index() && field->m_fb_vector_dimension > 0) {
+    assert(!m_make_unpack_info_func);
+    assert(!m_unpack_func);
+    m_make_unpack_info_func = make_unpack_vector;
+    return false;
   }
 
   m_unpack_info_stores_value = false;
@@ -4202,13 +4221,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_covered = Rdb_key_def::KEY_NOT_COVERED;
       }
     }
-  }
-
-  // set up vector unpack func
-  if (key_descr->is_vector_index() && field->m_fb_vector_dimension > 0) {
-    assert(!m_make_unpack_info_func);
-    assert(!m_unpack_func);
-    m_make_unpack_info_func = make_unpack_vector;
   }
 
   return m_covered == Rdb_key_def::KEY_COVERED;

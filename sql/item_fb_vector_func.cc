@@ -45,14 +45,18 @@ bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
     return false;
   }
 
-  // convert from blob type
-  if (parse_fb_vector_from_blob(args[arg_idx], vector.data)) {
-    my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
-             func_name);
-    return true;
+  if (args[arg_idx]->data_type() == MYSQL_TYPE_BLOB &&
+      args[arg_idx]->type() == Item::FIELD_ITEM) {
+    const Item_field *fi = down_cast<const Item_field *>(args[arg_idx]);
+    if (parse_fb_vector_from_blob(fi->field, vector.data)) {
+      my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
+               func_name);
+      return true;
+    }
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 Item_func_fb_vector_distance::Item_func_fb_vector_distance(THD * /* thd */,
@@ -61,6 +65,16 @@ Item_func_fb_vector_distance::Item_func_fb_vector_distance(THD * /* thd */,
     : Item_real_func(pos, a) {}
 
 bool Item_func_fb_vector_distance::resolve_type(THD *thd) {
+  if (args[0]->type() == Item::FUNC_ITEM &&
+      ((Item_func *)args[0])->functype() == Item_func::FB_VECTOR_BLOB_TO_JSON) {
+    char buffer[100];
+    snprintf(buffer, sizeof(buffer),
+             "%s: please use blob item directly, no need to use "
+             "FB_VECTOR_BLOB_TO_JSON",
+             func_name());
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), buffer);
+    return true;
+  }
   if (param_type_is_default(thd, 0, 2, MYSQL_TYPE_JSON)) return true;
   set_nullable(true);
 
@@ -127,6 +141,16 @@ Item_func_fb_vector_normalize_l2::Item_func_fb_vector_normalize_l2(
     : Item_json_func(thd, pos, a) {}
 
 bool Item_func_fb_vector_normalize_l2::resolve_type(THD *thd) {
+  if (args[0]->type() == Item::FUNC_ITEM &&
+      ((Item_func *)args[0])->functype() == Item_func::FB_VECTOR_BLOB_TO_JSON) {
+    char buffer[100];
+    snprintf(buffer, sizeof(buffer),
+             "%s: please use blob item directly, no need to use "
+             "FB_VECTOR_BLOB_TO_JSON",
+             func_name());
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), buffer);
+    return true;
+  }
   if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_JSON)) return true;
   set_nullable(true);
 
@@ -151,6 +175,10 @@ Item_func_fb_vector_blob_to_json::Item_func_fb_vector_blob_to_json(
     : Item_json_func(thd, pos, a) {}
 
 bool Item_func_fb_vector_blob_to_json::resolve_type(THD *thd) {
+  if (args[0]->data_type() != MYSQL_TYPE_BLOB) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), func_name());
+    return true;
+  }
   if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_BLOB)) return true;
   set_nullable(true);
 
@@ -175,6 +203,11 @@ Item_func_fb_vector_json_to_blob::Item_func_fb_vector_json_to_blob(
     : Item_str_func(pos, a) {}
 
 bool Item_func_fb_vector_json_to_blob::resolve_type(THD *thd) {
+  if (args[0]->data_type() != MYSQL_TYPE_JSON &&
+      args[0]->data_type() != MYSQL_TYPE_VARCHAR) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), func_name());
+    return true;
+  }
   if (param_type_is_default(thd, 0, 1, MYSQL_TYPE_JSON)) return true;
   set_data_type_string(MAX_BLOB_WIDTH, &my_charset_bin);
   set_nullable(true);
@@ -235,7 +268,7 @@ String *Item_func_fb_vector_json_to_blob::val_str(String *) {
   if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector)) {
     return error_str();
   }
-  assert(m_value.is_empty());
+  m_value.mem_free();
   const size_t size = vector.data.size() * sizeof(float);
   m_value.copy((const char *)vector.data.data(), size, &my_charset_bin);
   return &m_value;

@@ -7004,6 +7004,12 @@ type_conversion_status Field_blob::store_to_mem(const char *from, size_t length,
   */
   assert(field_charset == cs);
   assert(length <= max_data_length());
+  // for vector blob storage, make sure each element in the vector is 4 bytes
+  if (m_fb_vector_dimension > 0 && type() == MYSQL_TYPE_BLOB &&
+      m_fb_vector_dimension * sizeof(float) != length) {
+    my_error(ER_INVALID_VECTOR, MYF(0));
+    return TYPE_ERR_BAD_VALUE;
+  }
 
   if (length > max_length) {
     int well_formed_error;
@@ -7023,6 +7029,12 @@ type_conversion_status Field_blob::store_to_mem(const char *from, size_t length,
 type_conversion_status Field_blob::store_internal(const char *from,
                                                   size_t length,
                                                   const CHARSET_INFO *cs) {
+  // for vector blob storage, make sure each element in the vector is 4 bytes
+  if (m_fb_vector_dimension > 0 && type() == MYSQL_TYPE_BLOB &&
+      m_fb_vector_dimension * sizeof(float) != length) {
+    my_error(ER_INVALID_VECTOR, MYF(0));
+    return TYPE_ERR_BAD_VALUE;
+  }
   size_t new_length;
   char buff[STRING_BUFFER_USUAL_SIZE], *tmp;
   String tmpstr(buff, sizeof(buff), &my_charset_bin);

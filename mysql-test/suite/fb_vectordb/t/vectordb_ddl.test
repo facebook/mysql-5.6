@@ -102,3 +102,15 @@ CREATE TABLE t1 (
 );
 
 source ../include/cleanup_ivf.inc;
+
+echo;
+echo test blob column;
+echo creating vector index blob column with error;
+echo 1. vector column should not be nullable;
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB FB_VECTOR_DIMENSION 1);
+echo 2. vector column dimension should not exceed limits;
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL FB_VECTOR_DIMENSION 1);
+error ER_WRONG_ARGUMENTS;
+CREATE TABLE t1 (id BIGINT NOT NULL PRIMARY KEY,blob1 BLOB NOT NULL FB_VECTOR_DIMENSION 10240);

@@ -200,8 +200,9 @@ class Rdb_vector_db_handler {
     uint arg_idx = 1;
     String tmp_str;
 
-    assert((args[0]->type() == Item::FIELD_ITEM) &&
-           (args[0]->data_type() == MYSQL_TYPE_JSON));
+    assert((args[0]->type() == Item::FIELD_ITEM &&
+            (args[0]->data_type() == MYSQL_TYPE_JSON ||
+             args[0]->data_type() == MYSQL_TYPE_BLOB)));
 
     assert(((args[1]->type() == Item::STRING_ITEM) &&
             (args[1]->data_type() == MYSQL_TYPE_VARCHAR)) ||

@@ -19,7 +19,9 @@
 #include <map>
 #include <string_view>
 #include "fb_vector_base.h"
+#include "field.h"
 #include "item.h"
+#include "item_func.h"
 #include "sql/error_handler.h"
 
 static const std::map<std::string_view, FB_VECTOR_INDEX_TYPE>
@@ -81,23 +83,15 @@ std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val) {
   return "";
 }
 
-bool parse_fb_vector_from_blob(Item *item, std::vector<float> &data) {
-  if (item->data_type() != MYSQL_TYPE_BLOB) {
+bool parse_fb_vector_from_blob(Field *field, std::vector<float> &data) {
+  const Field_blob *field_blob = down_cast<const Field_blob *>(field);
+  const uint32 blob_length = field_blob->get_length();
+  const uchar *const blob_data = field_blob->get_blob_data();
+  if (blob_length % sizeof(float)) {
     return true;
   }
-  if (item->type() == Item::FIELD_ITEM) {
-    const Item_field *fi = down_cast<const Item_field *>(item);
-    const Field_blob *field_blob = down_cast<const Field_blob *>(fi->field);
-    const uint32 blob_length = field_blob->get_length();
-    const uchar *const blob_data = field_blob->get_blob_data();
-    if (blob_length % sizeof(float)) {
-      return true;
-    }
-    data.resize(blob_length / sizeof(float));
-    memcpy(data.data(), blob_data, blob_length);
-  } else {
-    return true;
-  }
+  data.resize(blob_length / sizeof(float));
+  memcpy(data.data(), blob_data, blob_length);
   return false;
 }
 

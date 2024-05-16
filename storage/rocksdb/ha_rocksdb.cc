@@ -20176,7 +20176,8 @@ bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
         been provided (i.e., a value of < 0)
      2. check if ORDER's encapsulated item is a FUNC ITEM
      3. check if this FUNC ITEM is a vector DB func
-     4. check if the first arg is a FIELD_ITEM with data_type MYSQL_TYPE_JSON
+     4. check if the first arg is a FIELD_ITEM with data_type
+  MYSQL_TYPE_JSON/MYSQL_TYPE_BLOB
      5. check if the FIELD_ITEM is assocaited with a vector index
      6. check if the second arg is:
         a. Item::STRING_ITEM with data_type mapping to MYSQL_TYPE_VARCHAR
@@ -20204,7 +20205,8 @@ bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
   Item *arg1 = (Item *)((Item_func *)item_func)->arguments()[1];
 
   if ((arg0->type() != Item::FIELD_ITEM) ||
-      (arg0->data_type() != MYSQL_TYPE_JSON))  // 4.
+      ((arg0->data_type() != MYSQL_TYPE_JSON) &&
+       (arg0->data_type() != MYSQL_TYPE_BLOB)))  // 4.
     return false;
 
   Field *field = ((Item_field *)arg0)->field;
