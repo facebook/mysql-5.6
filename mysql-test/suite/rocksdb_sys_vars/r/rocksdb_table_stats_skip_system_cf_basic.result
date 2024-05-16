@@ -1,0 +1,85 @@
+SET @start_global_value = @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+SELECT @start_global_value;
+@start_global_value
+0
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to 1"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = 1;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to 0"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = 0;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to on"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = on;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to off"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = off;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to true"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = true;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to false"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = false;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = DEFAULT;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@session.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = 444;
+ERROR HY000: Variable 'rocksdb_table_stats_skip_system_cf' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to 'aaa'"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+"Trying to set variable @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF to 'bbb'"
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF   = 'bbb';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0
+SET @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF = @start_global_value;
+SELECT @@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+@@global.ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF
+0

@@ -24,6 +24,7 @@
 #include <vector>
 
 /* MyRocks header files */
+#include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
 
@@ -580,6 +581,20 @@ void Rdb_tbl_card_coll::SetCardinality(Rdb_index_stats *stats) {
     stats->m_distinct_keys_per_prefix[i] +=
         stats->m_distinct_keys_per_prefix[i - 1];
   }
+}
+
+rocksdb::TablePropertiesCollector *
+Rdb_tbl_prop_coll_factory::CreateTablePropertiesCollector(
+    rocksdb::TablePropertiesCollectorFactory::Context context) {
+  if (m_skip_system_cf) {
+    auto cf_name = m_cf_manager->get_cf(context.column_family_id);
+    if (cf_name->GetName() == DEFAULT_SYSTEM_CF_NAME) {
+      return nullptr;
+    }
+  }
+  return new Rdb_tbl_prop_coll(m_ddl_manager, m_params,
+                               context.column_family_id,
+                               m_table_stats_sampling_pct);
 }
 
 }  // namespace myrocks

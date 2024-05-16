@@ -1077,6 +1077,7 @@ rocksdb_table_stats_max_num_rows_scanned	0
 rocksdb_table_stats_recalc_threshold_count	100
 rocksdb_table_stats_recalc_threshold_pct	10
 rocksdb_table_stats_sampling_pct	10
+rocksdb_table_stats_skip_system_cf	OFF
 rocksdb_table_stats_use_table_scan	OFF
 rocksdb_tmpdir	
 rocksdb_trace_block_cache_access	

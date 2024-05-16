@@ -772,6 +772,26 @@ static void rocksdb_update_table_stats_use_table_scan(
     THD *const /* thd */, struct SYS_VAR *const /* var */, void *const var_ptr,
     const void *const save);
 
+static void rocksdb_update_table_stats_skip_system_cf(
+    THD *const /* thd */, struct SYS_VAR *const /* var */, void *const var_ptr,
+    const void *const save) {
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+  bool old_val = *static_cast<const bool *>(var_ptr);
+  bool new_val = *static_cast<const bool *>(save);
+
+  if (old_val == new_val) {
+    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+    return;
+  }
+
+  if (properties_collector_factory) {
+    properties_collector_factory->SetSkipSystemCF(new_val);
+  }
+
+  *static_cast<bool *>(var_ptr) = new_val;
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
 static int rocksdb_index_stats_thread_renice(
     THD *const /* thd */, struct SYS_VAR *const /* var */, void *const save,
     struct st_mysql_value *const value);
@@ -927,6 +947,7 @@ static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
 static unsigned long long rocksdb_table_stats_recalc_threshold_count = 100ul;
 static bool rocksdb_table_stats_use_table_scan = 0;
+static bool rocksdb_table_stats_skip_system_cf = false;
 static char *opt_rocksdb_fault_injection_options = nullptr;
 static int32_t rocksdb_table_stats_background_thread_nice_value =
     THREAD_PRIO_MAX;
@@ -2818,6 +2839,13 @@ static MYSQL_SYSVAR_BOOL(table_stats_use_table_scan,
                          rocksdb_update_table_stats_use_table_scan,
                          rocksdb_table_stats_use_table_scan);
 
+static MYSQL_SYSVAR_BOOL(table_stats_skip_system_cf,
+                         rocksdb_table_stats_skip_system_cf,
+                         PLUGIN_VAR_RQCMDARG,
+                         "skip recording table stats for system column family",
+                         nullptr, rocksdb_update_table_stats_skip_system_cf,
+                         rocksdb_table_stats_skip_system_cf);
+
 static MYSQL_SYSVAR_BOOL(
     allow_to_start_after_corruption, rocksdb_allow_to_start_after_corruption,
     PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
@@ -3282,6 +3310,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(table_stats_recalc_threshold_count),
     MYSQL_SYSVAR(table_stats_max_num_rows_scanned),
     MYSQL_SYSVAR(table_stats_use_table_scan),
+    MYSQL_SYSVAR(table_stats_skip_system_cf),
     MYSQL_SYSVAR(table_stats_background_thread_nice_value),
 
     MYSQL_SYSVAR(allow_to_start_after_corruption),
@@ -8242,7 +8271,7 @@ static int rocksdb_init_internal(void *const p) {
 
   if (rocksdb_collect_sst_properties) {
     properties_collector_factory =
-        std::make_shared<Rdb_tbl_prop_coll_factory>(&ddl_manager);
+        std::make_shared<Rdb_tbl_prop_coll_factory>(&ddl_manager, &cf_manager);
 
     rocksdb_set_compaction_options(nullptr, nullptr, nullptr, nullptr);
 
@@ -8251,6 +8280,8 @@ static int rocksdb_init_internal(void *const p) {
     assert(rocksdb_table_stats_sampling_pct <= RDB_TBL_STATS_SAMPLE_PCT_MAX);
     properties_collector_factory->SetTableStatsSamplingPct(
         rocksdb_table_stats_sampling_pct);
+    properties_collector_factory->SetSkipSystemCF(
+        rocksdb_table_stats_skip_system_cf);
 
     RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
   }

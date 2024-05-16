@@ -28,6 +28,7 @@
 
 namespace myrocks {
 
+class Rdb_cf_manager;
 class Rdb_ddl_manager;
 class Rdb_key_def;
 
@@ -208,19 +209,15 @@ class Rdb_tbl_prop_coll_factory
   Rdb_tbl_prop_coll_factory &operator=(const Rdb_tbl_prop_coll_factory &) =
       delete;
 
-  explicit Rdb_tbl_prop_coll_factory(Rdb_ddl_manager *ddl_manager)
-      : m_ddl_manager(ddl_manager) {}
+  explicit Rdb_tbl_prop_coll_factory(Rdb_ddl_manager *ddl_manager,
+                                     Rdb_cf_manager *cf_manager)
+      : m_ddl_manager(ddl_manager), m_cf_manager(cf_manager) {}
 
   /*
     Override parent class's virtual methods of interest.
   */
-
   virtual rocksdb::TablePropertiesCollector *CreateTablePropertiesCollector(
-      rocksdb::TablePropertiesCollectorFactory::Context context) override {
-    return new Rdb_tbl_prop_coll(m_ddl_manager, m_params,
-                                 context.column_family_id,
-                                 m_table_stats_sampling_pct);
-  }
+      rocksdb::TablePropertiesCollectorFactory::Context context) override;
 
   virtual const char *Name() const override {
     return "Rdb_tbl_prop_coll_factory";
@@ -235,8 +232,14 @@ class Rdb_tbl_prop_coll_factory
     m_table_stats_sampling_pct = table_stats_sampling_pct;
   }
 
+  void SetSkipSystemCF(const bool skip_system_cf) {
+    m_skip_system_cf = skip_system_cf;
+  }
+
  private:
   Rdb_ddl_manager *const m_ddl_manager;
+  Rdb_cf_manager *const m_cf_manager;
+  bool m_skip_system_cf = false;
   Rdb_compact_params m_params;
   uint8_t m_table_stats_sampling_pct;
 };

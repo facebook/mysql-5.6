@@ -1,5 +1,4 @@
-select case when @@default_dd_system_storage_engine = "RocksDB" then 20 else 0 end into @delta;
-set global rocksdb_compact_cf='__system__';
+set global rocksdb_table_stats_skip_system_cf=true;
 CREATE TABLE t1 (id INT, value int, PRIMARY KEY (id), INDEX (value)) ENGINE=RocksDB;
 INSERT INTO t1 VALUES (1,1);
 select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
@@ -13,7 +12,6 @@ true
 select case when variable_value-@d < 10 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
 case when variable_value-@d < 10 then 'true' else 'false' end
 true
-set global rocksdb_compact_cf='__system__';
 CREATE TABLE t2 (id INT, value int, PRIMARY KEY (id), INDEX (value)) ENGINE=RocksDB;
 INSERT INTO t2 VALUES (1,1);
 select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
@@ -27,7 +25,6 @@ true
 select case when variable_value-@d > 9000 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
 case when variable_value-@d > 9000 then 'true' else 'false' end
 true
-set global rocksdb_compact_cf='__system__';
 CREATE TABLE t3 (id INT, value int, PRIMARY KEY (id)) ENGINE=RocksDB;
 INSERT INTO t3 VALUES (1,1);
 select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
@@ -41,7 +38,6 @@ true
 select case when variable_value-@d > 9000 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
 case when variable_value-@d > 9000 then 'true' else 'false' end
 true
-set global rocksdb_compact_cf='__system__';
 CREATE TABLE t4 (id INT, PRIMARY KEY (id)) ENGINE=RocksDB;
 INSERT INTO t4 VALUES (1);
 select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
@@ -52,10 +48,9 @@ test.t4	optimize	status	OK
 select case when variable_value-@s > 5 and variable_value-@s < 100 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
 case when variable_value-@s > 5 and variable_value-@s < 100 then 'true' else 'false' end
 true
-select case when variable_value-@d < (10 + @delta) then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
-case when variable_value-@d < (10 + @delta) then 'true' else 'false' end
+select case when variable_value-@d < 10 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
+case when variable_value-@d < 10 then 'true' else 'false' end
 true
-set global rocksdb_compact_cf='__system__';
 CREATE TABLE t5 (id1 INT, id2 INT, PRIMARY KEY (id1, id2), INDEX(id2)) ENGINE=RocksDB;
 INSERT INTO t5 VALUES (1, 1);
 select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
@@ -66,10 +61,9 @@ test.t5	optimize	status	OK
 select case when variable_value-@s > 5 and variable_value-@s < 100 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
 case when variable_value-@s > 5 and variable_value-@s < 100 then 'true' else 'false' end
 true
-select case when variable_value-@d < (10 + @delta) then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
-case when variable_value-@d < (10 + @delta) then 'true' else 'false' end
+select case when variable_value-@d < 10 then 'true' else 'false' end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_delete';
+case when variable_value-@d < 10 then 'true' else 'false' end
 true
-set global rocksdb_compact_cf='__system__';
 CREATE TABLE t6 (
 pk VARCHAR(64) COLLATE latin1_swedish_ci PRIMARY KEY
 ) ENGINE=RocksDB;
@@ -91,3 +85,4 @@ SELECT should return nothing;
 SELECT * FROM t6;
 pk
 DROP TABLE t1, t2, t3, t4, t5, t6;
+set global rocksdb_table_stats_skip_system_cf=default;

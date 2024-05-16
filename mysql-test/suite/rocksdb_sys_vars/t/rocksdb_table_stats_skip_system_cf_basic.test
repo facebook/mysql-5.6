@@ -1,0 +1,9 @@
+source include/have_rocksdb.inc;
+
+source ../include/init_boolean_var.inc;
+let $sys_var=ROCKSDB_TABLE_STATS_SKIP_SYSTEM_CF;
+let $read_only=0;
+let $session=0;
+source ../include/rocksdb_sys_var.inc;
+
+source ../include/cleanup_boolean_var.inc;

@@ -2555,6 +2555,8 @@ The following options may be given as the first argument:
  statistics about table properties. Specify either 0 to
  sample everything or percentage [1..100]. By default 10%
  of entries are sampled.
+ --rocksdb-table-stats-skip-system-cf 
+ skip recording table stats for system column family
  --rocksdb-table-stats-use-table-scan 
  Enable table scan based index calculation.
  --rocksdb-tmpdir[=name] 
@@ -4006,6 +4008,7 @@ rocksdb-table-stats-max-num-rows-scanned 0
 rocksdb-table-stats-recalc-threshold-count 100
 rocksdb-table-stats-recalc-threshold-pct 10
 rocksdb-table-stats-sampling-pct 10
+rocksdb-table-stats-skip-system-cf FALSE
 rocksdb-table-stats-use-table-scan FALSE
 rocksdb-tmpdir 
 rocksdb-trace-block-cache-access 
