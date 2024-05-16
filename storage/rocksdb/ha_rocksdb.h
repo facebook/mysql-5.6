@@ -39,6 +39,7 @@
 
 /* RocksDB header files */
 #include "rocksdb/merge_operator.h"
+#include "rocksdb/utilities/transaction.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 
 /* MyRocks header files */
@@ -60,6 +61,18 @@
   refinements (@see /storage/rocksdb/README file).
 */
 
+// Forward declarations
+
+#ifdef ROCKSDB_CUSTOM_NAMESPACE
+namespace ROCKSDB_CUSTOM_NAMESPACE {
+#else
+namespace rocksdb {
+#endif
+
+class RangeLockManagerHandle;
+
+}  // namespace ROCKSDB_CUSTOM_NAMESPACE / rocksdb
+
 namespace myrocks {
 
 class Rdb_converter;
@@ -78,6 +91,9 @@ extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
 extern Regex_list_handler rdb_read_free_regex_handler;
 static bool rocksdb_column_default_value_as_expression = true;
+
+extern bool rocksdb_use_range_locking;
+
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -282,6 +298,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   /* Type of locking to apply to rows */
   Rdb_lock_type m_lock_rows;
 
+  bool m_use_range_locking{false};
+
   thr_locked_row_action m_locked_row_action;
 
   /* true means we're doing an index-only read. false means otherwise. */
@@ -365,6 +383,12 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                                  const rocksdb::Slice &key) const;
 
   int fill_virtual_columns();
+
+  [[nodiscard]] int set_range_lock(Rdb_transaction &tx, const Rdb_key_def &kd,
+                                   enum ha_rkey_function find_flag,
+                                   rocksdb::Slice slice_arg,
+                                   rocksdb::Slice end_slice_arg,
+                                   const key_range *const end_key);
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
                        const uint rowid_size, bool *skip_row = nullptr,
@@ -844,6 +868,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   [[nodiscard]] int check_and_lock_sk(const uint key_id,
                                       const struct update_row_info &row_info,
                                       bool *const found);
+  [[nodiscard]] int check_and_lock_non_unique_sk(
+      const Rdb_key_def &kd, const update_row_info &row_info);
   [[nodiscard]] int check_uniqueness_and_lock(
       const struct update_row_info &row_info, bool pk_changed);
   bool over_bulk_load_threshold(int *err)
@@ -1213,11 +1239,12 @@ void remove_tmp_table_handler(THD *const thd, ha_rocksdb *rocksdb_handler);
 const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
 
 [[nodiscard]] std::unique_ptr<rocksdb::Iterator> rdb_tx_get_iterator(
-    THD *thd, rocksdb::ColumnFamilyHandle &cf, bool skip_bloom_filter,
-    const rocksdb::Slice &eq_cond_lower_bound,
+    THD *thd, rocksdb::ColumnFamilyHandle &cf, const Rdb_key_def &kd,
+    bool skip_bloom_filter, const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
     const rocksdb::Snapshot **snapshot, TABLE_TYPE table_type,
-    bool read_current = false, bool create_snapshot = true);
+    bool read_current = false, bool create_snapshot = true,
+    bool use_locking_iter = false);
 
 [[nodiscard]] rocksdb::Status rdb_tx_get(
     Rdb_transaction *tx, rocksdb::ColumnFamilyHandle &column_family,
@@ -1230,6 +1257,10 @@ rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
                                       rocksdb::PinnableSlice *const value,
                                       TABLE_TYPE table_type, bool exclusive,
                                       bool skip_wait);
+
+[[nodiscard]] rocksdb::Status rdb_tx_lock_range(
+    Rdb_transaction &tx, const Rdb_key_def &kd,
+    const rocksdb::Endpoint &start_key, const rocksdb::Endpoint &end_key);
 
 void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force);
@@ -1311,6 +1342,8 @@ extern uint rocksdb_clone_checkpoint_max_age;
 extern uint rocksdb_clone_checkpoint_max_count;
 
 extern unsigned long long rocksdb_converter_record_cached_length;
+
+extern std::shared_ptr<rocksdb::RangeLockManagerHandle> range_lock_mgr;
 
 [[nodiscard]] inline bool is_wal_dir_separate() noexcept {
   return rocksdb_wal_dir && *rocksdb_wal_dir &&

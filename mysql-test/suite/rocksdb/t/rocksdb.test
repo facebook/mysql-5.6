@@ -3,6 +3,9 @@
 --source include/have_compact_range_for_drop_table.inc
 --source include/count_sessions.inc
 
+# Does SHOW WARNINGS and SHOW STATUS which change in Range Locking mode
+--source suite/rocksdb/include/not_range_locking.inc
+
 #
 # RocksDB Storage Engine tests
 #

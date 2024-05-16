@@ -77,7 +77,7 @@ class Rdb_iterator {
   virtual int prev() = 0;
   virtual rocksdb::Slice key() = 0;
   virtual rocksdb::Slice value() = 0;
-  virtual void reset() = 0;
+  virtual void reset(bool become_locking = false) = 0;
   virtual bool is_valid() = 0;
 };
 
@@ -127,9 +127,12 @@ class Rdb_iterator_base : public Rdb_iterator {
 
   rocksdb::Slice value() override { return m_scan_it->value(); }
 
-  void reset() override {
+  void reset(bool become_locking = false) override {
+    assert(!become_locking || m_table_type == TABLE_TYPE::USER_TABLE);
+
     release_scan_iterator();
     m_valid = false;
+    m_scan_it_is_locking = become_locking;
   }
 
   bool is_valid() override { return m_valid; }
@@ -155,6 +158,8 @@ class Rdb_iterator_base : public Rdb_iterator {
   /* Iterator used for range scans and for full table/index scans */
   std::unique_ptr<rocksdb::Iterator> m_scan_it;
 
+  bool m_scan_it_is_locking{false};
+
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
@@ -179,6 +184,11 @@ class Rdb_iterator_base : public Rdb_iterator {
   Rdb_iterator_base &operator=(Rdb_iterator_base &&) = delete;
 };
 
+/*
+  Iterator for reading partial secondary indexes
+
+  It can do locking reads, see locking_iterator_partial_index.txt for details.
+*/
 class Rdb_iterator_partial : public Rdb_iterator_base {
  private:
   TABLE *m_table;
@@ -266,7 +276,7 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
   int prev() override;
   rocksdb::Slice key() override;
   rocksdb::Slice value() override;
-  void reset() override;
+  void reset(bool become_locking = false) override;
   bool is_valid() override {
     // This function only used for intrinsic temp tables.
     assert(false);

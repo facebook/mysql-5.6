@@ -2182,6 +2182,60 @@ static ST_FIELD_INFO rdb_i_s_lock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("MODE", 32, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
 
+// Dump the locked key (or range) into a string.
+template <typename LockInfo>
+std::string dump_key(const LockInfo &info);
+
+// Specialization for point lock manager.
+template <>
+std::string dump_key<rocksdb::KeyLockInfo>(const rocksdb::KeyLockInfo &info) {
+  return rdb_hexdump(info.key.c_str(), info.key.length());
+}
+
+// Specialization for Range Lock manager.
+template <>
+std::string dump_key<rocksdb::RangeLockInfo>(
+    const rocksdb::RangeLockInfo &info) {
+  return rdb_hexdump_range(info.start, info.end);
+}
+
+//
+// A template that walks the Lock info data structure and dumps its contents.
+//
+template <typename LockInfo>
+int dump_locks(my_core::THD *thd, my_core::TABLE *table,
+               const LockInfo &lock_info) {
+  for (const auto &lock : lock_info) {
+    const auto cf_id = lock.first;
+    const auto &one_lock_info = lock.second;
+    const auto key_hexstr = dump_key(one_lock_info);
+
+    for (const auto &id : one_lock_info.ids) {
+      table->field[RDB_LOCKS_FIELD::COLUMN_FAMILY_ID]->store(cf_id, true);
+      table->field[RDB_LOCKS_FIELD::TRANSACTION_ID]->store(id, true);
+
+      table->field[RDB_LOCKS_FIELD::KEY]->store(
+          key_hexstr.data(),
+          // If the key range is too long, truncation will happen here instead
+          // of stopping the dump in rdb_hexdump_range / rdb_hexdump. Do that
+          // there if that becomes a problem.
+          std::min<std::size_t>(key_hexstr.size(), FN_REFLEN),
+          system_charset_info);
+      table->field[RDB_LOCKS_FIELD::MODE]->store(
+          one_lock_info.exclusive ? "X" : "S", 1, system_charset_info);
+
+      /* Tell MySQL about this row in the virtual table */
+      const auto ret =
+          static_cast<int>(my_core::schema_table_store_record(thd, table));
+
+      if (ret != 0) {
+        return ret;
+      }
+    }
+  }
+  return 0;
+}
+
 /* Fill the information_schema.rocksdb_locks virtual table */
 static int rdb_i_s_lock_info_fill_table(
     my_core::THD *const thd, my_core::Table_ref *const tables,
@@ -2201,36 +2255,13 @@ static int rdb_i_s_lock_info_fill_table(
     DBUG_RETURN(ret);
   }
 
-  /* cf id -> rocksdb::KeyLockInfo */
-  std::unordered_multimap<uint32_t, rocksdb::KeyLockInfo> lock_info =
-      rdb->GetLockStatusData();
-
-  for (const auto &lock : lock_info) {
-    const uint32_t cf_id = lock.first;
-    const auto &key_lock_info = lock.second;
-    const auto key_hexstr =
-        rdb_hexdump(key_lock_info.key.data(), key_lock_info.key.length());
-
-    for (const auto &id : key_lock_info.ids) {
-      tables->table->field[RDB_LOCKS_FIELD::COLUMN_FAMILY_ID]->store(cf_id,
-                                                                     true);
-      tables->table->field[RDB_LOCKS_FIELD::TRANSACTION_ID]->store(id, true);
-
-      tables->table->field[RDB_LOCKS_FIELD::KEY]->store(
-          key_hexstr.c_str(), key_hexstr.size(), system_charset_info);
-      tables->table->field[RDB_LOCKS_FIELD::MODE]->store(
-          key_lock_info.exclusive ? "X" : "S", 1, system_charset_info);
-
-      /* Tell MySQL about this row in the virtual table */
-      ret = static_cast<int>(
-          my_core::schema_table_store_record(thd, tables->table));
-
-      if (ret != 0) {
-        break;
-      }
-    }
+  if (range_lock_mgr) {
+    const auto lock_info = range_lock_mgr->GetRangeLockStatusData();
+    ret = dump_locks(thd, tables->table, lock_info);
+  } else {
+    const auto lock_info = rdb->GetLockStatusData();
+    ret = dump_locks(thd, tables->table, lock_info);
   }
-
   DBUG_RETURN(ret);
 }
 

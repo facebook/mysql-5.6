@@ -52,9 +52,23 @@ SET lock_wait_timeout = 1;
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk);
 # ... but not with LOCK IN SHARE MODE / FOR UPDATE
 
+let $uses_range_locking=`select @@rocksdb_use_range_locking`;
+
+if ($uses_range_locking == "0") {
+--replace_regex /test.t1.PRIMARY/$FAILING_INDEX/
+} 
+if ($uses_range_locking == "1") {
+--replace_regex /test.t1.sk/$FAILING_INDEX/
+}
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk) LOCK IN SHARE MODE;
 
+if ($uses_range_locking == "0") {
+--replace_regex /test.t1.PRIMARY/$FAILING_INDEX/
+} 
+if ($uses_range_locking == "1") {
+--replace_regex /test.t1.sk/$FAILING_INDEX/
+}
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT COUNT(*) FROM t1 FORCE INDEX (sk) FOR UPDATE;
 

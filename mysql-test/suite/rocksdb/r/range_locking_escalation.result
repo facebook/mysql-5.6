@@ -1,0 +1,27 @@
+show variables like 'rocksdb_use_range_locking';
+Variable_name	Value
+rocksdb_use_range_locking	ON
+show variables like 'rocksdb_max_lock_memory';
+Variable_name	Value
+rocksdb_max_lock_memory	1024
+show status like 'rocksdb_locktree_escalation_count';
+Variable_name	Value
+rocksdb_locktree_escalation_count	0
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int primary key,
+a int
+) engine=rocksdb;
+insert into t1 
+select 
+A.a + B.a*10 + C.a*100 + D.a*1000,
+12345
+from t0 A, t0 B, t0 C, t0 D;
+select count(*) from t1;
+count(*)
+10000
+show status like 'rocksdb_locktree_escalation_count';
+Variable_name	Value
+rocksdb_locktree_escalation_count	127
+drop table t0,t1;

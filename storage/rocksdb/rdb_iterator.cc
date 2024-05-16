@@ -199,9 +199,9 @@ void Rdb_iterator_base::setup_scan_iterator(
     */
   if (!m_scan_it) {
     m_scan_it = rdb_tx_get_iterator(
-        m_thd, m_kd.get_cf(), skip_bloom, m_scan_it_lower_bound_slice,
+        m_thd, m_kd.get_cf(), m_kd, skip_bloom, m_scan_it_lower_bound_slice,
         m_scan_it_upper_bound_slice, &m_scan_it_snapshot, m_table_type,
-        read_current, !read_current);
+        read_current, !read_current, m_scan_it_is_locking);
     m_scan_it_skips_bloom = skip_bloom;
   }
 }
@@ -712,6 +712,8 @@ int Rdb_iterator_partial::seek_next_prefix(bool direction) {
  * group.
  */
 int Rdb_iterator_partial::materialize_prefix() {
+  assert(m_table_type == TABLE_TYPE::USER_TABLE);
+
   uint tmp;
   int rc = HA_EXIT_SUCCESS;
   Rdb_transaction *const tx = get_tx_from_thd(m_thd);
@@ -724,9 +726,17 @@ int Rdb_iterator_partial::materialize_prefix() {
 
   // It is possible that someone else has already materialized this group
   // before we locked. Double check by doing a locking read on the sentinel.
-  rocksdb::PinnableSlice value;
-  auto s = rdb_tx_get_for_update(tx, m_kd, cur_prefix_key, &value, m_table_type,
-                                 true, false);
+  rocksdb::Status s;
+  if (rocksdb_use_range_locking) {
+    rocksdb::Endpoint start_endp(cur_prefix_key, false);
+    rocksdb::Endpoint end_endp(cur_prefix_key, true);
+    s = rdb_tx_lock_range(*tx, m_kd, start_endp, end_endp);
+  } else {
+    rocksdb::PinnableSlice value;
+    s = rdb_tx_get_for_update(tx, m_kd, cur_prefix_key, &value, m_table_type,
+                              true, false);
+  }
+
   if (s.ok()) {
     rdb_tx_release_lock(tx, m_kd, cur_prefix_key, true /* force */);
     thd_proc_info(m_thd, old_proc_info);
@@ -929,7 +939,7 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  reset();
+  reset(m_scan_it_is_locking);
   Rdb_iterator_base::setup_prefix_buffer(find_flag, start_key);
 
   bool direction = (find_flag == HA_READ_KEY_EXACT) ||
@@ -947,6 +957,15 @@ int Rdb_iterator_partial::seek(enum ha_rkey_function find_flag,
   m_kd.get_infimum_key(m_cur_prefix_key, &tmp);
 
   rocksdb::PinnableSlice value;
+  //
+  // Range Locking note: When using a locking iterator (i.e.
+  // m_iter_should_use_locking=true), this will read (and lock)
+  // and the value space up to the next prefix.
+  // If the next prefix is not materialized, it will lock the whole
+  // prefix in the secondary key. It will not lock more than that,
+  // because the iterator use the iterator bounds to limit the scan
+  // to the prefix specified.
+  //
   rc = Rdb_iterator_base::get(&cur_prefix_key, &value, RDB_LOCK_NONE,
                               true /* skip ttl check*/);
 
@@ -1179,14 +1198,14 @@ int Rdb_iterator_partial::prev() {
   return rc;
 }
 
-void Rdb_iterator_partial::reset() {
+void Rdb_iterator_partial::reset(bool become_locking) {
   m_partial_valid = false;
   m_materialized = false;
   m_mem_root.ClearForReuse();
   m_iterator_pk_position = Iterator_position::UNKNOWN;
   m_records.clear();
   m_iterator_pk.reset();
-  Rdb_iterator_base::reset();
+  Rdb_iterator_base::reset(become_locking);
 }
 
 rocksdb::Slice Rdb_iterator_partial::key() {

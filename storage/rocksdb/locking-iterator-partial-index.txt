@@ -1,0 +1,120 @@
+
+This document describes how Locking Reads are implemented with partial index
+iterator (Rdb_iterator_partial)
+
+== Closed ranges ==
+ha_rocksdb will make the lock_range() call before making any reads.
+
+We just need to make sure that after that, the iterator reads the latest
+committed data (not the data from the read snapshot).
+
+== Open ranges and LockingIterator ==
+
+With Open Ranges, regular indexes use LockingIterator.
+
+How does one make Rdb_iterator_partial use the LockingIterator?
+
+=== Background info: Rdb_iterator_Partial ===
+
+Partial iterator is used for partial secondary keys.
+
+PK and SK share the same key prefix (see 'partial_group_keyparts=N' parameter).
+
+For a given value of key prefix:
+
+* if the number of rows exceeds 'partial_group_threshold' parameter, one reads
+  the secondary index, as usual (the SK is "materialized" for this prefix)
+
+* if the number of rows is less than 'partial_group_threshold', then the SK is
+  "not materialized" and has no rows for the prefix. The rows are obtained by
+  reading the records using PK, buffering+sorting them in memory, and then
+  returning them.
+
+* Switching from non-materialized to materialized is done "lazily" on-read.
+  The write locks the group prefix in SK (see
+   Rdb_iterator_partial::materialize_prefix())
+
+* Update/Delete operations also lock the group prefix in SK (see
+  ha_rocksdb::acquire_prefix_lock)
+
+* De-materialization is currently not performed.
+
+=== Regular reads with Rdb_iterator_partial ===
+
+Regular (that is, non locking) reads are done as follows:
+
+Step #1: first, we need to figure out the key prefix we're going to read.
+There are two possibilities:
+
+A. It can be inferred from the lookup key value.
+B. It cannot be inferred (e.g. we scan from the start of the table).
+   In this case, we read from the PK to find out the first key prefix.
+
+See Rdb_iterator_partial::get_prefix_from_start().
+
+Step #2 is to read rows within this prefix.
+
+We first try to read through the SK. If it has a row within the prefix, it
+means this prefix is materialized and we continue to read from the SK within
+the bounds of the key prefix.
+
+If the SK has no data we read all rows through the PK, buffer, sort them, and
+return. (See Rdb_iterator_partial::read_prefix_from_pk())
+
+Step #3:
+When we have exhausted rows in this key prefix, we check if we need to continue
+the scan.
+If we do, we take the current prefix value and try to get the next row after
+it using the approach in Step #1. See Rdb_iterator_partial::get_next_prefix().
+
+=== Locking Reads with Rdb_iterator_partial ===
+
+This section describes how one can perform locking reads for Steps 1-3 from the
+previous section.
+
+Step #1:
+for Case A, there's no need to lock anything.
+
+for case B, we need to lock the range from the lookup key to the start of
+the first key prefix. This can be achieved by making m_iterator_pk use
+a LockingIterator.
+
+(PK iterator uses a prefix of the lookup key, so we may end up with a
+coarser-grained lock, but this is still correct).
+
+Step #2:
+
+Quoting the previous section:
+
+> We first try to read through the SK.
+> If it has a row within the prefix, it means this prefix is materialized and we
+> continue to read from the SK within the bounds of the key prefix.
+
+If we use a LockingIterator for scanning the SK, we are doing a locking read
+and have achieved our goal.
+
+> If the SK has no data we read all rows through the PK
+
+Suppose we use a LockingIterator to try read through the SK. The read is done
+with this call in Rdb_iterator_partial::seek_next_prefix:
+
+  rc = Rdb_iterator_base::seek(
+      direction ? HA_READ_KEY_EXACT : HA_READ_PREFIX_LAST, cur_prefix_key,
+      false, empty_end_key);
+
+If the SK has no data for the cur_prefix_key, the LockingIterator will lock the
+range before returning from this call.
+Note that it will lock just this key prefix: this is achieved by use of iterator
+bounds.
+
+If there is a Materialization operation in progress, the locking read will
+eventually come into conflict with it. To avoid hitting the conflict at the
+end, Rdb_iterator_partial::materialize_prefix() is made to acquire a lock
+on the whole prefix when Range Locking is used.
+
+Step #3: The same approach as in step #1. If we use LockingIterator for the PK
+it will correctly lock the gap between the prefixes (or just the gap after the
+last prefix if there are no further prefixes).
+
+This way, one can provide LockingIterator semantics with Rdb_iterator_partial.
+
