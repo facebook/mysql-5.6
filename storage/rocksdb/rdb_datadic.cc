@@ -4646,7 +4646,7 @@ bool Rdb_ddl_manager::validate_auto_incr() {
   return true;
 }
 
-bool Rdb_ddl_manager::populate(uint32_t validate_tables) {
+bool Rdb_ddl_manager::populate(uint32_t validate_tables, bool lock) {
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[Rdb_key_def::INDEX_NUMBER_SIZE];
   rdb_netbuf_store_index(ddl_entry, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
@@ -4794,7 +4794,7 @@ bool Rdb_ddl_manager::populate(uint32_t validate_tables) {
         tdef->m_key_count > 0 ? tdef->m_key_descr_arr[0]->m_stats.m_rows : 0, 0,
         0);
 
-    put(tdef);
+    put(tdef, lock);
     i++;
   }
 
@@ -5229,11 +5229,17 @@ bool Rdb_ddl_manager::rename(const std::string &from, const std::string &to,
 }
 
 void Rdb_ddl_manager::reset_map() {
-  cleanup();
-  populate(0);
+  assert(initialized);
+  mysql_rwlock_wrlock(&m_rwlock);
+
+  cleanup(/*destroy_rwlock*/ false);
+  populate(0, /* lock */ false);
+
+  mysql_rwlock_unlock(&m_rwlock);
 }
 
-void Rdb_ddl_manager::cleanup() {
+// during shutdown, it will destroy rwlock
+void Rdb_ddl_manager::cleanup(bool destroy_rwlock) {
   if (!initialized) return;
 
   for (const auto &kv : m_ddl_map) {
@@ -5241,7 +5247,9 @@ void Rdb_ddl_manager::cleanup() {
   }
   m_ddl_map.clear();
 
-  mysql_rwlock_destroy(&m_rwlock);
+  if (destroy_rwlock) {
+    mysql_rwlock_destroy(&m_rwlock);
+  }
   m_dd_table_sequence.cleanup();
   m_user_table_sequence.cleanup();
   m_tmp_table_sequence.cleanup();

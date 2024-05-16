@@ -1464,9 +1464,10 @@ class Rdb_ddl_manager : public Ensure_initialized {
   bool init(Rdb_dict_manager_selector *const dict_arg,
             Rdb_cf_manager *const cf_manager, const uint32_t validate_tables);
 
+  /* reset during ddse upgrade */
   void reset_map();
 
-  void cleanup();
+  void cleanup(bool destroy_rwlock = true);
 
   Rdb_tbl_def *find(const std::string &table_name, const bool lock = true);
   int find_indexes(const std::string &table_name,
@@ -1507,7 +1508,7 @@ class Rdb_ddl_manager : public Ensure_initialized {
   int find_in_uncommitted_keydef(const uint32_t cf_id);
 
  private:
-  bool populate(uint32_t validate_tables);
+  bool populate(uint32_t validate_tables, bool lock = true);
 
   /* Put the data into in-memory table (only) */
   int put(Rdb_tbl_def *const key_descr, const bool lock = true);
