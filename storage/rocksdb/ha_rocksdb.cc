@@ -3692,7 +3692,6 @@ class Rdb_transaction {
   my_off_t m_mysql_log_offset;
   const char *m_mysql_max_gtid;
   String m_detailed_error;
-  int64_t m_snapshot_timestamp = 0;
   std::shared_ptr<Rdb_explicit_snapshot> m_explicit_snapshot;
   bool should_refresh_iterator_after_first_write = false;
 
@@ -3992,15 +3991,6 @@ class Rdb_transaction {
 
     m_read_opts[USER_TABLE].snapshot = snapshot;
 
-    // TODO: Use snapshot timestamp from rocksdb Snapshot object itself. This
-    // saves the extra call to fetch current time, and allows TTL compaction
-    // (which uses rocksdb timestamp) to be consistent with TTL read filtering
-    // (which uses this timestamp).
-    //
-    // There is no correctness problem though since m_snapshot_timestamp is
-    // generally set after the snapshot has been created, so compaction is
-    // not dropping anything that should have been visible.
-    rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
     m_is_delayed_snapshot = false;
   }
 
@@ -4832,7 +4822,8 @@ class Rdb_transaction {
 
   uint64_t get_or_create_ttl_read_filtering_ts() {
     if (!rdb_is_binlog_ttl_enabled()) {
-      return static_cast<uint64_t>(m_snapshot_timestamp);
+      return static_cast<uint64_t>(
+          m_read_opts[USER_TABLE].snapshot->GetUnixTime());
     }
     if (m_binlog_ttl_read_filtering_ts.load()) {
       return m_binlog_ttl_read_filtering_ts;
@@ -4852,7 +4843,8 @@ class Rdb_transaction {
 
   uint64_t get_ttl_read_filtering_ts() const {
     if (!rdb_is_binlog_ttl_enabled()) {
-      return static_cast<uint64_t>(m_snapshot_timestamp);
+      return static_cast<uint64_t>(
+          m_read_opts[USER_TABLE].snapshot->GetUnixTime());
     }
     return m_binlog_ttl_read_filtering_ts.load();
   }
@@ -5215,7 +5207,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     bool need_clear = m_is_delayed_snapshot;
 
     if (m_read_opts[table_type].snapshot != nullptr) {
-      m_snapshot_timestamp = 0;
       if (m_explicit_snapshot) {
         m_explicit_snapshot.reset();
         need_clear = false;
@@ -5521,12 +5512,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
       const rocksdb::Snapshot *const cur_snapshot =
           m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetSnapshot();
       if (org_snapshot != cur_snapshot) {
-        if (org_snapshot != nullptr) m_snapshot_timestamp = 0;
-
         m_read_opts[TABLE_TYPE::USER_TABLE].snapshot = cur_snapshot;
-        if (cur_snapshot != nullptr) {
-          rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
-        } else {
+        if (cur_snapshot == nullptr) {
           m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetSnapshotOnNextOperation(
               m_notifier);
           m_is_delayed_snapshot = true;
@@ -6711,9 +6698,10 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
   void process_tran(const Rdb_transaction *const tx) override {
     assert(tx != nullptr);
 
-    /* Calculate the duration the snapshot has existed */
-    int64_t snapshot_timestamp = tx->m_snapshot_timestamp;
-    if (snapshot_timestamp != 0) {
+    const auto *const snapshot = tx->m_read_opts[USER_TABLE].snapshot;
+    if (snapshot != nullptr) {
+      /* Calculate the duration the snapshot has existed */
+      const auto snapshot_timestamp = snapshot->GetUnixTime();
       int64_t curr_time;
       rdb->GetEnv()->GetCurrentTime(&curr_time);
 
