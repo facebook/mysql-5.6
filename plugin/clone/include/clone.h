@@ -135,8 +135,11 @@ const uint32_t CLONE_PROTOCOL_VERSION_V2 = 0x0101;
 /** Send more configurations required by recipient. */
 const uint32_t CLONE_PROTOCOL_VERSION_V3 = 0x0102;
 
+/** Send GTID executed set after engine synchronization. */
+const uint32_t CLONE_PROTOCOL_VERSION_V4 = 0x0103;
+
 /**  Clone protocol latest version */
-const uint32_t CLONE_PROTOCOL_VERSION = CLONE_PROTOCOL_VERSION_V3;
+const uint32_t CLONE_PROTOCOL_VERSION = CLONE_PROTOCOL_VERSION_V4;
 
 /** Flag to indicate no backup lock for DDL. This is multiplexed with
 clone_ddl_timeout and sent to donor server. */
@@ -193,6 +196,10 @@ typedef enum Type_Command_Response : uchar {
 
   /** Additional configuration : introduced in version 0x0102 */
   COM_RES_CONFIG_V3,
+
+  /** GTID executed set after engine synchronization: introduced in version
+  0x0103 */
+  COM_RES_GTID_V4,
 
   /** End of response data */
   COM_RES_COMPLETE = 99,

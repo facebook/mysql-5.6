@@ -16,6 +16,7 @@
 
 #include "plugin/clone/include/clone_common.h"
 
+#include <filesystem>
 #include <string>
 #include <utility>
 
@@ -25,6 +26,7 @@
 #include "plugin/clone/include/clone_hton.h"
 #include "plugin/clone/include/clone_status.h"
 #include "sql-common/json_dom.h"
+#include "sql/binlog.h"
 #include "sql/handler.h"
 #include "sql/sql_plugin_ref.h"
 #include "storage/perfschema/table_log_status.h"
@@ -62,29 +64,10 @@ int Ha_clone_common_cbk::precopy(THD *thd, uint task_id) {
   return 0;
 }
 
-// Perform the cross-engine synchronization: execute a
-// performance_schema.log_status query, and call set_log_stop for each storage
-// engine with its part of STORAGE_ENGINES column JSON object from that query.
-// If InnoDB is present, this is called between SST COPY and REDO COPY clone
-// stages. When MyRocks is the sole storage engine, it should be called after
-// creating the final checkpoint.
-int Ha_clone_common_cbk::synchronize_engines() {
-  const auto &all_locators = get_all_locators();
-
-  std::unique_ptr<table_log_status> table{static_cast<table_log_status *>(
-      table_log_status::create(&table_log_status::m_share))};
-
-  auto err = table->rnd_init(true);
-  assert(err == 0);
-
-  err = table->rnd_next();
-  if (err != 0) return err;
-
-  auto &log_status_row = table->get_row();
-  const auto &se_positions = log_status_row.w_storage_engines;
-  assert(se_positions.is_dom());
-
-  const auto *const json_dom = se_positions.get_dom();
+const Json_object &Ha_clone_common_cbk::get_json_object(
+    std::string_view object_name, const Json_wrapper &json_wrapper) {
+  assert(json_wrapper.is_dom());
+  const auto *const json_dom = json_wrapper.get_dom();
   // get_dom above returns only a const pointer, correctly. Json_wrapper only
   // takes a non-const pointer. Let's trust it will not modify the passed value.
   const Json_wrapper json_for_str{const_cast<Json_dom *>(json_dom), true};
@@ -98,16 +81,121 @@ int Ha_clone_common_cbk::synchronize_engines() {
   // Size reverse-engineered from ER_CLONE_SERVER_TRACE used by log_error. No
   // way to track it automatically, but very unlikely it would silently shrink.
   char msg_buf[512];
-  snprintf(msg_buf, sizeof(msg_buf), "engine positions: %.*s",
+  snprintf(msg_buf, sizeof(msg_buf), "%.*s: %.*s",
+           static_cast<int>(object_name.size()), object_name.data(),
            static_cast<int>(json_str_buf.length()), json_str_buf.ptr());
   log_error(nullptr, false, 0, msg_buf);
 
   assert(json_dom->json_type() == enum_json_type::J_OBJECT);
+  return *static_cast<const Json_object *>(json_dom);
+}
+
+int Ha_clone_common_cbk::populate_synchronization_coordinates(
+    const Json_object &local_repl_info,
+    Key_Values &synchronization_coordinates) {
+  // get synchronization coordinates from log status
+  static const std::string gtid_executed_key_str = "gtid_executed";
+  const auto &gtid_executed_json = local_repl_info.get(gtid_executed_key_str);
+  assert(gtid_executed_json->json_type() == enum_json_type::J_STRING);
+  const auto &gtid_executed_str_json =
+      static_cast<const Json_string &>(*gtid_executed_json);
+  const auto &gtid_executed_str = gtid_executed_str_json.value();
+  synchronization_coordinates = {{"gtid_from_log_status", gtid_executed_str}};
+
+  static const std::string binary_log_file_key_str = "binary_log_file";
+  const auto &binary_log_file_json_ptr =
+      local_repl_info.get(binary_log_file_key_str);
+  if (binary_log_file_json_ptr == nullptr) {
+    // if there is no binlog file, don't populate
+    return 0;
+  }
+  const auto &binary_log_file_json = *binary_log_file_json_ptr;
+  assert(binary_log_file_json.json_type() == enum_json_type::J_STRING);
+  const auto &binary_log_file_str_json =
+      static_cast<const Json_string &>(binary_log_file_json);
+  const auto &binary_log_file_str = binary_log_file_str_json.value();
+  synchronization_coordinates.push_back(
+      {binary_log_file_key_str, binary_log_file_str});
+
+  static const std::string binary_log_position_key_str = "binary_log_position";
+  const auto &binary_log_position_json_ptr =
+      local_repl_info.get(binary_log_position_key_str);
+  if (binary_log_position_json_ptr == nullptr) {
+    // if there is no binlog offset, don't populate
+    return 0;
+  }
+  const auto &binary_log_position_json = *binary_log_position_json_ptr;
+  assert(binary_log_position_json.json_type() == enum_json_type::J_INT);
+  const auto &binary_log_position_int_json =
+      static_cast<const Json_int &>(binary_log_position_json);
+  const auto &binary_log_position_int = binary_log_position_int_json.value();
+  synchronization_coordinates.push_back(
+      {binary_log_position_key_str, std::to_string(binary_log_position_int)});
+
+  // get gtid from binlog file/pos
+  // based on https://bugs.mysql.com/bug.php?id=102175, gtid from binlog
+  // file/pos and log_status are not guaranteed to be in sync, so we get those
+  // two values and downstream can decide what to do with them
+  static const std::string gtid_from_binlog_file_offset_str =
+      "gtid_from_binlog_file_offset";
+  Sid_map sid_map(NULL);
+  Gtid_set gtid_executed(&sid_map);
+  char full_file_name[FN_REFLEN];
+  mysql_bin_log.make_log_name(full_file_name, binary_log_file_str.c_str());
+  // if the binlog has been purged, don't populate
+  std::filesystem::path file_path(full_file_name);
+  if (!std::filesystem::exists(file_path)) {
+    return 0;
+  }
+  char info_mesg[512];
+  snprintf(info_mesg, sizeof(info_mesg),
+           "Reading gtid from binlog %s offset %s", full_file_name,
+           std::to_string(binary_log_position_int).c_str());
+  log_error(nullptr, false, 0, info_mesg);
+  const auto ret = mysql_bin_log.read_gtids_from_binlog(
+      full_file_name, &gtid_executed, NULL, NULL, &sid_map, false, false,
+      binary_log_position_int);
+  if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
+    return ER_BINLOG_FILE_OPEN_FAILED;
+  } else {
+    char *gtid_from_binlog_file_offset;
+    gtid_executed.to_string(&gtid_from_binlog_file_offset);
+    synchronization_coordinates.push_back(
+        {gtid_from_binlog_file_offset_str,
+         std::string(gtid_from_binlog_file_offset)});
+    my_free(gtid_from_binlog_file_offset);
+  }
+
+  return 0;
+}
+
+int Ha_clone_common_cbk::synchronize_logs(
+    Key_Values &synchronization_coordinates) {
+  const auto &all_locators = get_all_locators();
+
+  std::unique_ptr<table_log_status> table{static_cast<table_log_status *>(
+      table_log_status::create(&table_log_status::m_share))};
+
+  auto err = table->rnd_init(true);
+  assert(err == 0);
+
+  err = table->rnd_next();
+  if (err != 0) return err;
+
+  auto &log_status_row = table->get_row();
+  const Json_object &storage_engines =
+      get_json_object("w_storage_engines", log_status_row.w_storage_engines);
+  const Json_object &local_repl_info =
+      get_json_object("w_local", log_status_row.w_local);
+  err = populate_synchronization_coordinates(local_repl_info,
+                                             synchronization_coordinates);
+  if (err != 0) {
+    return err;
+  }
 
   DEBUG_SYNC_C("after_clone_se_sync");
 
-  const auto *const json_obj = static_cast<const Json_object *>(json_dom);
-  for (const auto &json_se_pos : *json_obj) {
+  for (const auto &json_se_pos : storage_engines) {
     const auto &se_name = json_se_pos.first;
     const LEX_CSTRING lex_c_se_name{.str = se_name.c_str(),
                                     .length = se_name.length()};
@@ -133,5 +221,4 @@ int Ha_clone_common_cbk::synchronize_engines() {
 
   return 0;
 }
-
 }  // namespace myclone

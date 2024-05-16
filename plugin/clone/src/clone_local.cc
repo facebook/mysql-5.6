@@ -392,4 +392,17 @@ int Local_Callback::apply_cbk(Ha_clone_file to_file, bool apply_file,
 
   return (error);
 }
+
+[[nodiscard]] int Local_Callback::synchronize_engines() {
+  Key_Values synchronization_coordinates;
+  auto err = synchronize_logs(synchronization_coordinates);
+  if (err != 0) {
+    return err;
+  }
+  auto client = get_clone_client();
+  for (const auto &coordinate : synchronization_coordinates) {
+    client->persist_synchronization_coordinate(coordinate);
+  }
+  return 0;
+}
 }  // namespace myclone

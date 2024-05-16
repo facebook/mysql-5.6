@@ -134,6 +134,11 @@ class Local_Callback : public Ha_clone_common_cbk {
   @param[in]  estimate_delta  how many bytes to add to the estimate */
   void add_to_data_size_estimate(std::uint64_t estimated_delta) override;
 
+  /** Synchronize engines callback: synchronize logs for every engine, then
+  persist coordinates to a file.
+  @return error code */
+  [[nodiscard]] int synchronize_engines() override;
+
  private:
   /** Apply data using storage engine apply interface.
   @return error code */

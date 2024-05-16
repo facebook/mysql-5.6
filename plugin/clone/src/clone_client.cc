@@ -26,6 +26,7 @@ Clone Plugin: Client implementation
 
 */
 #include <inttypes.h>
+#include <cassert>
 
 #include "plugin/clone/include/clone_client.h"
 #include "plugin/clone/include/clone_os.h"
@@ -1534,6 +1535,10 @@ int Client::handle_response(const uchar *packet, size_t length, int in_err,
       is_last = true;
       break;
 
+    case COM_RES_GTID_V4:
+      err = set_synchronization_coordinate(packet, length);
+      break;
+
     case COM_RES_DATA:
       /* Allow data packet to skip */
       if (in_err != 0) {
@@ -1658,6 +1663,23 @@ int Client::set_locators(const uchar *buffer, size_t length) {
   m_storage_active = true;
 
   return (err);
+}
+
+void Client::persist_synchronization_coordinate(
+    const Key_Value &synchronization_coordinate) {
+  mysql_mutex_lock(&s_table_mutex);
+  s_status_data.write_synchronization_coordinate(synchronization_coordinate);
+  mysql_mutex_unlock(&s_table_mutex);
+}
+
+int Client::set_synchronization_coordinate(const uchar *packet, size_t length) {
+  Key_Value synchronization_coordinate;
+  const auto err =
+      extract_key_value(packet, length, synchronization_coordinate);
+  if (err == 0) {
+    persist_synchronization_coordinate(synchronization_coordinate);
+  }
+  return err;
 }
 
 int Client::set_descriptor(const uchar *buffer, size_t length) {
@@ -1960,6 +1982,12 @@ int Client_Cbk::apply_cbk(Ha_clone_file to_file, bool apply_file,
     client->check_and_throttle();
   }
   return (err);
+}
+
+[[nodiscard]] int Client_Cbk::synchronize_engines() {
+  my_error(ER_FEATURE_UNSUPPORTED, MYF(0), "Remote Clone Client");
+  assert(false);
+  return ER_FEATURE_UNSUPPORTED;
 }
 
 }  // namespace myclone

@@ -1,0 +1,96 @@
+# Test that after a local clone command, synchronization_coordinates file is created
+# containing 4 key/val pairs, we only examine 3 here
+# excluding gtid get from binlog_file/offset
+
+--source ../include/clone_connection_begin.inc
+--source include/have_clone_plugin.inc
+--source include/have_gtid.inc
+
+# Populate gtid
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 char(64));
+INSERT INTO t1 VALUES(10, 'clone row 1');
+INSERT INTO t1 VALUES(20, 'clone row 2');
+INSERT INTO t1 VALUES(30, 'clone row 3');
+
+# Install Clone Plugin
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+# Clone data
+--connection clone_conn_1
+--let $CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+--source ../include/clone_command.inc
+--connection default
+
+# Validate data
+SELECT * from t1 ORDER BY col1;
+
+# Validate gtid value
+--disable_query_log
+output $MYSQLTEST_VARDIR/tmp/v_local.json;
+SELECT local FROM performance_schema.log_status;
+--enable_query_log
+file_exists $CLONE_DATADIR/#clone/#synchronization_coordinates;
+
+--perl
+  use JSON;
+  my $json_text;
+  {
+    open(my $json_fh, "<:encoding(UTF-8)", "$ENV{MYSQLTEST_VARDIR}/tmp/v_local.json")
+        or die("Can't open \$ENV{MYSQLTEST_VARDIR}/tmp/v_local.json\": $!\n");
+    my $line_count = 0;
+    while (my $line = <$json_fh>) {
+        $line_count++;
+        if ($line_count == 2) {
+            $json_text = $line;
+            last; # Exit the loop after reading the second line
+        }
+    }
+    close($json_fh);
+  }
+
+  my $data = decode_json($json_text);
+  my $gtid = $data->{"gtid_executed"};
+  my $binlog_file = $data->{"binary_log_file"};
+  my $binlog_pos = $data->{"binary_log_position"};
+  chomp($gtid); # Normalize
+  chomp($binlog_file); # Normalize
+  chomp($binlog_pos); # Normalize
+  open(my $fh, '<', "$ENV{MYSQL_TMP_DIR}/data_new/#clone/#synchronization_coordinates") or die "Cannot open #synchronization_coordinates file: $!";
+  my $line_number = 1;
+  my ($gtid_created, $binlog_file_created, $binlog_pos_created);
+  while (my $line = <$fh>) {
+    chomp $line;  # Remove newline character
+    if ($line_number == 2) {
+        $gtid_created = $line;
+    }
+    elsif ($line_number == 4) {
+        $binlog_file_created = $line;
+    }
+    elsif ($line_number == 6) {
+        $binlog_pos_created = $line;
+    }
+    last if $line_number >= 6;  # Stop processing after line 6
+    $line_number++;
+  }
+  close $fh;
+
+  if ($gtid eq $gtid_created && $binlog_file == $binlog_file_created && $binlog_pos == $binlog_pos_created) {
+    print "#synchronization_coordinates contents match content from log_status table.\n";
+  } else {
+    print "gtid from log_status: |$gtid|\n";
+    print "gtid from file: |$gtid_created|\n";
+    print "binlog_file from log_status: |$binlog_file|\n";
+    print "binlog_file from file: |$binlog_file_created|\n";
+    print "binlog_pos from log_status: |$binlog_pos|\n";
+    print "binlog_pos from file: |$binlog_pos_created|\n";
+    die "Mismatch between #synchronization_coordinates and log_status table.";
+  }
+EOF
+
+# Cleanup
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;
+--force-rmdir $CLONE_DATADIR
+--remove_file $MYSQLTEST_VARDIR/tmp/v_local.json
+--source ../include/clone_connection_end.inc
