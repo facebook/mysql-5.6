@@ -11138,9 +11138,6 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
     }
     const auto &vector_index_key = vector_db_handler->current_key();
     rocksdb::Slice key(vector_index_key);
-    rocksdb::Slice value;
-    rc = kd.unpack_record(table, buf, &key, &value,
-                          m_converter->get_verify_row_debug_checksums());
     const uint size =
         kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
     if (size == RDB_INVALID_KEY_LEN) {
@@ -11150,6 +11147,7 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
     m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
     bool skip_row = false;
+    rocksdb::Slice value;
     rc = secondary_index_read(active_index, buf, &key, &value, &skip_row);
     DBUG_RETURN(rc);
   }
@@ -11863,9 +11861,6 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
     }
     const auto &vector_index_key = vector_db_handler->current_key();
     rocksdb::Slice key(vector_index_key);
-    rocksdb::Slice value;
-    rc = kd.unpack_record(table, buf, &key, &value,
-                          m_converter->get_verify_row_debug_checksums());
     const uint size =
         kd.get_primary_key_tuple(*m_pk_descr, &key, m_pk_packed_tuple);
     if (size == RDB_INVALID_KEY_LEN) {
@@ -11875,6 +11870,7 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
 
     m_last_rowkey.copy((const char *)m_pk_packed_tuple, size, &my_charset_bin);
     bool skip_row = false;
+    rocksdb::Slice value;
     rc = secondary_index_read(active_index, buf, &key, &value, &skip_row);
     DBUG_RETURN(rc);
   }

@@ -4204,7 +4204,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     }
   }
 
-  if (key_descr->is_vector_index()) {
+  // set up vector unpack func
+  if (key_descr->is_vector_index() && field->m_fb_vector_dimension > 0) {
     assert(!m_make_unpack_info_func);
     assert(!m_unpack_func);
     m_make_unpack_info_func = make_unpack_vector;

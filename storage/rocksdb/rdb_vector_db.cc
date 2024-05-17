@@ -227,18 +227,38 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     rocksdb::Slice value = m_iterator->value();
     codes = value;
     // after consolidating write logic to use Rdb_key_def::pack_record,
-    // the value is prefixed with data tag.
-    // for data written before the change,
-    // the value is exactly m_code_size.
-    if (codes.size() == m_code_size + 1) {
-      codes.remove_prefix(1);
-    }
-    if (codes.size() != m_code_size) {
+    // the vector codes is prefixed with data tag, and followed by
+    // other column data.
+    // for data written before the change, the value is exactly m_code_size.
+    int extra_bytes = codes.size() - m_code_size;
+    if (extra_bytes < 0) {
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                       "Invalid value size %lu for key in index %d, list id %lu",
                       codes.size(), m_index_id, m_list_id);
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }
+    if (extra_bytes > 0) {
+      char tag = codes.data()[0];
+      if (!Rdb_key_def::is_unpack_data_tag(tag)) {
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Invalid data tag for key in index %d, list id %lu",
+                        m_index_id, m_list_id);
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      }
+      auto header_size = Rdb_key_def::get_unpack_header_size(tag);
+      if ((size_t)extra_bytes < header_size) {
+        LogPluginErrMsg(
+            ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+            "Invalid value size %lu for key in index %d, list id %lu",
+            codes.size(), m_index_id, m_list_id);
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      }
+
+      codes.remove_prefix(header_size);
+      codes.remove_suffix(extra_bytes - header_size);
+    }
+    assert(codes.size() == m_code_size);
+
     m_context->on_iterator_record();
     return HA_EXIT_SUCCESS;
   }

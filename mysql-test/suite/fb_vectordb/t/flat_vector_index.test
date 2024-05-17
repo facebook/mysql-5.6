@@ -52,3 +52,26 @@ select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis desc l
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 drop table t1;
+
+echo;
+echo test cases when primary key contains varchar columns;
+echo;
+
+CREATE TABLE t1 (
+  id BIGINT NOT NULL,
+  vector1 JSON NOT NULL fb_vector_dimension 3,
+  name varchar(64),
+  uid varchar(8),
+  primary key (name, id, uid),
+  INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+);
+
+insert into t1 values (1, '[1,2,3]', 'val1', 'uid1'), (2, '[2,22,31]', 'val2', 'uid2'), (3, '[10,6,5]', 'val3', 'uid3'), (4, '[3,9,4]', 'val4', 'uid4');
+
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10), concat('uid', i+10) from a);
+
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+drop table t1;

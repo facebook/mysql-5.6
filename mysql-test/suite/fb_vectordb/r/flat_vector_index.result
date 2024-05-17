@@ -118,3 +118,32 @@ SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME
 NTOTAL	HIT
 103	8
 drop table t1;
+
+test cases when primary key contains varchar columns
+
+CREATE TABLE t1 (
+id BIGINT NOT NULL,
+vector1 JSON NOT NULL fb_vector_dimension 3,
+name varchar(64),
+uid varchar(8),
+primary key (name, id, uid),
+INDEX key1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+);
+insert into t1 values (1, '[1,2,3]', 'val1', 'uid1'), (2, '[2,22,31]', 'val2', 'uid2'), (3, '[10,6,5]', 'val3', 'uid3'), (4, '[3,9,4]', 'val4', 'uid4');
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10), concat('uid', i+10) from a);
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+id	vector1	name	uid	dis
+3	[10, 6, 5]	val3	uid3	0
+15	[7, 8, 1.4]	val15	uid15	25.959999084472656
+16	[8, 9, 1.4]	val16	uid16	25.959999084472656
+14	[6, 7, 1.4]	val14	uid14	29.959999084472656
+17	[9, 10, 1.4]	val17	uid17	29.959999084472656
+13	[5, 6, 1.4]	val13	uid13	37.959999084472656
+18	[10, 11, 1.4]	val18	uid18	37.959999084472656
+12	[4, 5, 1.4]	val12	uid12	49.959999084472656
+19	[11, 12, 1.4]	val19	uid19	49.959999084472656
+4	[3, 9, 4]	val4	uid4	59
+SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+NTOTAL	HIT
+105	1
+drop table t1;
