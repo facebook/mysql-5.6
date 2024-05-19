@@ -105,6 +105,7 @@ start transaction with consistent snapshot;
 select VALUE > 0 as 'Has opened snapshots' from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
 
 connection default;
+set sql_log_bin = 0;
 set rocksdb_bulk_load=1;
 set rocksdb_bulk_load_size=100000;
 --disable_query_log
@@ -118,6 +119,7 @@ eval LOAD DATA INFILE '$file' INTO TABLE t3;
 
 --enable_query_log
 set rocksdb_bulk_load=0;
+set sql_log_bin = 1;
 
 --remove_file $file
 
