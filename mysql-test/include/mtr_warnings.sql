@@ -375,6 +375,11 @@ INSERT INTO global_suppressions VALUES
  */
  ("Manifest file '.*' is not read-only. For better security, please make sure that the file is read-only."),
 
+ /*
+   thread_stack adjustment for sanitizer builds
+ */
+ ("option 'thread_stack': unsigned value .* adjusted to .*"),
+
  ("THE_LAST_SUPPRESSION");
 
 
