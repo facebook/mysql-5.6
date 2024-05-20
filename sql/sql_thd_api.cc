@@ -40,6 +40,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_thd_engine_lock.h"
 #include "mysql_com.h"
+#include "mysqld.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/conn_handler/connection_handler_manager.h"
@@ -695,6 +696,10 @@ void thd_mark_transaction_to_rollback(MYSQL_THD thd, int all) {
     specifically.
   */
   thd->mark_transaction_to_rollback((all != 0));
+}
+
+void thd_get_hostname(MYSQL_THD, MYSQL_LEX_CSTRING &hostname) {
+  hostname = to_lex_cstring(const_cast<char *>(glob_hostname_ptr));
 }
 
 //////////////////////////////////////////////////////////

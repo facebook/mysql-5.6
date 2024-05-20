@@ -8,6 +8,10 @@ struct MYSQL_LEX_CSTRING {
   size_t length;
 };
 #include "plugin.h"
+#include <lex_string.h>
+#include "mysql/mysql_lex_string.h"
+typedef struct MYSQL_LEX_STRING LEX_STRING;
+typedef struct MYSQL_LEX_CSTRING LEX_CSTRING;
 #include "status_var.h"
 enum enum_mysql_show_type {
   SHOW_UNDEF,
@@ -135,6 +139,7 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
                      const void *ha_data);
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
+void thd_get_hostname(void * thd, MYSQL_LEX_CSTRING &hostname);
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info);
 void mysql_bin_log_unlock_commits(struct snapshot_info_st *ss_info);

@@ -27,6 +27,7 @@
   @file include/mysql/plugin.h
 */
 
+#include <lex_string.h>
 #ifndef MYSQL_ABI_CHECK
 #include <stddef.h>
 
@@ -927,6 +928,12 @@ void remove_ssl_err_thread_state();
   Interface to get the number of VCPUs.
 */
 unsigned int thd_get_num_vcpus();
+
+/**
+ Interface to get glob_hostname_ptr. This value can be passed in when
+ starting the server.
+*/
+void thd_get_hostname(MYSQL_THD thd, MYSQL_LEX_CSTRING &hostname);
 
 /**
   Determine if the bin log is open.

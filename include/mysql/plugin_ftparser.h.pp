@@ -1,4 +1,16 @@
 #include "plugin.h"
+#include <lex_string.h>
+#include "mysql/mysql_lex_string.h"
+struct MYSQL_LEX_STRING {
+  char *str;
+  size_t length;
+};
+struct MYSQL_LEX_CSTRING {
+  const char *str;
+  size_t length;
+};
+typedef struct MYSQL_LEX_STRING LEX_STRING;
+typedef struct MYSQL_LEX_CSTRING LEX_CSTRING;
 #include "status_var.h"
 enum enum_mysql_show_type {
   SHOW_UNDEF,
@@ -118,7 +130,7 @@ void thd_set_kill_status(const void * thd);
 void thd_check_yield(void * thd);
 void thd_binlog_pos(const void * thd, const char **file_var,
                     unsigned long long *pos_var, const char **gtid_var,
-					const char **max_gtid_var);
+                    const char **max_gtid_var);
 unsigned long thd_get_thread_id(const void * thd);
 void thd_get_xid(const void * thd, MYSQL_XID *xid);
 void *thd_get_ha_data(const void * thd, const struct handlerton *hton);
@@ -126,6 +138,7 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
                      const void *ha_data);
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
+void thd_get_hostname(void * thd, MYSQL_LEX_CSTRING &hostname);
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info);
 void mysql_bin_log_unlock_commits(struct snapshot_info_st *ss_info);
