@@ -1,0 +1,75 @@
+Default value of fb_vector_index_cond_pushdown is true
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1
+show session variables like 'fb_vector_index_cond_pushdown';
+Variable_name	Value
+fb_vector_index_cond_pushdown	ON
+select * from performance_schema.session_variables
+where variable_name='fb_vector_index_cond_pushdown';
+VARIABLE_NAME	VARIABLE_VALUE
+fb_vector_index_cond_pushdown	ON
+fb_vector_index_cond_pushdown is a dynamic variable (change to false)
+set @@session.fb_vector_index_cond_pushdown = false;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+0
+restore the default value
+SET @@session.fb_vector_index_cond_pushdown = true;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1
+Verify other accepted values
+SET @@session.fb_vector_index_cond_pushdown = 1;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1
+SET @@session.fb_vector_index_cond_pushdown = 0;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+0
+SET @@session.fb_vector_index_cond_pushdown = on;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1
+SET @@session.fb_vector_index_cond_pushdown = off;
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+0
+SET @@session.fb_vector_index_cond_pushdown = "off";
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+0
+SET @@session.fb_vector_index_cond_pushdown = "on";
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1
+Attempt setting invalid values
+SET @@session.fb_vector_index_cond_pushdown = -1;
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of '-1'
+SET @@session.fb_vector_index_cond_pushdown = 2;
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of '2'
+SET @@session.fb_vector_index_cond_pushdown = " ";
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of ' '
+SET @@session.fb_vector_index_cond_pushdown = "";
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of ''
+SET @@session.fb_vector_index_cond_pushdown = '';
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of ''
+SET @@session.fb_vector_index_cond_pushdown = ' ';
+ERROR 42000: Variable 'fb_vector_index_cond_pushdown' can't be set to the value of ' '
+SET local.fb_vector_index_cond_pushdown = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.fb_vector_index_cond_pushdown = 1' at line 1
+SELECT local.fb_vector_index_cond_pushdown;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.fb_vector_index_cond_pushdown;
+ERROR 42S02: Unknown table 'session' in field list
+restart the server with non default value (false)
+# restart: --fb_vector_index_cond_pushdown=false
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+0
+restart the server with the default value (true)
+# restart
+SELECT @@session.fb_vector_index_cond_pushdown;
+@@session.fb_vector_index_cond_pushdown
+1

@@ -10474,3 +10474,14 @@ static Sys_var_uint Sys_fb_vector_search_limit_multiplier(
     "Default: 10",
     HINT_UPDATEABLE SESSION_VAR(fb_vector_search_limit_multiplier), CMD_LINE(OPT_ARG),
     VALID_RANGE(1, 1000), DEFAULT(10), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_fb_vector_index_cond_pushdown(
+    "fb_vector_index_cond_pushdown",
+    "This flag can be used to turn on/off pre-filtering of vector "
+    "embeddings based on PK index conditions before vector "
+    "search in FAISS is triggered "
+    "This session default can be superceded by a query level override: "
+    "'SELECT /*+ SET_VAR(fb_vector_index_cond_pushdown = off) */ ... '. "
+    "Default: ON",
+    HINT_UPDATEABLE SESSION_VAR(fb_vector_index_cond_pushdown),
+    CMD_LINE(OPT_ARG), DEFAULT(true));

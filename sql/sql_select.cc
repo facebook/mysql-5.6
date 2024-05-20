@@ -3190,6 +3190,7 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
     JOIN_TAB *const tab = join->best_ref[i];
     TABLE *const table = qep_tab->table();
     Table_ref *const table_ref = qep_tab->table_ref;
+    uint keynr = 0;
     /*
      Need to tell handlers that to play it safe, it should fetch all
      columns of the primary key of the tables: this is because MySQL may
@@ -3227,6 +3228,25 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
                              0);
         [[fallthrough]];
       case JT_INDEX_SCAN:
+        keynr = qep_tab->index();
+        /*
+          If the vector index was chosen for index scan, vector ICP is
+          enabled, and conditions exist in the query, then try and extract
+          the conditions on the primary key, and push them down to the
+          storage engine. These are then evaluated on each vector
+          embedding before pushing them to FAISS for KNN search.
+         */
+        if ((keynr > 0 && keynr < table->s->keys) &&
+            (table->key_info[keynr].is_fb_vector_index() &&
+             (join->thd->variables.fb_vector_index_cond_pushdown) &&
+             qep_tab->condition())) {
+          Item *pk_idx_cond = make_cond_for_index(qep_tab->condition(), table,
+                                                  table->s->primary_key,
+                                                  false /*other_tbls_ok */);
+          if (pk_idx_cond)
+            table->file->idx_cond_push(qep_tab->index(), pk_idx_cond);
+        }
+
         if (tab->position()->filter_effect != COND_FILTER_STALE_NO_CONST &&
             !tab->sj_mat_exec()) {
           /*

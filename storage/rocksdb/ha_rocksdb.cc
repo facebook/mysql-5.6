@@ -11129,7 +11129,9 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
   if (kd.is_vector_index()) {
     auto vector_db_handler = get_vector_db_handler();
-    rc = vector_db_handler->knn_search(thd, kd.get_vector_index());
+    rc = vector_db_handler->knn_search(
+        thd, table, kd.get_vector_index(), &kd,
+        (pushed_idx_cond_keyno == active_index) ? pushed_idx_cond : nullptr);
     if (rc) {
       DBUG_RETURN(rc);
     }

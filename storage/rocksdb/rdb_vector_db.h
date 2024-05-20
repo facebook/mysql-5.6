@@ -31,6 +31,8 @@
 namespace myrocks {
 using faiss_ivf_list_id = int64_t;
 
+class Rdb_key_def;
+
 /** for infomation schema */
 class Rdb_vector_index_info {
  public:
@@ -90,7 +92,8 @@ class Rdb_vector_index {
                              Rdb_vector_index_assignment &assignment) = 0;
 
   virtual uint knn_search(
-      THD *thd, std::vector<float> &query_vector,
+      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+      const Rdb_key_def *sk_descr, std::vector<float> &query_vector,
       Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) = 0;
 
@@ -138,7 +141,8 @@ class Rdb_vector_db_handler {
 
   std::string current_key() const;
 
-  uint knn_search(THD *thd, Rdb_vector_index *index);
+  uint knn_search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
+                  const Rdb_key_def *sk_descr, Item *pk_index_cond);
 
   int vector_index_orderby_init(Item *sort_func, int limit, uint nprobe,
                                 uint limit_multiplier) {

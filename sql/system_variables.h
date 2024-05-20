@@ -673,6 +673,12 @@ struct System_variables {
   */
   uint fb_vector_search_limit_multiplier;
 
+  /**
+    This flag can be used to turn on/off pre-filtering of vector
+    embeddings based on PK or SK index conditions before vector
+    search in FAISS
+  */
+  bool fb_vector_index_cond_pushdown;
 };
 
 /**

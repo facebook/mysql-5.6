@@ -605,6 +605,14 @@ The following options may be given as the first argument:
  Set/unset failure injection points
  --fast-integer-to-string 
  Optimized implementation of integer to string conversion
+ --fb-vector-index-cond-pushdown 
+ This flag can be used to turn on/off pre-filtering of
+ vector embeddings based on PK index conditions before
+ vector search in FAISS is triggered This session default
+ can be superceded by a query level override: 'SELECT /*+
+ SET_VAR(fb_vector_index_cond_pushdown = off) */ ... '.
+ Default: ON
+ (Defaults to on; use --skip-fb-vector-index-cond-pushdown to disable.)
  --fb-vector-index-cost-factor[=#] 
  A table scan plus filesort will be prohibitively
  expensive for vector searches. This sysvar parameterizes
@@ -3461,6 +3469,7 @@ explicit-defaults-for-timestamp TRUE
 external-locking FALSE
 failure-injection-points 
 fast-integer-to-string FALSE
+fb-vector-index-cond-pushdown TRUE
 fb-vector-index-cost-factor 1000
 fb-vector-max-dimension 4096
 fb-vector-min-dimension 3
