@@ -46,6 +46,10 @@ call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
 let $total_persistent_vars= `SELECT $total_global_vars - 212`;
 
+# If mysqlx is not present, increment the persisted count by $no_mysqlx * count
+let $no_mysqlx=`SELECT COUNT(*) = 0 FROM performance_schema.global_variables WHERE variable_name LIKE 'mysqlx_%'`;
+let $total_persistent_vars=`SELECT $total_persistent_vars + $no_mysqlx * 11`;
+
 # Add variable names that need to be excluded here
 let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
 'apply_log',

@@ -61,7 +61,7 @@ if ($SERVER_ID != 1) {
 # A. Check if we need monitoring process. Taken from mysqld_safe.test
 if ($inst_monitor) {
 
-  --let $have_mysqlx= `SELECT count(plugin_status) > 0 FROM information_schema.plugins WHERE plugin_name LIKE 'mysqlx'`
+  --let $have_mysqlx= `SELECT count(plugin_status) > 0 FROM information_schema.plugins WHERE plugin_name LIKE 'mysqlx' and plugin_status LIKE 'ACTIVE'`
 
   # 1. Set variables to be used in parameters of mysqld_safe.
   --let $SERVER_ID= `SELECT @@server_id`
@@ -72,13 +72,11 @@ if ($inst_monitor) {
   --let $MYSQL_PIDFILE= `SELECT @@pid_file`
   --let $MYSQL_SOCKET= `SELECT @@socket`
   --let $MYSQL_PORT= `SELECT @@port`
+  --let $MYSQLX_ARGS= ""
   if ($have_mysqlx) {
     --let $MYSQLX_SOCKET= `SELECT @@mysqlx_socket`
     --let $MYSQLX_PORT= `SELECT @@mysqlx_port`
-    --let $MYSQLX_ARGS= "--mysqlx_socket=$MYSQLX_SOCKET --mysqlx_port=$MYSQLX_PORT"
-  }
-  if (!$have_mysqlx) {
-    --let $MYSQLX_ARGS= ""
+    --let $MYSQLX_ARGS= --mysqlx_socket=$MYSQLX_SOCKET --mysqlx_port=$MYSQLX_PORT
   }
   --let $MYSQL_PLUGIN_DIR = `SELECT @@plugin_dir`
 

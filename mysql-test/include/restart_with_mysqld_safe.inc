@@ -27,11 +27,18 @@ let $MYSQL_TIMEZONE= `SELECT @@time_zone`;
 let $MYSQL_PIDFILE= `SELECT @@pid_file`;
 let $MYSQL_PORT= `SELECT @@port`;
 let $MYSQL_MESSAGESDIR= `SELECT @@lc_messages_dir`;
-let $MYSQLX_PORT= `SELECT @@mysqlx_port`;
-let $MYSQLX_SOCKET= `SELECT @@mysqlx_socket`;
 let $start_page_size= `select @@innodb_page_size`;
 let $other_page_size_k= `SELECT $start_page_size DIV 1024`;
 let $other_page_size_nk= `SELECT CONCAT($other_page_size_k,'k')`;
+
+let $have_mysqlx= `SELECT count(plugin_status) > 0 FROM information_schema.plugins WHERE plugin_name LIKE 'mysqlx' and plugin_status LIKE 'ACTIVE'`;
+
+--let $MYSQLX_ARGS= ""
+if ($have_mysqlx) {
+  --let $MYSQLX_SOCKET= `SELECT @@mysqlx_socket`
+  --let $MYSQLX_PORT= `SELECT @@mysqlx_port`
+  --let $MYSQLX_ARGS= --mysqlx_socket=$MYSQLX_SOCKET --mysqlx_port=$MYSQLX_PORT
+}
 
 # mysqld_path to be passed to --ledir
 # use test;
@@ -58,7 +65,7 @@ EOF
 --shutdown_server
 --source include/wait_until_disconnected.inc
 
---exec sh $MYSQLD_SAFE --defaults-file=$MYSQLTEST_VARDIR/my.cnf --server_id=$_server_id --log-error=$MYSQLTEST_VARDIR/log/mysqld.$_server_id.err --basedir=$MYSQL_BASEDIR --ledir=$mysqld_path --mysqld=$mysqld_bin --datadir=$MYSQLD_DATADIR --socket=$MYSQL_SOCKET --mysqlx_socket=$MYSQLX_SOCKET --pid-file=$MYSQL_PIDFILE --port=$MYSQL_PORT --mysqlx_port=$MYSQLX_PORT --timezone=SYSTEM --log-output=file --loose-debug-sync-timeout=600 --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB  --secure-file-priv="" --core-file --lc-messages-dir=$MYSQL_MESSAGESDIR --innodb-page-size=$other_page_size_nk --log-error-verbosity=3 --plugin-dir=$MYSQL_PLUGINDIR --plugin-load=$plugin_list $mysqld_extra_settings  < /dev/null > /dev/null 2>&1 &
+--exec sh $MYSQLD_SAFE --defaults-file=$MYSQLTEST_VARDIR/my.cnf --server_id=$_server_id --log-error=$MYSQLTEST_VARDIR/log/mysqld.$_server_id.err --basedir=$MYSQL_BASEDIR --ledir=$mysqld_path --mysqld=$mysqld_bin --datadir=$MYSQLD_DATADIR --socket=$MYSQL_SOCKET --pid-file=$MYSQL_PIDFILE --port=$MYSQL_PORT $MYSQLX_ARGS --timezone=SYSTEM --log-output=file --loose-debug-sync-timeout=600 --default-storage-engine=InnoDB --default-tmp-storage-engine=InnoDB  --secure-file-priv="" --core-file --lc-messages-dir=$MYSQL_MESSAGESDIR --innodb-page-size=$other_page_size_nk --log-error-verbosity=3 --plugin-dir=$MYSQL_PLUGINDIR --plugin-load=$plugin_list $mysqld_extra_settings  < /dev/null > /dev/null 2>&1 &
 
 --enable_reconnect
 --source include/wait_until_connected_again.inc

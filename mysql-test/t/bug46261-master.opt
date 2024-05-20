@@ -1,1 +1,1 @@
---skip-grant-tables $EXAMPLE_PLUGIN_OPT --mysqlx=OFF
+--skip-grant-tables $EXAMPLE_PLUGIN_OPT --loose-mysqlx=OFF

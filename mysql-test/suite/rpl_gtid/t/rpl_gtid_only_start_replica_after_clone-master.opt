@@ -1,2 +1,2 @@
 $CLONE_PLUGIN_OPT
---mysqlx
+--loose-mysqlx=off

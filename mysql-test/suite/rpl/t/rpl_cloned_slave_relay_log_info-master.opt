@@ -1,3 +1,3 @@
 $CLONE_PLUGIN_OPT
 --skip-replica-start=1
---mysqlx
+--loose-mysqlx
