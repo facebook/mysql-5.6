@@ -52,7 +52,7 @@
 #include <sanitizer/asan_interface.h>
 
 #define MEM_MALLOCLIKE_BLOCK(p1, p2, p3, p4) ASAN_UNPOISON_MEMORY_REGION(p1, p2)
-#define MEM_FREELIKE_BLOCK(p1, p2, p3, p4) ASAN_POISON_MEMORY_REGION(p1, p2)
+#define MEM_FREELIKE_BLOCK(p1, p2) ASAN_POISON_MEMORY_REGION(p1, p2)
 
 #define MEM_UNDEFINED(a, len) ASAN_UNPOISON_MEMORY_REGION(a, len)
 #define MEM_NOACCESS(a, len) ASAN_POISON_MEMORY_REGION(a, len)
