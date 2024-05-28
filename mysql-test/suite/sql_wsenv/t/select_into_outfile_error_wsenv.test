@@ -1,3 +1,6 @@
+# Skip test if we are not in debug version
+--source include/have_debug.inc
+
 # scenario1: basic
 call mtr.add_suppression("Error writing file .*");
 create table t1 (pk int primary key,col1 varchar(10));
