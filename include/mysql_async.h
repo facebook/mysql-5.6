@@ -178,6 +178,15 @@ typedef struct NET_ASYNC {
   unsigned char **compressed_write_buffers;
   /** Size of the compressed buffer */
   size_t compressed_buffers_size;
+
+  /** Local state for multipacket processing */
+  net_async_status mp_status;
+  size_t mp_start_of_packet;
+  size_t mp_first_packet_offset;
+  size_t mp_buf_length;
+  uint mp_multi_byte_packet;
+  ulong mp_save_pos;
+  ulong mp_total_length;
 } NET_ASYNC;
 
 typedef struct NET_EXTENSION {
