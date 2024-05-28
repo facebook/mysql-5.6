@@ -505,6 +505,7 @@ static const SYMBOL symbols[] = {
     {SYM("ONE", ONE_SYM)},
     {SYM("ONLY", ONLY_SYM)},
     {SYM("OPEN", OPEN_SYM)},
+    {SYM("OPID", OPID_SYM)},
     {SYM("OPTIMIZE", OPTIMIZE)},
     {SYM("OPTIMIZER_COSTS", OPTIMIZER_COSTS_SYM)},
     {SYM("OPTIONS", OPTIONS_SYM)},

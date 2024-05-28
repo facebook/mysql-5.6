@@ -1,0 +1,137 @@
+source ../include/raft_3_node.inc;
+
+call mtr.add_suppression("Engine has seen trxs till file");
+
+connection server_1;
+let $uuid= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+connection server_1;
+show status like 'rpl_raft_role';
+
+connection server_2;
+show status like 'rpl_raft_role';
+
+connection server_3;
+show status like 'rpl_raft_role';
+
+connection server_1;
+create table t1 (a int);
+
+echo "Test 1: Before enabling index OpID";
+let $j = 1;
+--disable_query_log
+while ($j <= 5)
+{
+  eval insert into t1 values($j);
+  flush binary logs;
+  inc $j;
+}
+--enable_query_log
+
+echo "Test 1.1: Check leader";
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 1.2: Check follower";
+connection server_2;
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+
+echo "Test 2: After enabling index OpID";
+connection server_2;
+set @@global.enable_raft_opid_in_index = ON;
+connection server_1;
+set @@global.enable_raft_opid_in_index = ON;
+
+--disable_query_log
+while ($j <= 10)
+{
+  eval insert into t1 values($j);
+  flush binary logs;
+  inc $j;
+}
+--enable_query_log
+
+echo "Test 2.1: Check leader";
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 2.2: Check follower";
+connection server_2;
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 3: After disabling index OpID";
+connection server_2;
+set @@global.enable_raft_opid_in_index = OFF;
+connection server_1;
+set @@global.enable_raft_opid_in_index = OFF;
+
+--disable_query_log
+while ($j <= 15)
+{
+  eval insert into t1 values($j);
+  flush binary logs;
+  inc $j;
+}
+--enable_query_log
+
+echo "Test 3.1: Check leader";
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 3.2: Check follower";
+connection server_2;
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 4: Test restart";
+echo "Test 4.1: Restart with Raft OpID disabled";
+let $rpl_server_number= 1;
+let $rpl_server_parameters= --enable_raft_opid_in_index=0;
+source include/rpl_restart_server.inc;
+
+sleep 5;
+
+let $rpl_raft_leader_number = 1;
+source ../include/raft_promote_to_leader.inc;
+connection server_1;
+select @@global.enable_raft_opid_in_index;
+
+--disable_query_log
+while ($j <= 20)
+{
+  eval insert into t1 values($j);
+  flush binary logs;
+  inc $j;
+}
+--enable_query_log
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+echo "Test 4.1: Restart with Raft OpID enabled";
+let $rpl_server_number= 1;
+let $rpl_server_parameters= --enable_raft_opid_in_index=1;
+source include/rpl_restart_server.inc;
+
+sleep 5;
+
+let $rpl_raft_leader_number = 1;
+source ../include/raft_promote_to_leader.inc;
+connection server_1;
+select @@global.enable_raft_opid_in_index;
+
+--disable_query_log
+while ($j <= 25)
+{
+  eval insert into t1 values($j);
+  flush binary logs;
+  inc $j;
+}
+--enable_query_log
+
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

@@ -686,6 +686,7 @@ MySQL clients support the protocol:
 */
 /* clang-format on */
 
+#include "mysqld.h"
 #define LOG_SUBSYSTEM_TAG "Server"
 
 #include "sql/mysqld.h"
@@ -1272,6 +1273,7 @@ bool raft_send_replica_statistics = false;
 bool skip_backup_lock_for_stop_replica = false;
 bool enable_json_binary_charset = false;
 bool opt_reset_rli_lock_index = true;
+bool enable_raft_opid_in_index = false;
 
 // Apply log related variables for raft
 char *opt_apply_logname = nullptr;

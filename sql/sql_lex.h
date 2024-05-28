@@ -3088,6 +3088,10 @@ class Query_tables_list {
    * for SHOW SLAVE HOSTS WITH RAFT, true iff WITH RAFT is specified
    */
   bool with_raft;
+  /**
+   * for SHOW RAFT LOG WITH OPID, true iff WITH OPID is specified
+   */
+  bool with_opid;
 
   void set_stmt_unsafe_with_mixed_mode() { stmt_unsafe_with_mixed_mode = true; }
   bool is_stmt_unsafe_with_mixed_mode() const {

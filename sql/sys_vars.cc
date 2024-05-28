@@ -9346,6 +9346,11 @@ static Sys_var_bool Sys_allow_binlog_writes_on_raft_follower(
     GLOBAL_VAR(allow_binlog_writes_on_raft_follower), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_enable_raft_opid_in_index(
+    "enable_raft_opid_in_index",
+    "Enable/Disable read/write Raft OpID in index file",
+    GLOBAL_VAR(enable_raft_opid_in_index), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_bool Sys_enable_blind_replace(
     "enable_blind_replace",
     "Optimize 'replace into' statement by doing a blind insert. Engine "

@@ -2034,9 +2034,9 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
       raft_trx_cache = std::make_unique<Binlog_cache_storage>();
       // We add a little slack to max size to account for additional
       // log events (ie. gtid and metadata)
-      ret = raft_trx_cache->open(
-          binlog_cache_size,
-          max_binlog_cache_size + opt_max_binlog_cache_overhead_size);
+      ret = raft_trx_cache->open(binlog_cache_size,
+                                 max_binlog_cache_size +
+                                 opt_max_binlog_cache_overhead_size);
       if (ret) {
         raft_trx_cache.reset();
         goto end;
@@ -4194,6 +4194,16 @@ bool update_relay_log_cordinates(Relay_log_info *rli) {
   return error;
 }
 
+std::string get_opid_from_index(char *file_name_gtid_set_length_maybe_opid) {
+  std::vector<std::string> token_vec;
+  boost::split(token_vec, std::string(file_name_gtid_set_length_maybe_opid),
+               boost::is_any_of(" \n"));
+  if (token_vec.size() >= 4) {
+    return token_vec[2] + ":" + token_vec[3];
+  }
+  return "";
+}
+
 /**
   Implement 'show raft logs' sql command
   @param thd Thread descriptor
@@ -4201,7 +4211,7 @@ bool update_relay_log_cordinates(Relay_log_info *rli) {
   @retval false success
   @retval true failure
 */
-bool show_raft_logs(THD *thd, bool with_gtid) {
+bool show_raft_logs(THD *thd, bool with_gtid, bool with_opid) {
   uint length;
   char file_name_and_gtid_set_length[FN_REFLEN + 22];
   File file;
@@ -4210,7 +4220,8 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
   const char *errmsg = 0;
 
   // Redirect to show_binlog() on leader instances
-  if (!mysql_bin_log.is_apply_log) return show_binlogs(thd, with_gtid);
+  if (!mysql_bin_log.is_apply_log)
+    return show_binlogs(thd, with_gtid, with_opid);
 
   Master_info *active_mi;
   if (!get_and_lock_master_info(&active_mi)) {
@@ -4239,6 +4250,11 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
     field_list.push_back(
         new Item_empty_string("Prev_gtid_set",
                               0));  // max_size seems not to matter
+  if (with_opid) {
+    field_list.push_back(
+        new Item_empty_string("Prev_opid",
+                              0));  // max_size seems not to matter
+  }
 
   int error = 0;
 
@@ -4251,6 +4267,10 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
                              FN_REFLEN + 22)) > 1 &&
          !exit_loop) {
     BinlogInfoRow binlog_info_row;
+
+    if (with_opid) {
+      binlog_info_row.opid = get_opid_from_index(file_name_and_gtid_set_length);
+    }
 
     int dir_len;
     ulonglong file_length = 0;  // Length if open fails
@@ -4327,6 +4347,10 @@ bool show_raft_logs(THD *thd, bool with_gtid) {
       protocol->store_string(binlog_info_row.prev_gtid_set.c_str(),
                              binlog_info_row.prev_gtid_set.length(),
                              &my_charset_bin);
+    }
+    if (with_opid) {
+      protocol->store_string(binlog_info_row.opid.c_str(),
+                             binlog_info_row.opid.length(), &my_charset_bin);
     }
     if (protocol->end_row()) {
       errmsg = "Failure in protocol write";
@@ -6769,7 +6793,7 @@ bool MYSQL_BIN_LOG::open_binlog(
     if (DBUG_EVALUATE_IF("fault_injection_updating_index", 1, 0) ||
         add_log_to_index((uchar *)log_file_name, strlen(log_file_name),
                          need_lock_index, previous_gtid_set_buffer,
-                         gtid_set_length)) {
+                         gtid_set_length, raft_rotate_info)) {
       DBUG_EXECUTE_IF("simulate_disk_full_on_open_binlog", {
         DBUG_SET("-d,simulate_file_write_error");
         DBUG_SET("-d,simulate_no_free_space_error");
@@ -7064,6 +7088,23 @@ fatal_err:
   return error;
 }
 
+int MYSQL_BIN_LOG::write_raft_opid_to_index(IO_CACHE *index_file,
+                                            RaftRotateInfo *raft_rotate_info) {
+  if (!enable_raft_plugin || !enable_raft_opid_in_index || !raft_rotate_info) {
+    return 0;
+  }
+
+  // term and index max are 2^64, which has 20 digits
+  char term_buf[21];
+  char index_buf[21];
+  longlong10_to_str(raft_rotate_info->rotate_opid.first, term_buf, 10);
+  longlong10_to_str(raft_rotate_info->rotate_opid.second, index_buf, 10);
+  return my_b_write(index_file, (const uchar *)" ", 1) ||
+         my_b_write(index_file, (uchar *)term_buf, strlen(term_buf)) ||
+         my_b_write(index_file, (const uchar *)" ", 1) ||
+         my_b_write(index_file, (uchar *)index_buf, strlen(index_buf));
+}
+
 /**
   Append log file name to index file.
 
@@ -7080,7 +7121,8 @@ fatal_err:
 int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
                                     bool need_lock_index,
                                     uchar *previous_gtid_set_buffer,
-                                    uint gtid_set_length) {
+                                    uint gtid_set_length,
+                                    RaftRotateInfo *raft_rotate_info) {
   char gtid_set_length_buffer[11];
   DBUG_TRACE;
 
@@ -7113,6 +7155,7 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
     if (my_b_write(&crash_safe_index_file, (const uchar *)" ", 1) ||
         my_b_write(&crash_safe_index_file, (uchar *)gtid_set_length_buffer,
                    strlen(gtid_set_length_buffer)) ||
+        write_raft_opid_to_index(&crash_safe_index_file, raft_rotate_info) ||
         my_b_write(&crash_safe_index_file, (const uchar *)"\n", 1) ||
         my_b_write(&crash_safe_index_file,
                    (const uchar *)previous_gtid_set_buffer, gtid_set_length)) {

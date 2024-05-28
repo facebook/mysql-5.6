@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of enable_raft_opid_in_index is ON
+SELECT @@global.enable_raft_opid_in_index;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_raft_opid_in_index;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo enable_raft_opid_in_index is a dynamic variable (change to OFF)
+set @@global.enable_raft_opid_in_index = OFF;
+SELECT @@global.enable_raft_opid_in_index;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.enable_raft_opid_in_index = ON;
+SELECT @@global.enable_raft_opid_in_index;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let restart_parameters=restart: --enable_raft_opid_in_index=OFF
+--source include/restart_mysqld.inc
+
+SELECT @@global.enable_raft_opid_in_index;
+
+--echo restart the server with the default value (ON)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.enable_raft_opid_in_index;

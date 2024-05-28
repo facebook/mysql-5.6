@@ -491,6 +491,7 @@ extern bool recover_raft_log;
 extern bool raft_send_replica_statistics;
 extern bool skip_backup_lock_for_stop_replica;
 extern bool enable_json_binary_charset;
+extern bool enable_raft_opid_in_index;
 /* Apply log related variables for raft */
 extern char *opt_apply_logname;
 extern char *opt_applylog_index_name;

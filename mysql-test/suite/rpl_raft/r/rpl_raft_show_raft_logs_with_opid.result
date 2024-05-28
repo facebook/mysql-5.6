@@ -1,0 +1,582 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+call mtr.add_suppression("Engine has seen trxs till file");
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int);
+"Test 1: Before enabling index OpID"
+"Test 1.1: Check leader"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+show raft logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+"Test 1.2: Check follower"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Prev_opid
+binary-logs-13001.000001	#	
+binary-logs-13001.000002	#	
+binary-logs-13001.000003	#	
+binary-logs-13001.000004	#	
+binary-logs-13001.000005	#	
+binary-logs-13001.000006	#	
+binary-logs-13001.000007	#	
+show raft logs with gtid opid;
+Log_name	File_size	Prev_gtid_set	Prev_opid
+binary-logs-13001.000001	#	# [empty]	
+binary-logs-13001.000002	#	# [empty]	
+binary-logs-13001.000003	#	# uuid:1-3	
+binary-logs-13001.000004	#	# uuid:1-4	
+binary-logs-13001.000005	#	# uuid:1-5	
+binary-logs-13001.000006	#	# uuid:1-6	
+binary-logs-13001.000007	#	# uuid:1-7	
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+apply-logs-13001.000001	#	No	
+apply-logs-13001.000002	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+apply-logs-13001.000001	#	No	# [empty]	
+apply-logs-13001.000002	#	No	# [empty]	
+"Test 2: After enabling index OpID"
+set @@global.enable_raft_opid_in_index = ON;
+set @@global.enable_raft_opid_in_index = ON;
+"Test 2.1: Check leader"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+show raft logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+"Test 2.2: Check follower"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Prev_opid
+binary-logs-13001.000001	#	
+binary-logs-13001.000002	#	
+binary-logs-13001.000003	#	
+binary-logs-13001.000004	#	
+binary-logs-13001.000005	#	
+binary-logs-13001.000006	#	
+binary-logs-13001.000007	#	
+binary-logs-13001.000008	#	1:15
+binary-logs-13001.000009	#	1:17
+binary-logs-13001.000010	#	1:19
+binary-logs-13001.000011	#	1:21
+binary-logs-13001.000012	#	1:23
+show raft logs with gtid opid;
+Log_name	File_size	Prev_gtid_set	Prev_opid
+binary-logs-13001.000001	#	# [empty]	
+binary-logs-13001.000002	#	# [empty]	
+binary-logs-13001.000003	#	# uuid:1-3	
+binary-logs-13001.000004	#	# uuid:1-4	
+binary-logs-13001.000005	#	# uuid:1-5	
+binary-logs-13001.000006	#	# uuid:1-6	
+binary-logs-13001.000007	#	# uuid:1-7	
+binary-logs-13001.000008	#	# uuid:1-8	1:15
+binary-logs-13001.000009	#	# uuid:1-9	1:17
+binary-logs-13001.000010	#	# uuid:1-10	1:19
+binary-logs-13001.000011	#	# uuid:1-11	1:21
+binary-logs-13001.000012	#	# uuid:1-12	1:23
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+apply-logs-13001.000001	#	No	
+apply-logs-13001.000002	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+apply-logs-13001.000001	#	No	# [empty]	
+apply-logs-13001.000002	#	No	# [empty]	
+"Test 3: After disabling index OpID"
+set @@global.enable_raft_opid_in_index = OFF;
+set @@global.enable_raft_opid_in_index = OFF;
+"Test 3.1: Check leader"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+show raft logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+"Test 3.2: Check follower"
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Prev_opid
+binary-logs-13001.000001	#	
+binary-logs-13001.000002	#	
+binary-logs-13001.000003	#	
+binary-logs-13001.000004	#	
+binary-logs-13001.000005	#	
+binary-logs-13001.000006	#	
+binary-logs-13001.000007	#	
+binary-logs-13001.000008	#	1:15
+binary-logs-13001.000009	#	1:17
+binary-logs-13001.000010	#	1:19
+binary-logs-13001.000011	#	1:21
+binary-logs-13001.000012	#	1:23
+binary-logs-13001.000013	#	
+binary-logs-13001.000014	#	
+binary-logs-13001.000015	#	
+binary-logs-13001.000016	#	
+binary-logs-13001.000017	#	
+show raft logs with gtid opid;
+Log_name	File_size	Prev_gtid_set	Prev_opid
+binary-logs-13001.000001	#	# [empty]	
+binary-logs-13001.000002	#	# [empty]	
+binary-logs-13001.000003	#	# uuid:1-3	
+binary-logs-13001.000004	#	# uuid:1-4	
+binary-logs-13001.000005	#	# uuid:1-5	
+binary-logs-13001.000006	#	# uuid:1-6	
+binary-logs-13001.000007	#	# uuid:1-7	
+binary-logs-13001.000008	#	# uuid:1-8	1:15
+binary-logs-13001.000009	#	# uuid:1-9	1:17
+binary-logs-13001.000010	#	# uuid:1-10	1:19
+binary-logs-13001.000011	#	# uuid:1-11	1:21
+binary-logs-13001.000012	#	# uuid:1-12	1:23
+binary-logs-13001.000013	#	# uuid:1-13	
+binary-logs-13001.000014	#	# uuid:1-14	
+binary-logs-13001.000015	#	# uuid:1-15	
+binary-logs-13001.000016	#	# uuid:1-16	
+binary-logs-13001.000017	#	# uuid:1-17	
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+apply-logs-13001.000001	#	No	
+apply-logs-13001.000002	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+apply-logs-13001.000001	#	No	# [empty]	
+apply-logs-13001.000002	#	No	# [empty]	
+"Test 4: Test restart"
+"Test 4.1: Restart with Raft OpID disabled"
+include/rpl_restart_server.inc [server_number=1 parameters: --enable_raft_opid_in_index=0]
+include/raft_promote_to_leader.inc
+select @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+0
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+binary-logs-13000.000018	#	No	
+binary-logs-13000.000019	#	No	
+binary-logs-13000.000020	#	No	
+binary-logs-13000.000021	#	No	
+binary-logs-13000.000022	#	No	
+binary-logs-13000.000023	#	No	
+binary-logs-13000.000024	#	No	
+show raft logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+binary-logs-13000.000018	#	No	# uuid:1-17	
+binary-logs-13000.000019	#	No	# uuid:1-17	
+binary-logs-13000.000020	#	No	# uuid:1-18	
+binary-logs-13000.000021	#	No	# uuid:1-19	
+binary-logs-13000.000022	#	No	# uuid:1-20	
+binary-logs-13000.000023	#	No	# uuid:1-21	
+binary-logs-13000.000024	#	No	# uuid:1-22	
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+binary-logs-13000.000018	#	No	
+binary-logs-13000.000019	#	No	
+binary-logs-13000.000020	#	No	
+binary-logs-13000.000021	#	No	
+binary-logs-13000.000022	#	No	
+binary-logs-13000.000023	#	No	
+binary-logs-13000.000024	#	No	
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+binary-logs-13000.000018	#	No	# uuid:1-17	
+binary-logs-13000.000019	#	No	# uuid:1-17	
+binary-logs-13000.000020	#	No	# uuid:1-18	
+binary-logs-13000.000021	#	No	# uuid:1-19	
+binary-logs-13000.000022	#	No	# uuid:1-20	
+binary-logs-13000.000023	#	No	# uuid:1-21	
+binary-logs-13000.000024	#	No	# uuid:1-22	
+"Test 4.1: Restart with Raft OpID enabled"
+include/rpl_restart_server.inc [server_number=1 parameters: --enable_raft_opid_in_index=1]
+include/raft_promote_to_leader.inc
+select @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+1
+include/raft_show_binary_or_raft_logs_with_opid.inc
+show raft logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+binary-logs-13000.000018	#	No	
+binary-logs-13000.000019	#	No	
+binary-logs-13000.000020	#	No	
+binary-logs-13000.000021	#	No	
+binary-logs-13000.000022	#	No	
+binary-logs-13000.000023	#	No	
+binary-logs-13000.000024	#	No	
+binary-logs-13000.000025	#	No	4:46
+binary-logs-13000.000026	#	No	5:47
+binary-logs-13000.000027	#	No	5:49
+binary-logs-13000.000028	#	No	5:51
+binary-logs-13000.000029	#	No	5:53
+binary-logs-13000.000030	#	No	5:55
+binary-logs-13000.000031	#	No	5:57
+show raft logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+binary-logs-13000.000018	#	No	# uuid:1-17	
+binary-logs-13000.000019	#	No	# uuid:1-17	
+binary-logs-13000.000020	#	No	# uuid:1-18	
+binary-logs-13000.000021	#	No	# uuid:1-19	
+binary-logs-13000.000022	#	No	# uuid:1-20	
+binary-logs-13000.000023	#	No	# uuid:1-21	
+binary-logs-13000.000024	#	No	# uuid:1-22	
+binary-logs-13000.000025	#	No	# uuid:1-22	4:46
+binary-logs-13000.000026	#	No	# uuid:1-22	5:47
+binary-logs-13000.000027	#	No	# uuid:1-23	5:49
+binary-logs-13000.000028	#	No	# uuid:1-24	5:51
+binary-logs-13000.000029	#	No	# uuid:1-25	5:53
+binary-logs-13000.000030	#	No	# uuid:1-26	5:55
+binary-logs-13000.000031	#	No	# uuid:1-27	5:57
+show binary logs with opid;
+Log_name	File_size	Encrypted	Prev_opid
+binary-logs-13000.000001	#	No	
+binary-logs-13000.000002	#	No	
+binary-logs-13000.000003	#	No	
+binary-logs-13000.000004	#	No	
+binary-logs-13000.000005	#	No	
+binary-logs-13000.000006	#	No	
+binary-logs-13000.000007	#	No	
+binary-logs-13000.000008	#	No	1:15
+binary-logs-13000.000009	#	No	1:17
+binary-logs-13000.000010	#	No	1:19
+binary-logs-13000.000011	#	No	1:21
+binary-logs-13000.000012	#	No	1:23
+binary-logs-13000.000013	#	No	
+binary-logs-13000.000014	#	No	
+binary-logs-13000.000015	#	No	
+binary-logs-13000.000016	#	No	
+binary-logs-13000.000017	#	No	
+binary-logs-13000.000018	#	No	
+binary-logs-13000.000019	#	No	
+binary-logs-13000.000020	#	No	
+binary-logs-13000.000021	#	No	
+binary-logs-13000.000022	#	No	
+binary-logs-13000.000023	#	No	
+binary-logs-13000.000024	#	No	
+binary-logs-13000.000025	#	No	4:46
+binary-logs-13000.000026	#	No	5:47
+binary-logs-13000.000027	#	No	5:49
+binary-logs-13000.000028	#	No	5:51
+binary-logs-13000.000029	#	No	5:53
+binary-logs-13000.000030	#	No	5:55
+binary-logs-13000.000031	#	No	5:57
+show binary logs with gtid opid;
+Log_name	File_size	Encrypted	Prev_gtid_set	Prev_opid
+binary-logs-13000.000001	#	No	# [empty]	
+binary-logs-13000.000002	#	No	# [empty]	
+binary-logs-13000.000003	#	No	# uuid:1-3	
+binary-logs-13000.000004	#	No	# uuid:1-4	
+binary-logs-13000.000005	#	No	# uuid:1-5	
+binary-logs-13000.000006	#	No	# uuid:1-6	
+binary-logs-13000.000007	#	No	# uuid:1-7	
+binary-logs-13000.000008	#	No	# uuid:1-8	1:15
+binary-logs-13000.000009	#	No	# uuid:1-9	1:17
+binary-logs-13000.000010	#	No	# uuid:1-10	1:19
+binary-logs-13000.000011	#	No	# uuid:1-11	1:21
+binary-logs-13000.000012	#	No	# uuid:1-12	1:23
+binary-logs-13000.000013	#	No	# uuid:1-13	
+binary-logs-13000.000014	#	No	# uuid:1-14	
+binary-logs-13000.000015	#	No	# uuid:1-15	
+binary-logs-13000.000016	#	No	# uuid:1-16	
+binary-logs-13000.000017	#	No	# uuid:1-17	
+binary-logs-13000.000018	#	No	# uuid:1-17	
+binary-logs-13000.000019	#	No	# uuid:1-17	
+binary-logs-13000.000020	#	No	# uuid:1-18	
+binary-logs-13000.000021	#	No	# uuid:1-19	
+binary-logs-13000.000022	#	No	# uuid:1-20	
+binary-logs-13000.000023	#	No	# uuid:1-21	
+binary-logs-13000.000024	#	No	# uuid:1-22	
+binary-logs-13000.000025	#	No	# uuid:1-22	4:46
+binary-logs-13000.000026	#	No	# uuid:1-22	5:47
+binary-logs-13000.000027	#	No	# uuid:1-23	5:49
+binary-logs-13000.000028	#	No	# uuid:1-24	5:51
+binary-logs-13000.000029	#	No	# uuid:1-25	5:53
+binary-logs-13000.000030	#	No	# uuid:1-26	5:55
+binary-logs-13000.000031	#	No	# uuid:1-27	5:57
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

@@ -89,7 +89,7 @@ bool show_replicas(THD *thd, bool with_raft);
 String *get_replica_uuid(THD *thd, String *value, bool need_lock = true);
 bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);
-bool show_binlogs(THD *thd, bool with_gtid = false);
+bool show_binlogs(THD *thd, bool with_gtid = false, bool with_opid = false);
 void kill_zombie_dump_threads(THD *thd);
 void kill_all_dump_threads();
 

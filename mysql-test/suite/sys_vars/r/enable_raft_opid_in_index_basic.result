@@ -1,0 +1,27 @@
+Default value of enable_raft_opid_in_index is ON
+SELECT @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+0
+SELECT @@session.enable_raft_opid_in_index;
+ERROR HY000: Variable 'enable_raft_opid_in_index' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+enable_raft_opid_in_index is a dynamic variable (change to OFF)
+set @@global.enable_raft_opid_in_index = OFF;
+SELECT @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+0
+restore the default value
+SET @@global.enable_raft_opid_in_index = ON;
+SELECT @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+1
+restart the server with non default value (1)
+# restart: --enable_raft_opid_in_index=OFF
+SELECT @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+0
+restart the server with the default value (ON)
+# restart: --enable_raft_opid_in_index=OFF
+SELECT @@global.enable_raft_opid_in_index;
+@@global.enable_raft_opid_in_index
+0

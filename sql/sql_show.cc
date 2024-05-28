@@ -349,7 +349,7 @@ bool Sql_cmd_show_binlogs::check_privileges(THD *thd) {
 }
 
 bool Sql_cmd_show_binlogs::execute_inner(THD *thd) {
-  return show_binlogs(thd, lex->with_gtid);
+  return show_binlogs(thd, lex->with_gtid, lex->with_opid);
 }
 
 bool Sql_cmd_show_create_database::check_privileges(THD *) { return false; }
@@ -722,7 +722,7 @@ bool Sql_cmd_show_raft_logs::check_privileges(THD *) {
 }
 
 bool Sql_cmd_show_raft_logs::execute_inner(THD *thd) {
-  return show_raft_logs(thd, lex->with_gtid);
+  return show_raft_logs(thd, lex->with_gtid, lex->with_opid);
 }
 
 bool Sql_cmd_show_raft_status::check_privileges(THD *thd) {

@@ -1441,6 +1441,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> KB_SYM 10020              /* FB MYSQL */
 %token<lexer.keyword> MB_SYM 10021              /* FB MYSQL */
 %token<lexer.keyword> GB_SYM 10022              /* FB MYSQL */
+%token<lexer.keyword> OPID_SYM 10023              /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -13930,26 +13931,38 @@ show_columns_stmt:
           }
         ;
 
-gtid_bool:
+gtid_opid_bool:
          /* empty */
          {
            Lex->with_gtid = false;
+           Lex->with_opid = false;
          }
          | WITH GTID_SYM
          {
            Lex->with_gtid = true;
+           Lex->with_opid = false;
+         }
+         | WITH OPID_SYM
+         {
+           Lex->with_gtid = false;
+           Lex->with_opid = true;
+         }
+         | WITH GTID_SYM OPID_SYM
+         {
+           Lex->with_gtid = true;
+           Lex->with_opid = true;
          }
         ;
 
 show_binary_logs_stmt:
-          SHOW master_or_binary LOGS_SYM gtid_bool
+          SHOW master_or_binary LOGS_SYM gtid_opid_bool
           {
             $$ = NEW_PTN PT_show_binlogs(@$);
           }
         ;
 
 show_raft_logs_stmt:
-          SHOW RAFT_SYM LOGS_SYM gtid_bool
+          SHOW RAFT_SYM LOGS_SYM gtid_opid_bool
           {
             $$ = NEW_PTN PT_show_raft_logs(@$);
           }

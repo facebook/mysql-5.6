@@ -1558,9 +1558,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
   int close_crash_safe_index_file();
+  int write_raft_opid_to_index(IO_CACHE *index_file,
+                               RaftRotateInfo *raft_rotate_info);
   int add_log_to_index(uchar *log_file_name, size_t name_len,
                        bool need_lock_index, uchar *previous_gtid_set_buffer,
-                       uint gtid_set_length);
+                       uint gtid_set_length, RaftRotateInfo *raft_rotate_info);
   int move_crash_safe_index_file_to_index_file(bool need_lock_index);
   int set_purge_index_file_name(const char *base_file_name);
   int open_purge_index_file(bool destroy);
@@ -1887,7 +1889,7 @@ bool purge_source_logs_before_date(THD *thd, time_t purge_time);
 bool purge_raft_logs(THD *thd, const char *to_log);
 bool purge_raft_logs_before_date(THD *thd, time_t purge_time);
 bool update_relay_log_cordinates(Relay_log_info *rli);
-bool show_raft_logs(THD *thd, bool with_gtid = false);
+bool show_raft_logs(THD *thd, bool with_gtid = false, bool with_opid = false);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD *thd);
 bool show_gtid_executed(THD *thd);
@@ -2003,6 +2005,8 @@ bool normalize_binlog_name(char *to, const char *from, bool is_relay_log);
 */
 uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
 
+std::string get_opid_from_index(char *file_name_gtid_set_length_maybe_opid);
+
 /*
   Compare two binlog files:positions
   @param b1    binlog file1
@@ -2019,5 +2023,6 @@ struct BinlogInfoRow {
   ulonglong file_length;
   std::string encryption;
   std::string prev_gtid_set;
+  std::string opid;
 };
 #endif /* BINLOG_H_INCLUDED */
