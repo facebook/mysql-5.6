@@ -197,6 +197,14 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     }
 
     /*
+      If the timestamp is max value, it means that this record will never expire
+      and should not be deleted. We will early return here to avoid overflow.
+    */
+    if (ttl_timestamp == std::numeric_limits<uint64_t>::max()) {
+      return false;
+    }
+
+    /*
       Filter out the record only if it is older than the expiration
       timestamp. This prevents any rows from expiring in the middle of
       long-running transactions.

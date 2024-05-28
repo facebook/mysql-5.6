@@ -1,0 +1,96 @@
+--source include/have_rocksdb.inc
+
+# partial index + TTL + bulk load
+
+SET rocksdb_bulk_load_size=10;
+
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+`ts` bigint(20) UNSIGNED NOT NULL,
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+  KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB COMMENT='ttl_duration=2;ttl_col=ts;';
+
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+
+--disable_query_log
+let $i = 1;
+while ($i <= 9) {
+  let $j = 1;
+  while ($j <= $i) {
+    eval INSERT INTO t VALUES ($i, $j, 10 - $j, 12345, UNIX_TIMESTAMP());
+    inc $j;
+  }
+  inc $i;
+}
+--enable_query_log
+
+SET rocksdb_bulk_load=0;
+
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+--let $query1= SELECT i, j, k FROM t FORCE INDEX (ik1);
+--let $query2= SELECT i, j, k FROM t FORCE INDEX (ik2);
+--source include/diff_queries.inc
+
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+--let $assert_text = Check that materialized groups are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_materialized", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that materialized rows are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_materialized", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that sorted groups are non-zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_sorted", diff, 1] > 0
+--source include/assert.inc
+--let $assert_text = Check that sorted rows are non-zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_sorted", diff, 1] > 0
+--source include/assert.inc
+
+DROP TABLE t1, t2; 
+
+# Sentinel key is written during bulk loading, and it will not be deleted once written. The following partial index status are expected to be zero.
+
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+--sleep 2
+SELECT i, j, k FROM t FORCE INDEX (ik1);
+SELECT i, j, k FROM t FORCE INDEX (ik2);
+
+INSERT INTO t VALUES (6, 1, 9, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 2, 8, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 3, 7, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 4, 6, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 5, 5, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 6, 4, 12345, UNIX_TIMESTAMP());
+
+SELECT i, j, k FROM t FORCE INDEX (ik1);
+
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+--let $assert_text = Check that materialized groups are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_materialized", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that materialized rows are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_materialized", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that sorted groups are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_sorted", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that sorted rows are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_sorted", diff, 1] = 0
+--source include/assert.inc
+
+DROP TABLE t1, t2;
+
+DROP TABLE t;

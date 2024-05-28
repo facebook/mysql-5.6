@@ -1,0 +1,146 @@
+--source include/have_rocksdb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t;
+--enable_warnings
+
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 0;
+
+# Basic TTL test
+CREATE TABLE t (
+i varchar(64), j varchar(64), k varchar(64),l varchar(64),
+`ts` bigint(20) UNSIGNED NOT NULL,
+  PRIMARY KEY (i, j),
+  KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COMMENT='ttl_duration=2;ttl_col=ts;';
+
+
+INSERT INTO t values ("1", "1", "2", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("1", "2", "1", "1", UNIX_TIMESTAMP());
+
+INSERT INTO t values ("11111111", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "2", "8", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "3", "7", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "4", "5", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "5", "4", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "6", "2", "1", UNIX_TIMESTAMP());
+
+INSERT INTO t values ("111111111", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("111111111", "2", "2", "1", UNIX_TIMESTAMP());
+
+INSERT INTO t values ("11111112", "1", "1", "1", UNIX_TIMESTAMP());
+
+# Select from sk and pk to see if they get the same data
+SELECT COUNT(*) FROM t;
+SELECT COUNT(*) FROM t FORCE INDEX (ik1);
+
+# So far, the materialization has been done, no more materialization is expected for the remaining test
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+--sleep 2
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 1;
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+
+# compact default, should have filtered the rows out since ttl is passed in compaction filter
+SELECT COUNT(*) FROM t;
+SELECT COUNT(*) FROM t FORCE INDEX (ik1);
+
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 0;
+INSERT INTO t values ("11111111", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "2", "8", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "3", "7", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "4", "5", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "5", "4", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "6", "2", "1", UNIX_TIMESTAMP());
+
+--sleep 2
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 1;
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='cf';
+
+# compact cf, should have filtered the rows out since ttl is passed in compaction filter
+SELECT COUNT(*) FROM t;
+SELECT COUNT(*) FROM t FORCE INDEX (ik1);
+
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 0;
+INSERT INTO t values ("11111111", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "2", "8", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "3", "7", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "4", "5", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "5", "4", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "6", "2", "1", UNIX_TIMESTAMP());
+
+# Check if PK will evoke materialization
+SELECT COUNT(*) FROM t;
+
+--sleep 2
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 1;
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+
+# should have filtered the rows out since ttl is passed in compaction filter
+SELECT COUNT(*) FROM t;
+
+INSERT INTO t values ("11111111", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "2", "8", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "3", "7", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "4", "5", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "5", "4", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("11111111", "6", "2", "1", UNIX_TIMESTAMP());
+
+# Check if SK will evoke materialization
+SELECT COUNT(*) FROM t FORCE INDEX (ik1);
+
+# Now check the partial index stats to verify if we do any materialization other than the first one.
+# Since the sentinel key is expected to be never deleted, all the following metrics are expected to be 0.
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+SELECT variable_name, t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name);
+--let $assert_text = Check that materialized groups are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_materialized", diff, 1] = 0
+--source include/assert.inc
+--let $assert_text = Check that materialized rows are zero.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_materialized", diff, 1] = 0
+--source include/assert.inc
+
+DROP TABLE t1;
+DROP TABLE t2;
+SET GLOBAL rocksdb_pause_ttl_compaction_filter = 0;
+
+# Test materialization when there are mixed rows (both expired and not expired)
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+INSERT INTO t values ("222222", "1", "9", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "2", "8", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "3", "7", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "4", "6", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "5", "4", "1", UNIX_TIMESTAMP()-1000);
+INSERT INTO t values ("222222", "6", "3", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "7", "2", "1", UNIX_TIMESTAMP());
+INSERT INTO t values ("222222", "8", "1", "1", UNIX_TIMESTAMP()-1000);
+
+SELECT COUNT(*) FROM t;
+SELECT COUNT(*) FROM t FORCE INDEX (ik1);
+
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+
+SELECT variable_name, t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name);
+--let $assert_text = Check that materialized group is 1.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_groups_materialized", diff, 1] = 1
+--source include/assert.inc
+--let $assert_text = Check that materialized rows are 6, meaning only meterialize alive rows.
+--let $assert_cond = [SELECT t2.variable_value - t1.variable_value AS diff FROM t1 JOIN t2 USING (variable_name) WHERE variable_name = "rocksdb_partial_index_rows_materialized", diff, 1] = 6
+--source include/assert.inc
+
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t;

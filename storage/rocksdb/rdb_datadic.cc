@@ -787,17 +787,6 @@ uint Rdb_key_def::extract_partial_index_info(const TABLE &table_arg,
     key_part_pk++;
   }
 
-  bool ttl_duration_per_part_match_found;
-  std::string ttl_duration_str = Rdb_key_def::parse_comment_for_qualifier(
-      table_comment, table_arg, tbl_def_arg, ttl_duration_per_part_match_found,
-      RDB_TTL_DURATION_QUALIFIER);
-
-  if (!ttl_duration_str.empty()) {
-    my_printf_error(ER_WRONG_ARGUMENTS, "Partial index cannot have TTL.",
-                    MYF(0));
-    return HA_EXIT_FAILURE;
-  }
-
   return HA_EXIT_SUCCESS;
 }
 

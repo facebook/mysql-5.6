@@ -1312,6 +1312,12 @@ extern uint rocksdb_clone_checkpoint_max_count;
 
 extern unsigned long long rocksdb_converter_record_cached_length;
 
+/*
+  The max value timestamp that is used to construct timestamp slice. This will
+  be used in the case of using max timestamp as a special value.
+*/
+extern char max_timestamp_uint64[ROCKSDB_SIZEOF_TTL_RECORD];
+
 [[nodiscard]] inline bool is_wal_dir_separate() noexcept {
   return rocksdb_wal_dir && *rocksdb_wal_dir &&
          // Prefer cheapness over accuracy by doing lexicographic path

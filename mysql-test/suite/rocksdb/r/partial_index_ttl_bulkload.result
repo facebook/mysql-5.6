@@ -1,0 +1,54 @@
+SET rocksdb_bulk_load_size=10;
+CREATE TABLE t (i varchar(64), j varchar(64), k varchar(64), l varchar(64),
+`ts` bigint(20) UNSIGNED NOT NULL,
+PRIMARY KEY (i, j),
+KEY ik1 (i, k) COMMENT 'cfname=cf;partial_group_keyparts=1;partial_group_threshold=5',
+KEY ik2 (i, k) COMMENT 'cfname=cf'
+) ENGINE=ROCKSDB COMMENT='ttl_duration=2;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1831	Duplicate index 'ik2' defined on the table 'test.t'. This is deprecated and will be disallowed in a future release.
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+SET rocksdb_bulk_load=0;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are non-zero.]
+include/assert.inc [Check that sorted rows are non-zero.]
+DROP TABLE t1, t2;
+CREATE TEMPORARY TABLE t1 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+SELECT i, j, k FROM t FORCE INDEX (ik1);
+i	j	k
+SELECT i, j, k FROM t FORCE INDEX (ik2);
+i	j	k
+INSERT INTO t VALUES (6, 1, 9, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 2, 8, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 3, 7, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 4, 6, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 5, 5, 12345, UNIX_TIMESTAMP());
+INSERT INTO t VALUES (6, 6, 4, 12345, UNIX_TIMESTAMP());
+SELECT i, j, k FROM t FORCE INDEX (ik1);
+i	j	k
+6	6	4
+6	5	5
+6	4	6
+6	3	7
+6	2	8
+6	1	9
+CREATE TEMPORARY TABLE t2 AS
+SELECT * FROM performance_schema.global_status
+WHERE variable_name LIKE 'rocksdb_partial_index%';
+include/assert.inc [Check that materialized groups are zero.]
+include/assert.inc [Check that materialized rows are zero.]
+include/assert.inc [Check that sorted groups are zero.]
+include/assert.inc [Check that sorted rows are zero.]
+DROP TABLE t1, t2;
+DROP TABLE t;
