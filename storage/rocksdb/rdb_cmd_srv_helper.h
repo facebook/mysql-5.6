@@ -41,7 +41,7 @@ class Rdb_cmd_srv_status {
  public:
   Rdb_cmd_srv_status() : m_error(false) {}
   Rdb_cmd_srv_status(const std::string &error_msg)
-      : m_error(true), m_error_msg(error_msg) {}
+      : m_error(true), m_error_no(0), m_error_msg(error_msg) {}
   Rdb_cmd_srv_status(unsigned int error_no, const std::string &error_msg,
                      const std::string &sqlstate_errmsg)
       : m_error(true),
