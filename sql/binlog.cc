@@ -2034,9 +2034,9 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
       raft_trx_cache = std::make_unique<Binlog_cache_storage>();
       // We add a little slack to max size to account for additional
       // log events (ie. gtid and metadata)
-      ret = raft_trx_cache->open(binlog_cache_size,
-                                 max_binlog_cache_size + 
-                                 opt_max_binlog_cache_overhead_size);
+      ret = raft_trx_cache->open(
+          binlog_cache_size,
+          max_binlog_cache_size + opt_max_binlog_cache_overhead_size);
       if (ret) {
         raft_trx_cache.reset();
         goto end;
@@ -9106,8 +9106,7 @@ end:
 
   mysql_mutex_unlock(&LOCK_index);
 
-  if (!error && enable_raft_plugin && !no_op &&
-      (is_relay_log || rotate_via_raft)) {
+  if (!error && enable_raft_plugin && (is_relay_log || rotate_via_raft)) {
     // Register new log to raft
     // Previous close(LOG_CLOSE_TO_BE_OPENED | LOG_CLOSE_INDEX,) will close
     // binlog and its IO_CACHE.
