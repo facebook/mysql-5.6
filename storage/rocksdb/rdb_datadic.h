@@ -1442,7 +1442,7 @@ class Rdb_ddl_manager : public Ensure_initialized {
   // This is mainly used to store key definitions during ALTER TABLE.
   std::map<GL_INDEX_ID, std::shared_ptr<Rdb_key_def>>
       m_index_num_to_uncommitted_keydef;
-  mysql_rwlock_t m_rwlock;
+  mutable mysql_rwlock_t m_rwlock;
 
   Rdb_seq_generator m_dd_table_sequence;
   Rdb_seq_generator m_user_table_sequence;
@@ -1453,7 +1453,8 @@ class Rdb_ddl_manager : public Ensure_initialized {
   // and consumed by the rocksdb background thread
   std::map<GL_INDEX_ID, Rdb_index_stats> m_stats2store;
 
-  const std::shared_ptr<Rdb_key_def> &find(GL_INDEX_ID gl_index_id);
+  [[nodiscard]] const std::shared_ptr<Rdb_key_def> &find(
+      GL_INDEX_ID gl_index_id) const;
 
  public:
   Rdb_ddl_manager(const Rdb_ddl_manager &) = delete;
@@ -1469,12 +1470,14 @@ class Rdb_ddl_manager : public Ensure_initialized {
 
   void cleanup(bool destroy_rwlock = true);
 
-  Rdb_tbl_def *find(const std::string &table_name, const bool lock = true);
-  int find_indexes(const std::string &table_name,
-                   std::vector<GL_INDEX_ID> *indexes);
-  int find_table_stats(const std::string &table_name,
-                       Rdb_table_stats *tbl_stats);
-  std::shared_ptr<const Rdb_key_def> safe_find(GL_INDEX_ID gl_index_id);
+  [[nodiscard]] Rdb_tbl_def *find(const std::string &table_name,
+                                  bool lock = true) const;
+  [[nodiscard]] int find_indexes(const std::string &table_name,
+                                 std::vector<GL_INDEX_ID> *indexes) const;
+  [[nodiscard]] int find_table_stats(const std::string &table_name,
+                                     Rdb_table_stats *tbl_stats) const;
+  [[nodiscard]] std::shared_ptr<const Rdb_key_def> safe_find(
+      GL_INDEX_ID gl_index_id) const;
   void set_stats(const std::unordered_map<GL_INDEX_ID, Rdb_index_stats> &stats);
   void adjust_stats(const std::vector<Rdb_index_stats> &new_data,
                     const std::vector<Rdb_index_stats> &deleted_data =
@@ -1495,17 +1498,18 @@ class Rdb_ddl_manager : public Ensure_initialized {
 
   void update_next_dd_index_id(uint cf_id, uint next_id);
 
-  const std::string safe_get_table_name(const GL_INDEX_ID &gl_index_id);
+  [[nodiscard]] const std::string safe_get_table_name(
+      GL_INDEX_ID gl_index_id) const;
 
   /* Walk the data dictionary */
-  int scan_for_tables(Rdb_tables_scanner *tables_scanner);
+  int scan_for_tables(Rdb_tables_scanner *tables_scanner) const;
 
   void erase_index_num(const GL_INDEX_ID &gl_index_id);
   void add_uncommitted_keydefs(
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
   void remove_uncommitted_keydefs(
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
-  int find_in_uncommitted_keydef(const uint32_t cf_id);
+  [[nodiscard]] int find_in_uncommitted_keydef(uint32_t cf_id) const;
 
  private:
   bool populate(uint32_t validate_tables, bool lock = true);
@@ -1518,9 +1522,9 @@ class Rdb_ddl_manager : public Ensure_initialized {
                                    bool not_used MY_ATTRIBUTE((unused)));
   static void free_hash_elem(void *const data);
 
-  bool validate_schemas();
+  [[nodiscard]] bool validate_schemas() const;
 
-  bool validate_auto_incr();
+  [[nodiscard]] bool validate_auto_incr() const;
 };
 
 /*

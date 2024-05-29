@@ -25,6 +25,7 @@
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
+#include "rdb_psi.h"
 
 namespace myrocks {
 
@@ -139,7 +140,7 @@ class Rdb_tbl_card_coll {
 
 class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
  public:
-  Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
+  Rdb_tbl_prop_coll(const Rdb_ddl_manager &ddl_manager,
                     const Rdb_compact_params &params, const uint32_t cf_id,
                     const uint8_t table_stats_sampling_pct);
 
@@ -183,7 +184,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
  private:
   uint32_t m_cf_id;
   std::shared_ptr<const Rdb_key_def> m_keydef;
-  Rdb_ddl_manager *m_ddl_manager;
+  const Rdb_ddl_manager &m_ddl_manager;
   std::vector<Rdb_index_stats> m_stats;
   Rdb_index_stats *m_last_stats;
   static const char *INDEXSTATS_KEY;
@@ -208,10 +209,20 @@ class Rdb_tbl_prop_coll_factory
   Rdb_tbl_prop_coll_factory(const Rdb_tbl_prop_coll_factory &) = delete;
   Rdb_tbl_prop_coll_factory &operator=(const Rdb_tbl_prop_coll_factory &) =
       delete;
+  Rdb_tbl_prop_coll_factory(Rdb_tbl_prop_coll_factory &&) = delete;
+  Rdb_tbl_prop_coll_factory &operator=(Rdb_tbl_prop_coll_factory &&) = delete;
 
-  explicit Rdb_tbl_prop_coll_factory(Rdb_ddl_manager *ddl_manager,
-                                     Rdb_cf_manager *cf_manager)
-      : m_ddl_manager(ddl_manager), m_cf_manager(cf_manager) {}
+  Rdb_tbl_prop_coll_factory(const Rdb_ddl_manager &ddl_manager,
+                            const Rdb_cf_manager &cf_manager)
+      : m_ddl_manager(ddl_manager), m_cf_manager(cf_manager) {
+#ifdef HAVE_PSI_INTERFACE
+    mysql_rwlock_init(key_rwlock_tbl_prop_coll_factory_lock, &lock);
+#else
+    mysql_rwlock_init(nullptr, &lock);
+#endif
+  }
+
+  ~Rdb_tbl_prop_coll_factory() override { mysql_rwlock_destroy(&lock); }
 
   /*
     Override parent class's virtual methods of interest.
@@ -225,20 +236,24 @@ class Rdb_tbl_prop_coll_factory
 
  public:
   void SetCompactionParams(const Rdb_compact_params &params) {
+    rwlock_scoped_lock guard(&lock, true, __FILE__, __LINE__);
     m_params = params;
   }
 
-  void SetTableStatsSamplingPct(const uint8_t table_stats_sampling_pct) {
+  void SetTableStatsSamplingPct(uint8_t table_stats_sampling_pct) {
+    rwlock_scoped_lock guard(&lock, true, __FILE__, __LINE__);
     m_table_stats_sampling_pct = table_stats_sampling_pct;
   }
 
-  void SetSkipSystemCF(const bool skip_system_cf) {
+  void SetSkipSystemCF(bool skip_system_cf) {
+    rwlock_scoped_lock guard(&lock, true, __FILE__, __LINE__);
     m_skip_system_cf = skip_system_cf;
   }
 
  private:
-  Rdb_ddl_manager *const m_ddl_manager;
-  Rdb_cf_manager *const m_cf_manager;
+  mutable mysql_rwlock_t lock;
+  const Rdb_ddl_manager &m_ddl_manager;
+  const Rdb_cf_manager &m_cf_manager;
   bool m_skip_system_cf = false;
   Rdb_compact_params m_params;
   uint8_t m_table_stats_sampling_pct;

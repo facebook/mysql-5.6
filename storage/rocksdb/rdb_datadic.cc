@@ -4431,7 +4431,7 @@ void Rdb_ddl_manager::remove_uncommitted_keydefs(
   mysql_rwlock_unlock(&m_rwlock);
 }
 
-int Rdb_ddl_manager::find_in_uncommitted_keydef(const uint32_t cf_id) {
+int Rdb_ddl_manager::find_in_uncommitted_keydef(const uint32_t cf_id) const {
   mysql_rwlock_rdlock(&m_rwlock);
   for (const auto &pr : m_index_num_to_uncommitted_keydef) {
     const auto &kd = pr.second;
@@ -4567,7 +4567,7 @@ bool Rdb_validate_tbls::validate(void) {
   Validate that all the tables in the RocksDB database dictionary match the
   MySQL data dictionary
 */
-bool Rdb_ddl_manager::validate_schemas(void) {
+bool Rdb_ddl_manager::validate_schemas(void) const {
   Rdb_validate_tbls table_list;
 
   /* Get the list of tables from the RocksDB database dictionary */
@@ -4582,7 +4582,7 @@ bool Rdb_ddl_manager::validate_schemas(void) {
   Validate that all auto increment values in the data dictionary are on a
   supported version.
 */
-bool Rdb_ddl_manager::validate_auto_incr() {
+bool Rdb_ddl_manager::validate_auto_incr() const {
   auto dict_user_table =
       m_dict->get_dict_manager_selector_const(false /*is_tmp_table*/);
   std::unique_ptr<rocksdb::Iterator> it(dict_user_table->new_iterator());
@@ -4867,7 +4867,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager_selector *const dict_arg,
 }
 
 Rdb_tbl_def *Rdb_ddl_manager::find(const std::string &table_name,
-                                   const bool lock) {
+                                   bool lock) const {
   if (lock) {
     mysql_rwlock_rdlock(&m_rwlock);
   }
@@ -4886,7 +4886,7 @@ Rdb_tbl_def *Rdb_ddl_manager::find(const std::string &table_name,
 }
 
 int Rdb_ddl_manager::find_indexes(const std::string &table_name,
-                                  std::vector<GL_INDEX_ID> *indexes) {
+                                  std::vector<GL_INDEX_ID> *indexes) const {
   mysql_rwlock_rdlock(&m_rwlock);
 
   Rdb_tbl_def *tdef = nullptr;
@@ -4910,7 +4910,7 @@ int Rdb_ddl_manager::find_indexes(const std::string &table_name,
 }
 
 int Rdb_ddl_manager::find_table_stats(const std::string &table_name,
-                                      Rdb_table_stats *tbl_stats) {
+                                      Rdb_table_stats *tbl_stats) const {
   mysql_rwlock_rdlock(&m_rwlock);
 
   Rdb_tbl_def *tdef = nullptr;
@@ -4936,7 +4936,7 @@ int Rdb_ddl_manager::find_table_stats(const std::string &table_name,
 // are finding it.  Copying it into 'ret' increments the count making sure
 // that the object will not be discarded until we are finished with it.
 std::shared_ptr<const Rdb_key_def> Rdb_ddl_manager::safe_find(
-    GL_INDEX_ID gl_index_id) {
+    GL_INDEX_ID gl_index_id) const {
   std::shared_ptr<const Rdb_key_def> ret(nullptr);
 
   mysql_rwlock_rdlock(&m_rwlock);
@@ -4968,7 +4968,7 @@ std::shared_ptr<const Rdb_key_def> Rdb_ddl_manager::safe_find(
 
 // this method assumes at least read-only lock on m_rwlock
 const std::shared_ptr<Rdb_key_def> &Rdb_ddl_manager::find(
-    GL_INDEX_ID gl_index_id) {
+    GL_INDEX_ID gl_index_id) const {
   const auto it = m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end()) {
     const auto table_def = find(it->second.first, false);
@@ -4993,7 +4993,7 @@ const std::shared_ptr<Rdb_key_def> &Rdb_ddl_manager::find(
 // this method returns the name of the table based on an index id. It acquires
 // a read lock on m_rwlock.
 const std::string Rdb_ddl_manager::safe_get_table_name(
-    const GL_INDEX_ID &gl_index_id) {
+    GL_INDEX_ID gl_index_id) const {
   std::string ret;
   mysql_rwlock_rdlock(&m_rwlock);
   auto it = m_index_num_to_keydef.find(gl_index_id);
@@ -5256,7 +5256,8 @@ void Rdb_ddl_manager::cleanup(bool destroy_rwlock) {
   m_tmp_table_sequence.cleanup();
 }
 
-int Rdb_ddl_manager::scan_for_tables(Rdb_tables_scanner *const tables_scanner) {
+int Rdb_ddl_manager::scan_for_tables(
+    Rdb_tables_scanner *const tables_scanner) const {
   int ret;
   Rdb_tbl_def *rec;
 

@@ -708,7 +708,6 @@ static void rocksdb_drop_index_wakeup_thread(
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save);
 
 static bool rocksdb_pause_background_work = 0;
-static Rds_mysql_mutex rdb_sysvars_mutex;
 static Rds_mysql_mutex rdb_block_cache_resize_mutex;
 static Rds_mysql_mutex rdb_bottom_pri_background_compactions_resize_mutex;
 
@@ -716,7 +715,6 @@ static void rocksdb_set_pause_background_work(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const bool pause_requested = *static_cast<const bool *>(save);
   if (rocksdb_pause_background_work != pause_requested) {
     if (pause_requested) {
@@ -726,7 +724,6 @@ static void rocksdb_set_pause_background_work(
     }
     rocksdb_pause_background_work = pause_requested;
   }
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_compaction_options(THD *thd, struct SYS_VAR *var,
@@ -743,12 +740,10 @@ static void rocksdb_update_table_stats_use_table_scan(
 static void rocksdb_update_table_stats_skip_system_cf(
     THD *const /* thd */, struct SYS_VAR *const /* var */, void *const var_ptr,
     const void *const save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   bool old_val = *static_cast<const bool *>(var_ptr);
   bool new_val = *static_cast<const bool *>(save);
 
   if (old_val == new_val) {
-    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }
 
@@ -757,7 +752,6 @@ static void rocksdb_update_table_stats_skip_system_cf(
   }
 
   *static_cast<bool *>(var_ptr) = new_val;
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static int rocksdb_index_stats_thread_renice(
@@ -1297,11 +1291,9 @@ static void rocksdb_set_rocksdb_info_log_level(
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   assert(save != nullptr);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   rocksdb_info_log_level = *static_cast<const uint64_t *>(save);
   rocksdb_db_options->info_log->SetInfoLogLevel(
       static_cast<rocksdb::InfoLogLevel>(rocksdb_info_log_level));
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_rocksdb_stats_level(
@@ -1310,14 +1302,12 @@ static void rocksdb_set_rocksdb_stats_level(
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   assert(save != nullptr);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   rocksdb_db_options->statistics->set_stats_level(
       static_cast<rocksdb::StatsLevel>(*static_cast<const uint64_t *>(save)));
   // Actual stats level is defined at rocksdb dbopt::statistics::stats_level_
   // so adjusting rocksdb_stats_level here to make sure it points to
   // the correct stats level.
   rocksdb_stats_level = rocksdb_db_options->statistics->get_stats_level();
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_reset_stats(
@@ -1327,8 +1317,6 @@ static void rocksdb_set_reset_stats(
   assert(save != nullptr);
   assert(rdb != nullptr);
   assert(rocksdb_stats != nullptr);
-
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
   *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
 
@@ -1342,8 +1330,6 @@ static void rocksdb_set_reset_stats(
     s = rocksdb_stats->Reset();
     assert(s == rocksdb::Status::OK());
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw) {
@@ -1377,14 +1363,10 @@ static void rocksdb_set_io_write_timeout(
   assert(rdb != nullptr);
   assert(io_watchdog != nullptr);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   const uint32_t new_val = *static_cast<const uint32_t *>(save);
 
   rocksdb_io_write_timeout_secs = new_val;
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 #endif  // !__APPLE__
@@ -7909,7 +7891,6 @@ static int rocksdb_init_internal(void *const p) {
   rdb_collation_exceptions = new Regex_list_handler();
 #endif
 
-  rdb_sysvars_mutex.init(rdb_sysvars_psi_mutex_key, MY_MUTEX_INIT_FAST);
   rdb_block_cache_resize_mutex.init(rdb_block_cache_resize_mutex_key,
                                     MY_MUTEX_INIT_FAST);
   rdb_bottom_pri_background_compactions_resize_mutex.init(
@@ -8217,19 +8198,15 @@ static int rocksdb_init_internal(void *const p) {
 
   if (rocksdb_collect_sst_properties) {
     properties_collector_factory =
-        std::make_shared<Rdb_tbl_prop_coll_factory>(&ddl_manager, &cf_manager);
+        std::make_shared<Rdb_tbl_prop_coll_factory>(ddl_manager, cf_manager);
 
     rocksdb_set_compaction_options(nullptr, nullptr, nullptr, nullptr);
-
-    RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
     assert(rocksdb_table_stats_sampling_pct <= RDB_TBL_STATS_SAMPLE_PCT_MAX);
     properties_collector_factory->SetTableStatsSamplingPct(
         rocksdb_table_stats_sampling_pct);
     properties_collector_factory->SetSkipSystemCF(
         rocksdb_table_stats_skip_system_cf);
-
-    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
   }
 
   if (rocksdb_persistent_cache_size_mb > 0) {
@@ -8684,7 +8661,6 @@ static int rocksdb_shutdown(bool minimalShutdown) {
   // deleting mutexes. The plan is to gradually increase this section so there's
   // one single shutdown function for all scenarios.
 
-  rdb_sysvars_mutex.destroy();
   rdb_block_cache_resize_mutex.destroy();
   rdb_bottom_pri_background_compactions_resize_mutex.destroy();
 
@@ -8732,6 +8708,7 @@ static int rocksdb_shutdown(bool minimalShutdown) {
 #endif /* HAVE_VALGRIND */
   }
 
+  properties_collector_factory.reset();
   rocksdb_db_options = nullptr;
   rocksdb_tbl_options = nullptr;
   rocksdb_stats = nullptr;
@@ -15662,10 +15639,14 @@ static int calculate_stats_for_table(
     const std::string &tbl_name, table_cardinality_scan_type scan_type,
     std::atomic<THD::killed_state> *killed = nullptr) {
   DBUG_ENTER_FUNC();
-  std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>> to_recalc;
-  std::vector<GL_INDEX_ID> indexes;
-  ddl_manager.find_indexes(tbl_name, &indexes);
 
+  std::vector<GL_INDEX_ID> indexes;
+  auto err = ddl_manager.find_indexes(tbl_name, &indexes);
+  if (err != HA_EXIT_SUCCESS) {
+    DBUG_RETURN(err);
+  }
+
+  std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>> to_recalc;
   for (const auto &index : indexes) {
     std::shared_ptr<const Rdb_key_def> keydef = ddl_manager.safe_find(index);
 
@@ -15692,7 +15673,7 @@ static int calculate_stats_for_table(
     }
   });
 
-  int err = calculate_stats(to_recalc, scan_type, killed);
+  err = calculate_stats(to_recalc, scan_type, killed);
   if (err != HA_EXIT_SUCCESS) {
     DBUG_RETURN(err);
   }
@@ -18522,8 +18503,6 @@ static void rocksdb_set_table_stats_sampling_pct(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   const uint32_t new_val = *static_cast<const uint32_t *>(save);
 
   if (new_val != rocksdb_table_stats_sampling_pct) {
@@ -18534,19 +18513,15 @@ static void rocksdb_set_table_stats_sampling_pct(
           rocksdb_table_stats_sampling_pct);
     }
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_update_table_stats_use_table_scan(
     THD *const /* thd */, struct SYS_VAR *const /* var */, void *const var_ptr,
     const void *const save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   bool old_val = *static_cast<const bool *>(var_ptr);
   bool new_val = *static_cast<const bool *>(save);
 
   if (old_val == new_val) {
-    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }
 
@@ -18570,7 +18545,6 @@ static void rocksdb_update_table_stats_use_table_scan(
   }
 
   *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static int rocksdb_index_stats_thread_renice(
@@ -18632,8 +18606,6 @@ static void rocksdb_set_sst_mgr_rate_bytes_per_sec(
     my_core::THD *const thd MY_ATTRIBUTE((unused)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
 
   if (new_val != rocksdb_sst_mgr_rate_bytes_per_sec) {
@@ -18642,14 +18614,11 @@ static void rocksdb_set_sst_mgr_rate_bytes_per_sec(
     rocksdb_db_options->sst_file_manager->SetDeleteRateBytesPerSecond(
         rocksdb_sst_mgr_rate_bytes_per_sec);
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_delayed_write_rate(
     THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
     void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
   if (rocksdb_delayed_write_rate != new_val) {
     rocksdb_delayed_write_rate = new_val;
@@ -18664,19 +18633,16 @@ static void rocksdb_set_delayed_write_rate(
                       s.code(), s.ToString().c_str());
     }
   }
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_max_latest_deadlocks(
     THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
     void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint32_t new_val = *static_cast<const uint32_t *>(save);
   if (rocksdb_max_latest_deadlocks != new_val) {
     rocksdb_max_latest_deadlocks = new_val;
     rdb->SetDeadlockInfoBufferSize(rocksdb_max_latest_deadlocks);
   }
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rdb_set_collation_exception_list(const char *const exception_list) {
@@ -18803,8 +18769,6 @@ static void rocksdb_set_max_background_jobs(
   assert(rocksdb_db_options != nullptr);
   assert(rocksdb_db_options->env != nullptr);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   const int new_val = *static_cast<const int *>(save);
 
   if (rocksdb_db_options->max_background_jobs != new_val) {
@@ -18820,8 +18784,6 @@ static void rocksdb_set_max_background_jobs(
                       s.code(), s.ToString().c_str());
     }
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_max_background_compactions(
@@ -18831,8 +18793,6 @@ static void rocksdb_set_max_background_compactions(
   assert(save != nullptr);
   assert(rocksdb_db_options != nullptr);
   assert(rocksdb_db_options->env != nullptr);
-
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
   const int new_val = *static_cast<const int *>(save);
 
@@ -18849,8 +18809,6 @@ static void rocksdb_set_max_background_compactions(
                       s.code(), s.ToString().c_str());
     }
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 /**
@@ -18902,8 +18860,6 @@ static void rocksdb_set_bytes_per_sync(
   assert(rocksdb_db_options != nullptr);
   assert(rocksdb_db_options->env != nullptr);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   const ulonglong new_val = *static_cast<const ulonglong *>(save);
 
   if (rocksdb_db_options->bytes_per_sync != new_val) {
@@ -18919,8 +18875,6 @@ static void rocksdb_set_bytes_per_sync(
                       s.code(), s.ToString().c_str());
     }
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 static void rocksdb_set_wal_bytes_per_sync(
@@ -18930,8 +18884,6 @@ static void rocksdb_set_wal_bytes_per_sync(
   assert(save != nullptr);
   assert(rocksdb_db_options != nullptr);
   assert(rocksdb_db_options->env != nullptr);
-
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
   const ulonglong new_val = *static_cast<const ulonglong *>(save);
 
@@ -18948,8 +18900,6 @@ static void rocksdb_set_wal_bytes_per_sync(
                       s.code(), s.ToString().c_str());
     }
   }
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 /*
@@ -19045,11 +18995,8 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
                                           const void *const save) {
   const char *const val = *static_cast<const char *const *>(save);
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
   if (!val) {
     *reinterpret_cast<char **>(var_ptr) = nullptr;
-    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }
 
@@ -19065,7 +19012,6 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
   // This should never fail, because of rocksdb_validate_update_cf_options
   if (!Rdb_cf_options::parse_cf_options(val, &option_map)) {
-    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }
 
@@ -19141,8 +19087,6 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
   // Our caller (`plugin_var_memalloc_global_update`) will call `my_free` to
   // free up resources used before.
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 void rdb_queue_save_stats_request() { rdb_bg_thread.request_save_stats(); }
