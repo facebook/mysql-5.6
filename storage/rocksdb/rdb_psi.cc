@@ -54,7 +54,7 @@ my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key, rdb_signal_bg_psi_mutex_key,
     rdb_mem_cmp_space_mutex_key, key_mutex_tx_list, rdb_sysvars_psi_mutex_key,
     rdb_cfm_mutex_key, rdb_sst_commit_key, rdb_block_cache_resize_mutex_key,
     rdb_bottom_pri_background_compactions_resize_mutex_key,
-    clone_donor_file_metadata_mutex_key, key_rwlock_clone_client_files,
+    clone_donor_file_metadata_mutex_key,
     clone_main_task_remaining_mutex_key, clone_error_mutex_key;
 
 my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
@@ -92,7 +92,7 @@ my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
 
 my_core::PSI_rwlock_key key_rwlock_collation_exception_list,
     key_rwlock_read_free_rpl_tables, key_rwlock_clone_task_id_set,
-    key_rwlock_clone_active_clones;
+    key_rwlock_clone_active_clones, key_rwlock_clone_client_files;
 
 my_core::PSI_rwlock_info all_rocksdb_rwlocks[] = {
     {&key_rwlock_collation_exception_list, "collation_exception_list",
