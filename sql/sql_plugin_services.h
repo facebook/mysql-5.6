@@ -259,6 +259,7 @@ static struct cpu_scheduler_service_st cpu_scheduler_handler = {
     tp_destroy_tenant_id,
     tp_get_current_task_cpu_stats,
     tp_get_current_task_wait_stats,
+    tp_get_current_client_stats,
     tp_is_scheduler_enabled,
     tp_get_current_task_connection,
     tp_get_tenant_id};

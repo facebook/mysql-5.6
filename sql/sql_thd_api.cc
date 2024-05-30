@@ -895,6 +895,12 @@ int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len) {
   return -1;
 }
 
+int tp_get_current_client_stats(char* buf_stats, size_t buf_len) {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        get_current_client_stats, (buf_stats, buf_len));
+  return -1;
+}
+
 bool tp_is_scheduler_enabled() {
   MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
                         is_scheduler_enabled, ());

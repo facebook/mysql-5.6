@@ -260,6 +260,7 @@ extern "C" struct cpu_scheduler_service_st {
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
   bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
   int (*get_current_task_wait_stats)(char* buf_stats, size_t buf_len);
+  int (*get_current_client_stats)(char* buf_stats, size_t buf_len);
   bool (*is_scheduler_enabled)();
   tp_conn_handle (*get_current_task_connection)();
   tp_tenant_id_handle (*get_tenant_id)(const char *db);
@@ -275,6 +276,7 @@ tp_tenant_id_handle tp_get_connection_tenant_id(tp_conn_handle conn_handle);
 void tp_destroy_tenant_id(tp_tenant_id_handle tenant_id);
 bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats);
 int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len);
+int tp_get_current_client_stats(char* buf_stats, size_t buf_len);
 bool tp_is_scheduler_enabled();
 tp_conn_handle tp_get_current_task_connection();
 tp_tenant_id_handle tp_get_tenant_id(const char *db);

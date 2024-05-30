@@ -65,6 +65,7 @@ extern "C" struct cpu_scheduler_service_st {
   void (*destroy_tenant_id)(tp_tenant_id_handle tenant_id);
   bool (*get_current_task_cpu_stats)(tp_cpu_stats &cpu_stats);
   int (*get_current_task_wait_stats)(char* buf_stats, size_t buf_len);
+  int (*get_current_client_stats)(char* buf_stats, size_t buf_len);
   bool (*is_scheduler_enabled)();
   tp_conn_handle (*get_current_task_connection)();
   tp_tenant_id_handle (*get_tenant_id)(const char *db);
@@ -93,6 +94,8 @@ extern "C" struct cpu_scheduler_service_st {
   cpu_scheduler_service->get_current_task_cpu_stats(_CPU_STATS)
 #define tp_get_current_task_wait_stats(_BUF_, _BUF_LEN) \
   cpu_scheduler_service->get_current_task_wait_stats(_BUF_, _BUF_LEN)
+#define tp_get_current_client_stats(_BUF_, _BUF_LEN) \
+  cpu_scheduler_service->get_current_client_stats(_BUF_, _BUF_LEN)
 #define tp_is_scheduler_enabled() cpu_scheduler_service->is_scheduler_enabled()
 #define tp_get_current_task_connection() \
   cpu_scheduler_service->get_current_task_connection()
@@ -177,6 +180,15 @@ bool tp_get_current_task_cpu_stats(tp_cpu_stats &cpu_stats);
   @return expected buffer size.
 */
 int tp_get_current_task_wait_stats(char* buf_stats, size_t buf_len);
+
+/**
+  Get stats for current client.
+
+  @param buf buffer to store the client stats.
+  @param len buffer len.
+  @return expected buffer size.
+*/
+int tp_get_current_client_stats(char* buf_stats, size_t buf_len);
 
 /**
   Is CPU scheduler enabled? This helps decide whether to use scheduler APIs or
