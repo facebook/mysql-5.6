@@ -1,0 +1,34 @@
+
+# Test client_stats query response attribute
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+SET @@session.session_track_response_attributes = on;
+SET @@global.thread_pool_scheduling_mode = LDF;
+# Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_client_stats = default;
+select * from mytbl;
+Did not find thread pool client stats in query response attributes
+# Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_client_stats = true;
+SELECT SLEEP(1);
+Found valid value for client_stats in query response attributes
+SELECT SLEEP(1);
+Found valid value for client_stats in query response attributes
+SET @@global.thread_pool_scheduling_mode = default;
+use test;
+drop table if exists mytbl;

@@ -418,6 +418,11 @@ struct System_variables {
   bool response_attrs_contain_server_cpu;
 
   /*
+    Should we set the thread pool client stats time in response attribute?
+   */
+  bool response_attrs_contain_client_stats;
+
+  /*
     Size of the warnings that can be included in response attribute
   */
   uint response_attrs_contain_warnings_bytes;

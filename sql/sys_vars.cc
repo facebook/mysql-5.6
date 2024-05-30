@@ -10020,6 +10020,16 @@ static Sys_var_bool Sys_response_attrs_contain_server_cpu(
     SESSION_VAR(response_attrs_contain_server_cpu), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_response_attrs_contain_client_stats(
+    "response_attrs_contain_client_stats",
+    "If this is enabled, then the stats of the query as well as client "
+    "are sent back "
+    "to clients as part of OK packet in session response attribute. Client "
+    "stats is sent as a key-value pair - 'client_stats' is the key and the "
+    "value is the stringified json which has information about cpu/delay.",
+    SESSION_VAR(response_attrs_contain_client_stats), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
     "response_attrs_contain_warnings_bytes",
     "Specifies the size of the warnings information (specified in bytes) "

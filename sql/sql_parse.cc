@@ -227,6 +227,7 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query,
                      const char *reason = nullptr);
 
 static void store_server_cpu_in_resp_attrs(THD *thd, ulonglong cpu_time);
+static void store_client_stats_in_resp_attrs(THD *thd);
 static void store_warnings_in_resp_attrs(THD *thd);
 using Table_List = std::list<std::pair<const char *, const char *>>;
 static void store_query_tables_in_response_attributes(
@@ -2603,6 +2604,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         /* store CPU time as part of the query response attributes */
         cpu_time = MYSQL_GET_STATEMENT_CPU_TIME(thd->m_statement_psi);
         store_server_cpu_in_resp_attrs(thd, cpu_time);
+        store_client_stats_in_resp_attrs(thd);
 
         /* Finalize server status flags after executing a statement. */
         thd->finalize_session_trackers();
@@ -3001,6 +3003,7 @@ done:
   /* store CPU time as part of the query response attributes */
   cpu_time = MYSQL_GET_STATEMENT_CPU_TIME(thd->m_statement_psi);
   store_server_cpu_in_resp_attrs(thd, cpu_time);
+  store_client_stats_in_resp_attrs(thd);
 
   /* Finalize server status flags after executing a command. */
   thd->finalize_session_trackers();
@@ -8359,6 +8362,34 @@ static void store_server_cpu_in_resp_attrs(THD *thd,
     std::string value_str = std::to_string(cpu_time_in_micro);
     LEX_CSTRING value = {value_str.c_str(), value_str.length()};
     tracker->mark_as_changed(thd, key, &value);
+  }
+}
+
+static std::string response_attrs_contain_client_stats_key =
+    "response_attrs_contain_client_stats";
+
+static void store_client_stats_in_resp_attrs(THD *thd) {
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+  if (tracker->is_enabled() && /* check if session tracker is not enabled */
+      /* check if the variable is enabled */
+      (thd->variables.response_attrs_contain_client_stats ||
+       /* check if query attribute is set to '1'
+        * the argument type of the query attribute is changed to int
+        * to avoid type conversions. The query attribute will be considered
+        * enabled only if its value is set "1".
+        */
+       thd->get_query_attr(response_attrs_contain_client_stats_key) == "1")) {
+    /* Update session tracker with client stats */
+    static LEX_CSTRING key = {STRING_WITH_LEN("client_stats")};
+    /* TODO: Make this configurable */
+    const size_t len = 1024;
+    char buf[len];
+    size_t sz = tp_get_current_client_stats(buf, len);
+    if (sz < len) {
+      LEX_CSTRING value = {buf, len};
+      tracker->mark_as_changed(thd, key, &value);
+    }
   }
 }
 

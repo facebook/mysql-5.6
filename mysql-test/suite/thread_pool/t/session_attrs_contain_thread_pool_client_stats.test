@@ -1,0 +1,81 @@
+--source include/have_debug.inc
+--source include/have_thread_pool_plugin.inc
+
+-- echo
+-- echo # Test client_stats query response attribute
+-- echo
+connection default;
+
+use test;
+create table mytbl (a int, b int, c int, d int, e int);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl values (1, 2, 3, 4, 5);
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+insert into mytbl select * from mytbl;
+
+# Enable tracking response attribute
+SET @@session.session_track_response_attributes = on;
+SET @@global.thread_pool_scheduling_mode = LDF;
+
+-- echo # Case 1: session level variable is default, i.e. FALSE
+set @@session.response_attrs_contain_client_stats = default;
+--disable_result_log
+select * from mytbl;
+--enable_result_log
+
+let $attr = get_response_attribute(client_stats);
+if ($attr == "") {
+  echo Did not find thread pool client stats in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for thread pool client stats in query response attributes;
+}
+
+-- echo # Case 2: session level variable is TRUE
+set @@session.response_attrs_contain_client_stats = true;
+--disable_result_log
+SELECT SLEEP(1);
+--enable_result_log
+
+let $attr = get_response_attribute(client_stats);
+
+if ($attr == "") {
+  echo Did not find client_stats in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for client_stats in query response attributes;
+}
+
+--disable_result_log
+SELECT SLEEP(1);
+--enable_result_log
+let $attr = get_response_attribute(client_stats);
+
+if ($attr == "") {
+  echo Did not find client_stats in query response attributes;
+}
+
+if ($attr) {
+  echo Found valid value for client_stats in query response attributes;
+}
+
+query_attrs_reset;
+
+SET @@global.thread_pool_scheduling_mode = default;
+
+# Cleanup
+connection default;
+use test;
+drop table if exists mytbl;
