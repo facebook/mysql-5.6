@@ -10029,7 +10029,7 @@ bool ha_rocksdb::create_cfs(
         return true;
       }
 
-      if (cf_manager.create_cf_flags_if_needed(local_dict_manager,
+      if (cf_manager.create_cf_flags_if_needed(*local_dict_manager,
                                                cf_handle->GetID(), cf_name,
                                                per_part_match_found)) {
         return true;
@@ -10042,7 +10042,7 @@ bool ha_rocksdb::create_cfs(
     auto &cf = cfs[i];
 
     cf.cf_handle = cf_handle;
-    cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str());
+    cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name);
     cf.is_per_partition_cf = per_part_match_found;
   }
 
@@ -19005,7 +19005,7 @@ static int rocksdb_validate_update_cf_options(THD * /* unused */,
 
   // Basic sanity checking and parsing the options into a map. If this fails
   // then there's no point to proceed.
-  if (!Rdb_cf_options::parse_cf_options(str, &option_map, &output)) {
+  if (!Rdb_cf_options::parse_cf_options(str, option_map, &output)) {
     my_printf_error(ER_WRONG_VALUE_FOR_VAR, "%s", MYF(0), output.str().c_str());
     return HA_EXIT_FAILURE;
   }
@@ -19027,8 +19027,8 @@ static int rocksdb_validate_update_cf_options(THD * /* unused */,
         return HA_EXIT_FAILURE;
       }
 
-      if (cf_manager.create_cf_flags_if_needed(local_dict_manager, cfh->GetID(),
-                                               cf_name)) {
+      if (cf_manager.create_cf_flags_if_needed(*local_dict_manager,
+                                               cfh->GetID(), cf_name)) {
         return HA_EXIT_FAILURE;
       }
     }
@@ -19064,7 +19064,7 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
   Rdb_cf_options::Name_to_config_t option_map;
 
   // This should never fail, because of rocksdb_validate_update_cf_options
-  if (!Rdb_cf_options::parse_cf_options(val, &option_map)) {
+  if (!Rdb_cf_options::parse_cf_options(val, option_map)) {
     RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }

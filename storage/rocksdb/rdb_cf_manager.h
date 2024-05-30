@@ -19,6 +19,7 @@
 /* C++ system header files */
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 /* RocksDB header files */
@@ -61,7 +62,7 @@ class Rdb_cf_manager : public Ensure_initialized {
   Rdb_cf_manager &operator=(const Rdb_cf_manager &) = delete;
   Rdb_cf_manager() = default;
 
-  static bool is_cf_name_reverse(const char *const name);
+  [[nodiscard]] static bool is_cf_name_reverse(std::string_view name);
 
   /*
     This is called right after the DB::Open() call. The parameters describe
@@ -107,9 +108,9 @@ class Rdb_cf_manager : public Ensure_initialized {
               Rdb_dict_manager *const dict_manager, const std::string &cf_name);
 
   /* Create cf flags if it does not exist */
-  int create_cf_flags_if_needed(const Rdb_dict_manager *const dict_manager,
-                                const uint32 &cf_id, const std::string &cf_name,
-                                const bool is_per_partition_cf = false);
+  [[nodiscard]] int create_cf_flags_if_needed(
+      const Rdb_dict_manager &dict_manager, uint32_t cf_id,
+      std::string_view cf_name, bool is_per_partition_cf = false);
 
   /* return true when success */
   bool get_cf_options(const std::string &cf_name,
