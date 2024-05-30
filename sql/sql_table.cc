@@ -15099,7 +15099,8 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
                 cfield->sql_type <= MYSQL_TYPE_BLOB)
                    ? blob_length_by_type(cfield->sql_type)
                    : cfield->max_display_width_in_codepoints()) <
-              key_part_length / key_part->field->charset()->mbmaxlen)))
+              key_part_length / key_part->field->charset()->mbmaxlen)) ||
+            cfield->field->m_fb_vector_dimension > 0)
           key_part_length = 0;  // Use whole field
       }
       key_part_length /= key_part->field->charset()->mbmaxlen;

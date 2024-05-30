@@ -564,20 +564,31 @@ static type_conversion_status do_field_fb_vector(Copy_field *copy_field,
     return TYPE_ERR_BAD_VALUE;
   }
   // check from_field could be converted to a fb_vector or not
-  if (to_field->type() != MYSQL_TYPE_JSON ||
-      from_field->type() != MYSQL_TYPE_JSON) {
+  const auto from_field_type = from_field->type();
+  if ((to_field->type() != from_field->type()) ||
+      (from_field_type != MYSQL_TYPE_JSON &&
+       from_field_type != MYSQL_TYPE_BLOB)) {
     my_error(ER_INVALID_VECTOR, MYF(0));
     return TYPE_ERR_BAD_VALUE;
   }
-  const Field_json *from_json = down_cast<const Field_json *>(from_field);
-  Json_wrapper wr;
-  if (from_json->val_json(&wr)) {
-    my_error(ER_INVALID_VECTOR, MYF(0));
-    return TYPE_ERR_BAD_VALUE;
-  }
-  if (ensure_fb_vector(wr.to_dom(), to_field->m_fb_vector_dimension)) {
-    my_error(ER_INVALID_VECTOR, MYF(0));
-    return TYPE_ERR_BAD_VALUE;
+  if (from_field_type == MYSQL_TYPE_JSON) {
+    const Field_json *from_json = down_cast<const Field_json *>(from_field);
+    Json_wrapper wr;
+    if (from_json->val_json(&wr)) {
+      my_error(ER_INVALID_VECTOR, MYF(0));
+      return TYPE_ERR_BAD_VALUE;
+    }
+    if (ensure_fb_vector(wr.to_dom(), to_field->m_fb_vector_dimension)) {
+      my_error(ER_INVALID_VECTOR, MYF(0));
+      return TYPE_ERR_BAD_VALUE;
+    }
+  } else {
+    const Field_blob *from_blob = down_cast<const Field_blob *>(from_field);
+    if (to_field->m_fb_vector_dimension * sizeof(float) !=
+        from_blob->get_length()) {
+      my_error(ER_INVALID_VECTOR, MYF(0));
+      return TYPE_ERR_BAD_VALUE;
+    }
   }
   return do_field_eq(copy_field, from_field, to_field);
 }
