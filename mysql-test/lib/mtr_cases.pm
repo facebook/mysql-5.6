@@ -86,6 +86,25 @@ our $default_myisam = 0;
 
 our $group_replication;
 
+sub should_shard_skip($) {
+  my $test_name = shift;
+
+  if (defined $ENV{MTR_SHARD_ID} and defined $ENV{MTR_SHARD_COUNT}) {
+    my $shard_id = $ENV{MTR_SHARD_ID};
+    my $shard_count = $ENV{MTR_SHARD_COUNT};
+
+    if ($shard_id >= $shard_count) {
+      print "!! MTR_SHARD_ID can't be equal or greater than MTR_SHARD_COUNT\n";
+      exit(1);
+    }
+
+    my $test_checksum = unpack("%32W*", $test_name);
+    return $test_checksum % $shard_count != $shard_id;
+  }
+
+  return 0;
+}
+
 sub collect_option {
   my ($opt, $value) = @_;
 
@@ -899,6 +918,8 @@ sub collect_one_suite($$$$) {
         next if (!-f $full_name);
       }
 
+      next if should_shard_skip($tname);
+
       push(@cases,
            collect_one_test_case($suitedir, $testdir,
                                  $resdir,   $suite,
@@ -915,6 +936,7 @@ sub collect_one_suite($$$$) {
 
       # Skip tests that does not match the --do-test= filter
       next if ($do_test_reg and not $tname =~ /$do_test_reg/o);
+      next if should_shard_skip($tname);
 
       push(@cases,
            collect_one_test_case($suitedir, $testdir, $resdir,

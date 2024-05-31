@@ -2115,10 +2115,10 @@ sub command_line_setup {
       # Run tests that are modified from the last commit
       # find the files that are modified in the current commit
       # include .result file that are modified
-      # Filter out the tests that were deleted. This prevents 
+      # Filter out the tests that were deleted. This prevents
       # spurious errors on sandcastle runs, in addition to local
       # usage of this option
-      my $git_cmd = "git diff --name-only HEAD^  --diff-filter=d | 
+      my $git_cmd = "git diff --name-only HEAD^  --diff-filter=d |
         grep '\.test\$\\\|\.result\$'";
       my @modified_files = `$git_cmd`;
 

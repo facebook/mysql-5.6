@@ -245,7 +245,7 @@ while (-e $filetodelete) {
 }
 EOF
 
---exec echo  "restart:--defaults-file=$MYSQLTEST_VARDIR/tmp/temp_my.cnf"  --basedir=$MYSQL_BASEDIR --datadir=$MYSQLD_DATADIR  --lc-messages-dir=$MYSQL_MESSAGESDIR  --innodb_dedicated_server=OFF --skip-mysqlx  > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec echo  "restart:--defaults-file=$MYSQLTEST_VARDIR/tmp/temp_my.cnf"  --basedir=$MYSQL_BASEDIR --datadir=$MYSQLD_DATADIR  --lc-messages-dir=$MYSQL_MESSAGESDIR  --innodb_dedicated_server=OFF --loose-skip-mysqlx  > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 --let $assert_file=$MYSQLTEST_VARDIR/log/mysqld.1.err
