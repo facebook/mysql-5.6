@@ -88,6 +88,8 @@ update t1 set blob1 = FB_VECTOR_JSON_TO_BLOB('[9, 5, 2]') where id = 3;
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(FB_VECTOR_NORMALIZE_L2(blob1), '[10, 6, 5]') as dis from t1 order by dis limit 10;
+echo FB_VECTOR_NORMALIZE_L2 does not change the value of blob buffer;
+select FB_VECTOR_BLOB_TO_JSON(blob1) from t1;
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 echo forbid the usage of FB_VECTOR_BLOB_TO_JSON() in FB_VECTOR_NORMALIZE_L2;
 error ER_WRONG_ARGUMENTS;

@@ -581,12 +581,12 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
   virtual ~Rdb_vector_index_ivf() override = default;
 
-  void assign_vector(const std::vector<float> &value,
+  void assign_vector(const float *data,
                      Rdb_vector_index_assignment &assignment) override {
-    faiss_ivf_list_id list_id = get_list_id(value);
+    faiss_ivf_list_id list_id = get_list_id(data);
     constexpr faiss::idx_t vector_count = 1;
     // vector id is not actually used, use a dummy value here
-    m_index_l2->add_core(vector_count, value.data(), &DUMMY_VECTOR_ID, &list_id,
+    m_index_l2->add_core(vector_count, data, &DUMMY_VECTOR_ID, &list_id,
                          &assignment);
   }
 
@@ -824,13 +824,13 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     return HA_EXIT_SUCCESS;
   }
 
-  uint64 get_list_id(const std::vector<float> &value) const {
+  uint64 get_list_id(const float *data) const {
     if (m_index_l2->nlist == 1) {
       return 0;
     }
     faiss::idx_t list_id = 0;
     constexpr faiss::idx_t vector_count = 1;
-    m_index_l2->quantizer->assign(vector_count, value.data(), &list_id);
+    m_index_l2->quantizer->assign(vector_count, data, &list_id);
     return list_id;
   }
 

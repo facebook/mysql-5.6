@@ -42,13 +42,14 @@ bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
                func_name);
       return true;
     }
+    vector.own_data = true;
     return false;
   }
 
   if (args[arg_idx]->data_type() == MYSQL_TYPE_BLOB &&
       args[arg_idx]->type() == Item::FIELD_ITEM) {
     const Item_field *fi = down_cast<const Item_field *>(args[arg_idx]);
-    if (parse_fb_vector_from_blob(fi->field, vector.data)) {
+    if (parse_fb_vector_from_blob(fi->field, vector)) {
       my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
                func_name);
       return true;
@@ -99,15 +100,16 @@ double Item_func_fb_vector_distance::val_real() {
         parse_fb_vector_from_item(args, 1, m_value, func_name(), vector2)) {
       return error_real();
     }
-    size_t dimension = std::max(vector1.data.size(), vector2.data.size());
+    size_t dimension =
+        std::max(vector1.get_dimension(), vector2.get_dimension());
     if (vector1.set_dimension(dimension) || vector2.set_dimension(dimension)) {
       assert(false);
       // should never happen
       my_error(ER_INVALID_CAST, MYF(0), "a smaller dimension");
       return error_real();
     }
-    return compute_distance(vector1.data.data(), vector2.data.data(),
-                            vector1.data.size());
+    return compute_distance(vector1.get_data_view(), vector2.get_data_view(),
+                            dimension);
   } catch (...) {
     handle_std_exception(func_name());
     return error_real();
@@ -223,12 +225,12 @@ enum Item_func::Functype Item_func_fb_vector_json_to_blob::functype() const {
 }
 
 #ifdef WITH_FB_VECTORDB
-float Item_func_fb_vector_l2::compute_distance(float *v1, float *v2,
+float Item_func_fb_vector_l2::compute_distance(const float *v1, const float *v2,
                                                size_t dimension) {
   return faiss::fvec_L2sqr(v1, v2, dimension);
 }
 
-float Item_func_fb_vector_ip::compute_distance(float *v1, float *v2,
+float Item_func_fb_vector_ip::compute_distance(const float *v1, const float *v2,
                                                size_t dimension) {
   return faiss::fvec_inner_product(v1, v2, dimension);
 }
@@ -242,10 +244,11 @@ bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
     if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
       return error_json();
     }
-    faiss::fvec_renorm_L2(vector1.data.size(), 1, vector1.data.data());
+    float *data = vector1.get_data();
+    faiss::fvec_renorm_L2(vector1.get_dimension(), 1, data);
     Json_array_ptr array(new (std::nothrow) Json_array());
-    for (float v : vector1.data) {
-      Json_double d(v);
+    for (size_t i = 0; i < vector1.get_dimension(); ++i) {
+      Json_double d(data[i]);
       if (array->append_clone(&d)) {
         return error_json();
       }
@@ -280,12 +283,15 @@ bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
   }
   try {
     Fb_vector vector1;
-    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
+    // Input is blob, so must has data_view and data_view_len set
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1) ||
+        !vector1.data_view || !vector1.data_view_len) {
       return error_json();
     }
     Json_array_ptr array = create_dom_ptr<Json_array>();
-    for (float v : vector1.data) {
-      Json_double d(v);
+    const float *data = vector1.get_data_view();
+    for (size_t i = 0; i < vector1.get_dimension(); ++i) {
+      Json_double d(data[i]);
       if (array->append_clone(&d)) {
         return error_json();
       }
@@ -302,16 +308,16 @@ bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
 
 // dummy implementation when not compiled with fb_vector
 
-float Item_func_fb_vector_l2::compute_distance(float *v1 [[maybe_unused]],
-                                               float *v2 [[maybe_unused]],
+float Item_func_fb_vector_l2::compute_distance(const float *v1 [[maybe_unused]],
+                                               const float *v2 [[maybe_unused]],
                                                size_t dimension
                                                [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
   return error_real();
 }
 
-float Item_func_fb_vector_ip::compute_distance(float *v1 [[maybe_unused]],
-                                               float *v2 [[maybe_unused]],
+float Item_func_fb_vector_ip::compute_distance(const float *v1 [[maybe_unused]],
+                                               const float *v2 [[maybe_unused]],
                                                size_t dimension
                                                [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;

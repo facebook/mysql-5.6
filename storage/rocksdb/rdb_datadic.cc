@@ -2694,28 +2694,30 @@ static void pack_vector(Rdb_field_packing *const fpi [[maybe_unused]],
     assert(false);
   }
   Field_json *field_json = dynamic_cast<Field_json *>(field_blob);
-  std::vector<float> buffer;
+  Fb_vector parsed_vector;
   if (field_json == nullptr) {
-    parse_fb_vector_from_blob(field, buffer);
+    parse_fb_vector_from_blob(field, parsed_vector);
   } else {
     Json_wrapper wrapper;
     field_json->val_json(&wrapper);
-    if (parse_fb_vector_from_json(wrapper, buffer)) {
+    if (parse_fb_vector_from_json(wrapper, parsed_vector.data)) {
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                       "failed to parse vector for vector index");
       assert(false);
     }
+    parsed_vector.own_data = true;
   }
 
   auto dimension = pack_ctx->vector_index->dimension();
-  if (buffer.size() != dimension) {
+  if (parsed_vector.get_dimension() != dimension) {
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "vector dimension does not match index dimension");
     assert(false);
   }
 
   Rdb_vector_index_assignment assignment;
-  pack_ctx->vector_index->assign_vector(buffer, assignment);
+  pack_ctx->vector_index->assign_vector(parsed_vector.get_data_view(),
+                                        assignment);
   pack_ctx->vector_codes = assignment.m_codes;
   rdb_netbuf_store_uint64(*dst, assignment.m_list_id);
   *dst += sizeof(assignment.m_list_id);

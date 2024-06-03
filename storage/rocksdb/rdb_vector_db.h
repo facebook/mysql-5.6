@@ -95,7 +95,7 @@ class Rdb_vector_index {
   /**
     assign a vector to the index
   */
-  virtual void assign_vector(const std::vector<float> &value,
+  virtual void assign_vector(const float *data,
                              Rdb_vector_index_assignment &assignment) = 0;
 
   virtual uint knn_search(

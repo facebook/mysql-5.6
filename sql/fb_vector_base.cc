@@ -83,15 +83,16 @@ std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val) {
   return "";
 }
 
-bool parse_fb_vector_from_blob(Field *field, std::vector<float> &data) {
+bool parse_fb_vector_from_blob(Field *field, Fb_vector &data) {
   const Field_blob *field_blob = down_cast<const Field_blob *>(field);
   const uint32 blob_length = field_blob->get_length();
   const uchar *const blob_data = field_blob->get_blob_data();
   if (blob_length % sizeof(float)) {
     return true;
   }
-  data.resize(blob_length / sizeof(float));
-  memcpy(data.data(), blob_data, blob_length);
+  size_t num_floats = blob_length / sizeof(float);
+  data.data_view = reinterpret_cast<const float *>(blob_data);
+  data.data_view_len = num_floats;
   return false;
 }
 

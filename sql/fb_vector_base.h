@@ -26,6 +26,56 @@ constexpr bool FB_VECTORDB_ENABLED = true;
 constexpr bool FB_VECTORDB_ENABLED = false;
 #endif
 
+/**
+ helper class to parse json/blob to float vector/ptr
+*/
+class Fb_vector {
+ public:
+  /// the parsed json obj
+  Json_wrapper wrapper;
+  std::vector<float> data;
+  const float *data_view = nullptr;
+  size_t data_view_len = 0;
+  // remember to set own_data=true if parsed into data
+  bool own_data = false;
+
+  bool set_dimension(size_t n) {
+    if (n > get_dimension()) {
+      if (!own_data) {
+        copy_data();
+      }
+      data.resize(n, 0.0);
+      return false;
+    }
+    // do not allow shrinking the data
+    return n < get_dimension();
+  }
+
+  size_t get_dimension() {
+    if (own_data) return data.size();
+    return data_view_len;
+  }
+
+  const float *get_data_view() const {
+    if (own_data) return data.data();
+    return data_view;
+  }
+
+  float *get_data() {
+    if (!own_data) copy_data();
+    return data.data();
+  }
+
+ private:
+  void copy_data() {
+    assert(data.empty());
+    assert(!own_data);
+    data.resize(data_view_len);
+    memcpy(data.data(), data_view, data_view_len * sizeof(float));
+    own_data = true;
+  }
+};
+
 class Field;
 
 enum class FB_VECTOR_INDEX_TYPE { NONE, FLAT, IVFFLAT, IVFPQ };
@@ -72,8 +122,8 @@ bool parse_fb_vector_index_metric(LEX_CSTRING str, FB_VECTOR_INDEX_METRIC &val);
 
 std::string_view fb_vector_index_metric_to_string(FB_VECTOR_INDEX_METRIC val);
 
-// Parse field containing blob values into data
-bool parse_fb_vector_from_blob(Field *field, std::vector<float> &data);
+// Parse field containing blob values into data_view in data
+bool parse_fb_vector_from_blob(Field *field, Fb_vector &data);
 
 // Parse json values into data
 bool parse_fb_vector_from_json(Json_wrapper &wrapper, std::vector<float> &data);
