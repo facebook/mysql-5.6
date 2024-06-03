@@ -72,19 +72,30 @@
 #include <mysql/plugin_trace.h>
 #endif
 
-PSI_memory_key key_memory_root;
-PSI_memory_key key_memory_load_env_plugins;
+static PSI_memory_key &get_key_memory_root() {
+  static PSI_memory_key key_memory_root;
+  return key_memory_root;
+}
 
-PSI_mutex_key key_mutex_LOCK_load_client_plugin;
+static PSI_memory_key &get_key_memory_load_env_plugins() {
+  static PSI_memory_key key_memory_load_env_plugins;
+  return key_memory_load_env_plugins;
+}
+
+static PSI_mutex_key &get_key_mutex_LOCK_load_client_plugin() {
+  static PSI_mutex_key key_mutex_LOCK_load_client_plugin;
+  return key_mutex_LOCK_load_client_plugin;
+}
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_info all_client_plugin_mutexes[] = {
-    {&key_mutex_LOCK_load_client_plugin, "LOCK_load_client_plugin",
+    {&get_key_mutex_LOCK_load_client_plugin(), "LOCK_load_client_plugin",
      PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}};
 
 static PSI_memory_info all_client_plugin_memory[] = {
-    {&key_memory_root, "root", PSI_FLAG_ONLY_GLOBAL_STAT, 0, PSI_DOCUMENT_ME},
-    {&key_memory_load_env_plugins, "load_env_plugins",
+    {&get_key_memory_root(), "root", PSI_FLAG_ONLY_GLOBAL_STAT, 0,
+     PSI_DOCUMENT_ME},
+    {&get_key_memory_load_env_plugins(), "load_env_plugins",
      PSI_FLAG_ONLY_GLOBAL_STAT, 0, PSI_DOCUMENT_ME}};
 
 static void init_client_plugin_psi_keys() {
@@ -106,7 +117,11 @@ struct st_client_plugin_int {
 };
 
 static bool initialized = false;
-static MEM_ROOT mem_root;
+
+static MEM_ROOT &get_mem_root() {
+  static MEM_ROOT mem_root(get_key_memory_root(), 128);
+  return mem_root;
+}
 
 static const char *plugin_declarations_sym =
     "_mysql_client_plugin_declaration_";
@@ -126,7 +141,10 @@ static uint plugin_version[MYSQL_CLIENT_MAX_PLUGINS] = {
   loading the same plugin twice in parallel.
 */
 struct st_client_plugin_int *plugin_list[MYSQL_CLIENT_MAX_PLUGINS];
-static mysql_mutex_t LOCK_load_client_plugin;
+static mysql_mutex_t &get_LOCK_load_client_plugin() {
+  static mysql_mutex_t LOCK_load_client_plugin;
+  return LOCK_load_client_plugin;
+}
 
 static int is_not_initialized(MYSQL *mysql, const char *name) {
   if (initialized) return 0;
@@ -214,7 +232,7 @@ static struct st_mysql_client_plugin *do_add_plugin(
     goto err1;
   }
 
-  p = (struct st_client_plugin_int *)memdup_root(&mem_root, &plugin_int,
+  p = (struct st_client_plugin_int *)memdup_root(&get_mem_root(), &plugin_int,
                                                  sizeof(plugin_int));
 
   if (!p) {
@@ -222,7 +240,7 @@ static struct st_mysql_client_plugin *do_add_plugin(
     goto err2;
   }
 
-  mysql_mutex_assert_owner(&LOCK_load_client_plugin);
+  mysql_mutex_assert_owner(&get_LOCK_load_client_plugin());
 
   p->next = plugin_list[plugin->type];
   plugin_list[plugin->type] = p;
@@ -294,7 +312,8 @@ static void load_env_plugins(MYSQL *mysql) {
   /* no plugins to load */
   if (!s) return;
 
-  free_env = plugs = my_strdup(key_memory_load_env_plugins, s, MYF(MY_WME));
+  free_env = plugs =
+      my_strdup(get_key_memory_load_env_plugins(), s, MYF(MY_WME));
 
   do {
     s = strchr(plugs, ';');
@@ -329,20 +348,19 @@ int mysql_client_plugin_init() {
   memset(&mysql, 0,
          sizeof(mysql)); /* dummy mysql for set_mysql_extended_error */
 
-  mysql_mutex_init(key_mutex_LOCK_load_client_plugin, &LOCK_load_client_plugin,
-                   MY_MUTEX_INIT_SLOW);
-  ::new ((void *)&mem_root) MEM_ROOT(key_memory_root, 128);
+  mysql_mutex_init(get_key_mutex_LOCK_load_client_plugin(),
+                   &get_LOCK_load_client_plugin(), MY_MUTEX_INIT_SLOW);
 
   memset(&plugin_list, 0, sizeof(plugin_list));
 
   initialized = true;
 
-  mysql_mutex_lock(&LOCK_load_client_plugin);
+  mysql_mutex_lock(&get_LOCK_load_client_plugin());
 
   for (builtin = mysql_client_builtins; *builtin; builtin++)
     add_plugin_noargs(&mysql, *builtin, nullptr, 0);
 
-  mysql_mutex_unlock(&LOCK_load_client_plugin);
+  mysql_mutex_unlock(&get_LOCK_load_client_plugin());
 
   load_env_plugins(&mysql);
 
@@ -370,8 +388,8 @@ void mysql_client_plugin_deinit() {
 
   memset(&plugin_list, 0, sizeof(plugin_list));
   initialized = false;
-  mem_root.Clear();
-  mysql_mutex_destroy(&LOCK_load_client_plugin);
+  get_mem_root().Clear();
+  mysql_mutex_destroy(&get_LOCK_load_client_plugin());
 }
 
 /************* public facing functions, for client consumption *********/
@@ -381,7 +399,7 @@ struct st_mysql_client_plugin *mysql_client_register_plugin(
     MYSQL *mysql, struct st_mysql_client_plugin *plugin) {
   if (is_not_initialized(mysql, plugin->name)) return nullptr;
 
-  mysql_mutex_lock(&LOCK_load_client_plugin);
+  mysql_mutex_lock(&get_LOCK_load_client_plugin());
 
   /* make sure the plugin wasn't loaded meanwhile */
   if (find_plugin(plugin->name, plugin->type)) {
@@ -393,7 +411,7 @@ struct st_mysql_client_plugin *mysql_client_register_plugin(
   } else
     plugin = add_plugin_noargs(mysql, plugin, nullptr, 0);
 
-  mysql_mutex_unlock(&LOCK_load_client_plugin);
+  mysql_mutex_unlock(&get_LOCK_load_client_plugin());
   return plugin;
 }
 
@@ -421,7 +439,7 @@ struct st_mysql_client_plugin *mysql_load_plugin_v(MYSQL *mysql,
     return nullptr;
   }
 
-  mysql_mutex_lock(&LOCK_load_client_plugin);
+  mysql_mutex_lock(&get_LOCK_load_client_plugin());
 
   /* make sure the plugin wasn't loaded meanwhile */
   if (type >= 0 && find_plugin(name, type)) {
@@ -525,13 +543,13 @@ have_plugin:
 
   plugin = add_plugin_withargs(mysql, plugin, dlhandle, argc, args);
 
-  mysql_mutex_unlock(&LOCK_load_client_plugin);
+  mysql_mutex_unlock(&get_LOCK_load_client_plugin());
 
   DBUG_PRINT("leave", ("plugin loaded ok"));
   return plugin;
 
 err:
-  mysql_mutex_unlock(&LOCK_load_client_plugin);
+  mysql_mutex_unlock(&get_LOCK_load_client_plugin());
   DBUG_PRINT("leave", ("plugin load error : %s", errmsg));
   set_mysql_extended_error(mysql, CR_AUTH_PLUGIN_CANNOT_LOAD, unknown_sqlstate,
                            ER_CLIENT(CR_AUTH_PLUGIN_CANNOT_LOAD), name, errmsg);
