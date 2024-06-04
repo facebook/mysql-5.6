@@ -180,7 +180,7 @@ typedef struct NET_ASYNC {
   size_t compressed_buffers_size;
 
   /** Local state for multipacket processing */
-  net_async_status mp_status;
+  enum net_async_status mp_status;
   size_t mp_start_of_packet;
   size_t mp_first_packet_offset;
   size_t mp_buf_length;
