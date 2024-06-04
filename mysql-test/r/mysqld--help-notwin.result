@@ -523,6 +523,8 @@ The following options may be given as the first argument:
  Enable query checksums for queries that have the checksum
  query attribute set. Uses a CRC32 checksum of the query
  contents, but not the attributes
+ --enable-raft-opid-in-index 
+ Enable/Disable read/write Raft OpID in index file
  --enable-raft-plugin 
  Enables RAFT based consensus plugin. Replication will run
  through this plugin when it is enabled
@@ -3449,6 +3451,7 @@ enable-json-binary-charset FALSE
 enable-optimizer-cputime-with-wallclock FALSE
 enable-pfs-global-select FALSE
 enable-query-checksum FALSE
+enable-raft-opid-in-index FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
 enable-rocksdb-intrinsic-tmp-table FALSE
