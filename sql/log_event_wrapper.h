@@ -34,6 +34,12 @@ class Log_event_wrapper {
   uint relay_number = 0;
   my_off_t relay_pos = 0;
 
+  // the id of thread that is executing this event (extracted from the raw ev)
+  my_thread_id tid = 0;
+
+  // threads we're waiting on (only used for infromational purposes)
+  std::unordered_set<my_thread_id> waiting_for;
+
  public:
   std::shared_ptr<Log_event_wrapper> next_ev;
 
@@ -56,7 +62,8 @@ class Log_event_wrapper {
         slave_worker(nullptr),
         begin_ev(begin_ev),
         relay_number(relay_number),
-        relay_pos(relay_pos) {
+        relay_pos(relay_pos),
+        tid(raw_ev->thd->thread_id()) {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
     mysql_cond_init(0, &cond);
     mysql_cond_init(0, &next_event_cond);
@@ -93,18 +100,20 @@ class Log_event_wrapper {
     mysql_mutex_lock(&mutex);
     assert(!is_finalized && ev.get() != this && ev->raw_ev && raw_ev);
     dependents.push_back(ev);
-    ev->incr_dependency();
+    ev->incr_dependency(this);
     mysql_mutex_unlock(&mutex);
   }
 
-  void incr_dependency() {
+  void incr_dependency(Log_event_wrapper* wait_for) {
     mysql_mutex_lock(&mutex);
     ++dependencies;
+    waiting_for.insert(wait_for->tid);
     mysql_mutex_unlock(&mutex);
   }
 
-  void decr_dependency() {
+  void decr_dependency(Log_event_wrapper* wait_for) {
     mysql_mutex_lock(&mutex);
+    waiting_for.erase(wait_for->tid);
     if ((--dependencies) == 0) mysql_cond_signal(&cond);
     mysql_mutex_unlock(&mutex);
   }
@@ -114,7 +123,7 @@ class Log_event_wrapper {
   void finalize() {
     mysql_mutex_lock(&mutex);
     if (likely(!is_finalized)) {
-      for (auto &dep : dependents) dep->decr_dependency();
+      for (auto &dep : dependents) dep->decr_dependency(this);
       is_finalized = true;
     }
     mysql_mutex_unlock(&mutex);

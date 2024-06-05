@@ -101,7 +101,7 @@ insert into t1 values(3);
 
 connection slave1;
 echo "Check if 2nd trx is indeed waiting for dependencies";
-let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state like '%Waiting for dependencies to be satisfied%';
 source include/wait_condition.inc;
 
 connection slave;

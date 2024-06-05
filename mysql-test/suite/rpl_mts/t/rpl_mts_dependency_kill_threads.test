@@ -67,11 +67,11 @@ INSERT INTO t1 VALUES(5);
 INSERT INTO t1 VALUES(6);
 
 connection slave;
-let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state like '%Waiting for dependencies to be satisfied%';
 source include/wait_condition.inc;
 
 echo "Killing worker waiting for dependency to be satisfied";
-let $id= `select id from information_schema.processlist where state = 'Waiting for dependencies to be satisfied'`;
+let $id= `select id from information_schema.processlist where state like '%Waiting for dependencies to be satisfied%'`;
 replace_result $id id;
 eval kill $id;
 

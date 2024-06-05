@@ -26,7 +26,7 @@ UPDATE t1, t2 SET a = a * 10, b = b * 10 WHERE a = b;
 UPDATE t1 set a = a * 10; # This should depend on the prev trx
 
 connection slave;
-let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST WHERE State = 'Waiting for dependencies to be satisfied';
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST WHERE State LIKE '%Waiting for dependencies to be satisfied%';
 source include/wait_condition.inc;
 ROLLBACK;
 

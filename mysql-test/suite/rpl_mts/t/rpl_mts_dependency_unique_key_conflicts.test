@@ -30,7 +30,7 @@ set debug_sync="now wait_for signal.reached";
 # wait till the other worker is waiting for dependencies to be satisfied
 let $wait_condition=
     select count(*)= 1 from information_schema.processlist
-      where state = 'Waiting for dependencies to be satisfied';
+      where state like '%Waiting for dependencies to be satisfied%';
 source include/wait_condition.inc;
 
 --sorted_result

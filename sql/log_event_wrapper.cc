@@ -19,6 +19,15 @@ bool Log_event_wrapper::wait(Slave_worker *worker) {
                        &old_stage);
   while (!info_thd->killed && worker->running_status == Slave_worker::RUNNING &&
          dependencies && !worker->found_commit_order_deadlock()) {
+    // generate a proc info with dependencies listed
+    std::string proc_info = stage_slave_waiting_for_dependencies.m_name;
+    proc_info += ". Waiting for tids: ";
+    for (const auto& tid : waiting_for) {
+      proc_info += std::to_string(tid) + ", ";
+    }
+    proc_info.pop_back();
+    proc_info.pop_back();
+    info_thd->set_proc_info(proc_info.c_str());
     const auto timeout_nsec =
         worker->c_rli->mts_dependency_cond_wait_timeout * 1000000;
     struct timespec abstime;
