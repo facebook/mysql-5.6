@@ -1,3 +1,8 @@
+
+----------------------------------------------
+Test PK filtering with single PK BIGINT column
+----------------------------------------------
+
 CREATE TABLE t1 (   
 pk BIGINT NOT NULL PRIMARY KEY,
 vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
@@ -35,10 +40,10 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	12	12
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
 
 open ended range 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
@@ -52,10 +57,10 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	8	8
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	8	8
 
 bounded range
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
@@ -66,10 +71,10 @@ pk	vector1	dis
 8	[21, 2, 2]	74.75
 9	[31, 3, 3]	342.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	5	5
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
 
 IN list
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
@@ -78,10 +83,10 @@ pk	vector1	dis
 3	[3, 3, 3]	90.75
 1	[1, 1, 1]	140.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 
 IN list with EQ condition
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
@@ -90,10 +95,10 @@ pk	vector1	dis
 3	[3, 3, 3]	90.75
 1	[1, 1, 1]	140.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 
 IN list with LIKE clause
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
@@ -104,11 +109,16 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	5	5
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
 drop table t1;
+
+--------------------------------------------------
+Test PK filtering with PK keys parts (BIGINT, INT) 
+--------------------------------------------------
+
 CREATE TABLE t1 (   
 pk_keypart_1 BIGINT NOT NULL,
 pk_keypart_2 INT NOT NULL,
@@ -143,10 +153,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	12	12
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
 
 open ended range 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
@@ -160,10 +170,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	8	8
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	8	8
 
 bounded range
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
@@ -174,10 +184,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 8	112	[21, 2, 2]	74.75
 9	112	[31, 3, 3]	342.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	5	5
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
 
 IN list
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
@@ -186,10 +196,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 3	11	[3, 3, 3]	90.75
 1	11	[1, 1, 1]	140.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 
 IN list with EQ condition
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
@@ -198,10 +208,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 3	11	[3, 3, 3]	90.75
 1	11	[1, 1, 1]	140.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 
 IN list with LIKE clause
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
@@ -212,19 +222,19 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	5	5
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
 
 Filter on pk_keypart_2 EQ condition (negative test)
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	0	0
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	0	0
 
 Filter on pk_keypart_2 through IN list 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
@@ -236,10 +246,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 2	11	[2, 2, 2]	112.75
 1	11	[1, 1, 1]	140.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	6	6
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	6	6
 
 Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
@@ -248,10 +258,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 
 Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
@@ -261,10 +271,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 9	112	[31, 3, 3]	342.75
 10	112	[41, 4, 4]	814.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	4	4
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
 
 Turn PK pre-filtering OFF and check results
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
@@ -277,10 +287,10 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	12	12
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
 
 Turn PK pre-filtering ON through query hint and check results
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
@@ -292,9 +302,483 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
-select INDEX_NUMBER, TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
-INDEX_NUMBER	TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
-IDX	test	t1	vector_key_1	flat	3	3
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
 SET @@SESSION.fb_vector_index_cond_pushdown = true;
+drop table t1;
+
+--------------------------------------------
+Test PK filtering with single PK CHAR column 
+--------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char CHAR (16) NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char` AS `pk_char`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+open ended range 
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+bounded range
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+IN list
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with EQ condition
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with LIKE clause
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+one	[1, 1, 1]	140.75
+eleven	[51, 5, 5]	1490.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+drop table t1;
+
+-----------------------------------------------
+Test PK filtering with single PK VARCHAR column 
+-----------------------------------------------
+
+CREATE TABLE t1 (   
+pk_varchar VARCHAR (16) NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_varchar` AS `pk_varchar`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+open ended range 
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+bounded range
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+IN list
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with EQ condition
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with LIKE clause
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+one	[1, 1, 1]	140.75
+eleven	[51, 5, 5]	1490.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+drop table t1;
+
+---------------------------------------------------
+Test PK filtering with PK keys parts (CHAR, BIGINT) 
+---------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_bigint_keypart_2 BIGINT NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_bigint_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', 1, '[1, 1, 1]'), ('two', 2, '[2, 2, 2]'), ('three', 3, '[3, 3, 3]'), 
+('four', 4, '[4, 4, 4]'), ('five', 5, '[5, 5, 5]'), ('six', 6, '[6, 6, 6]');
+insert into t1 values ('seven', 7, '[11, 1, 1]'), ('eight', 8, '[21, 2, 2]'), ('nine', 9, '[31, 3, 3]'), 
+('ten', 10, '[41, 4, 4]'), ('eleven', 11, '[51, 5, 5]'), ('twelve', 12, '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_bigint_keypart_2` AS `pk_bigint_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+seven	7	[11, 1, 1]	10.75
+six	6	[6, 6, 6]	60.75
+five	5	[5, 5, 5]	64.75
+eight	8	[21, 2, 2]	74.75
+four	4	[4, 4, 4]	74.75
+three	3	[3, 3, 3]	90.75
+two	2	[2, 2, 2]	112.75
+one	1	[1, 1, 1]	140.75
+nine	9	[31, 3, 3]	342.75
+ten	10	[41, 4, 4]	814.75
+eleven	11	[51, 5, 5]	1490.75
+twelve	12	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+open ended range 
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+seven	7	[11, 1, 1]	10.75
+six	6	[6, 6, 6]	60.75
+five	5	[5, 5, 5]	64.75
+four	4	[4, 4, 4]	74.75
+three	3	[3, 3, 3]	90.75
+two	2	[2, 2, 2]	112.75
+one	1	[1, 1, 1]	140.75
+nine	9	[31, 3, 3]	342.75
+ten	10	[41, 4, 4]	814.75
+twelve	12	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+bounded range
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+seven	7	[11, 1, 1]	10.75
+six	6	[6, 6, 6]	60.75
+five	5	[5, 5, 5]	64.75
+four	4	[4, 4, 4]	74.75
+three	3	[3, 3, 3]	90.75
+one	1	[1, 1, 1]	140.75
+nine	9	[31, 3, 3]	342.75
+ten	10	[41, 4, 4]	814.75
+eleven	11	[51, 5, 5]	1490.75
+twelve	12	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+IN list
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+five	5	[5, 5, 5]	64.75
+three	3	[3, 3, 3]	90.75
+one	1	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with EQ condition
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+seven	7	[11, 1, 1]	10.75
+five	5	[5, 5, 5]	64.75
+three	3	[3, 3, 3]	90.75
+one	1	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+
+IN list with LIKE clause
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
+six	6	[6, 6, 6]	60.75
+five	5	[5, 5, 5]	64.75
+two	2	[2, 2, 2]	112.75
+one	1	[1, 1, 1]	140.75
+ten	10	[41, 4, 4]	814.75
+eleven	11	[51, 5, 5]	1490.75
+twelve	12	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	7	7
+drop table t1;
+
+----------------------------------------------------
+Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+----------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'), 
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'), 
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_varchar_keypart_2` AS `pk_varchar_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	EIGHT	[21, 2, 2]	74.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	two	[2, 2, 2]	112.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+open ended range 
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	EIGHT	[21, 2, 2]	74.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	two	[2, 2, 2]	112.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	9	9
+
+bounded range
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+IN list
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+singles	three	[3, 3, 3]	90.75
+singles	one	[1, 1, 1]	140.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+IN list with EQ condition
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+doubles	ELEVEN	[51, 5, 5]	1490.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	1	1
+
+IN list with LIKE clause
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+singles	one	[1, 1, 1]	140.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
 drop table t1;

@@ -210,8 +210,9 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
   bool is_available() const override {
     THD *thd = m_context->m_thd;
     std::string sk;
+    std::string sk_value;
     rocksdb::Slice key_slice;
-    rocksdb::Slice value;
+    rocksdb::Slice value_slice;
 
     while (m_iterator->Valid() && !m_context->m_error) {
       /* if the thread is killed, set error in context and break */
@@ -226,12 +227,13 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       if (!m_context->m_pk_index_cond) break;
 
       /* get the SK tuple from rocksdb iterator */
-      m_context->m_error = get_key_and_codes(sk, value, false /* need_codes */);
+      m_context->m_error = get_key_and_value(sk, sk_value);
 
       /* if there's an error, terminatate the iterator in FAISS */
       if (m_context->m_error) break;
 
       key_slice = rocksdb::Slice(sk);
+      value_slice = rocksdb::Slice(sk_value);
 
       /* unpack SK tuple
 
@@ -244,13 +246,17 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
        */
       m_context->m_error = m_context->m_sk_descr->unpack_record(
           const_cast<TABLE *>(m_context->m_tbl), m_context->m_tbl->record[0],
-          &key_slice, nullptr, false);
+          &key_slice, &value_slice, false);
 
       /* propagate error and terminate iterator in case of unpacking error */
       if (m_context->m_error) break;
 
       /* evaluate PK condition and filter */
       if (m_context->m_pk_index_cond->val_int()) break;
+
+      /* clear buffers for next round */
+      sk.clear();
+      sk_value.clear();
 
       /* move on to the next record */
       m_iterator->Next();
@@ -264,18 +270,9 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     return available;
   }
 
-  uint get_key_and_codes(std::string &key, rocksdb::Slice &codes,
-                         bool need_codes = true) const {
-    if (m_context->m_error) return m_context->m_error;
-
-    if (!m_iterator->Valid()) {
-      auto status = m_iterator->status();
-
-      if (status.ok() || status.IsNotFound())
-        return HA_ERR_END_OF_FILE;
-      else
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
+  uint get_key_and_value(std::string &key, std::string &value) const {
+    assert(m_context->m_error == false);
+    assert(m_iterator->Valid());
 
     rocksdb::Slice key_slice = m_iterator->key();
     Rdb_string_reader key_reader(&key_slice);
@@ -295,7 +292,79 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     // copy the key bytes
     key = key_slice.ToString();
 
-    if (need_codes == false) return HA_EXIT_SUCCESS;
+    /*
+      Vector index Value format:
+      [DATA TAG] [VECTOR CODES] [UNPACK INFO FOR CHARS/VARCHARS etc]
+
+      To unpack CHARs and VARCHARs, we need to have a complete VALUE
+      corresponding to the KEY above. This is needed to be able to
+      evaluate PK query conditions on CHAR/VARCHAR PK key parts.
+
+      The vector codes are not expected in VALUE during the unpacking,
+      and the following code recreates VALUE minus the vector codes.
+
+     */
+    rocksdb::Slice value_slice = m_iterator->value();
+    unsigned long int value_bytes = value_slice.size() - m_code_size;
+    if (value_bytes < 0) {
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Invalid value size %lu for key in index %d, list id %lu",
+                      value_slice.size(), m_index_id, m_list_id);
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+    if (value_bytes > 0) {
+      char tag = value_slice.data()[0];
+      if (!Rdb_key_def::is_unpack_data_tag(tag)) {
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Invalid data tag for key in index %d, list id %lu",
+                        m_index_id, m_list_id);
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      }
+      auto header_size = Rdb_key_def::get_unpack_header_size(tag);
+      if ((size_t)value_bytes < header_size) {
+        LogPluginErrMsg(
+            ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+            "Invalid value size %lu for key in index %d, list id %lu",
+            value_slice.size(), m_index_id, m_list_id);
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      }
+
+      value.reserve(value_bytes);
+
+      for (uint i = 0; i < header_size; i++) {
+        value += value_slice.data()[i];
+      }
+
+      for (uint i = header_size; i < value_bytes; i++) {
+        value += value_slice.data()[i + m_code_size];
+      }
+    }
+    assert(value.size() == value_bytes);
+
+    return HA_EXIT_SUCCESS;
+  }
+
+  uint get_key_and_codes(std::string &key, rocksdb::Slice &codes) const {
+    assert(m_context->m_error == false);
+    assert(m_iterator->Valid());
+
+    rocksdb::Slice key_slice = m_iterator->key();
+    Rdb_string_reader key_reader(&key_slice);
+
+    // validate the key format
+    uint rtn = read_inverted_list_key(key_reader, m_index_id, m_list_id);
+    if (rtn) {
+      return rtn;
+    }
+    const auto pk_size = key_reader.remaining_bytes();
+    if (pk_size == 0) {
+      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                      "Invalid pk in index %d, list id %lu", m_index_id,
+                      m_list_id);
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+    // copy the key bytes
+    key = key_slice.ToString();
 
     rocksdb::Slice value = m_iterator->value();
     codes = value;
@@ -342,18 +411,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     uint rtn = get_key_and_codes(key, codes);
     if (rtn) {
       // set error to context so faiss can stop iterating
-      if (rtn == HA_ERR_END_OF_FILE) {
-        /* reset the EOF error as this could be EOF for a single
-         * list, while other lists may not have been iterated yet
-         */
-        m_context->m_error = HA_EXIT_SUCCESS;
-      } else {
-        /* If it's a persistent error, like HA_ERR_ROCKSDB_CORRUPT_DATA
-         * or if the thread has been killed, then we need to terminate
-         * all loops in FAISS asap, so persist the error
-         */
-        m_context->m_error = rtn;
-      }
+      m_context->m_error = rtn;
       // return some dummy data to faiss so it does not crash
       faiss::idx_t vector_id = 42;
       m_codes_buffer.resize(m_code_size);
