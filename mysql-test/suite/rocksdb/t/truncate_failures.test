@@ -6,8 +6,6 @@
 # Test truncation of tables with potential collation issues
 #
 
-set global rocksdb_strict_collation_exceptions = 't1,t2';
-
 CREATE TABLE t1 (
     pk INT,
     a VARCHAR(64),
@@ -40,8 +38,6 @@ ALTER TABLE t2_trunc TRUNCATE PARTITION p0;
 SELECT * FROM t2_trunc ORDER BY pk;
 TRUNCATE TABLE t2_trunc;
 SELECT * FROM t2_trunc ORDER BY pk;
-
-set global rocksdb_strict_collation_exceptions = default;
 
 DROP TABLE t1_trunc, t2_trunc;
 

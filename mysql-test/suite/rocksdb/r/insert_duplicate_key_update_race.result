@@ -1,4 +1,3 @@
-set global rocksdb_strict_collation_check = off;
 CREATE TABLE extra (
 id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 a varchar(36) NOT NULL,

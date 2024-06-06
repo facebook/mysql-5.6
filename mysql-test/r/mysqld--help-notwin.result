@@ -2542,12 +2542,6 @@ The following options may be given as the first argument:
  statistics for. 0 to disable background recalculation.
  --rocksdb-store-row-debug-checksums 
  Include checksums when writing index/table records
- --rocksdb-strict-collation-check 
- Enforce case sensitive collation for MyRocks indexes
- (Defaults to on; use --skip-rocksdb-strict-collation-check to disable.)
- --rocksdb-strict-collation-exceptions=name 
- List of tables (using regex) that are excluded from the
- case sensitive collation enforcement
  --rocksdb-table-cache-numshardbits=# 
  DBOptions::table_cache_numshardbits for RocksDB
  --rocksdb-table-stats-background-thread-nice-value=# 
@@ -4012,8 +4006,6 @@ rocksdb-stats-dump-period-sec 600
 rocksdb-stats-level 1
 rocksdb-stats-recalc-rate 0
 rocksdb-store-row-debug-checksums FALSE
-rocksdb-strict-collation-check TRUE
-rocksdb-strict-collation-exceptions 
 rocksdb-table-cache-numshardbits 6
 rocksdb-table-stats-background-thread-nice-value 19
 rocksdb-table-stats-max-num-rows-scanned 0
