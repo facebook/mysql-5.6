@@ -77,6 +77,22 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
+--echo
+--echo Test EXPLAIN FORMAT=TREE
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=JSON
+--echo
+
+--replace_regex /(.*)cost": (.*)/\1cost":/ 
+EXPLAIN FORMAT=JSON
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+
 drop table t1;
 
 --echo
@@ -216,6 +232,22 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 
 # reset variables
 SET @@SESSION.fb_vector_index_cond_pushdown = true;
+
+--echo
+--echo Test EXPLAIN FORMAT=TREE
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=JSON
+--echo
+
+--replace_regex /(.*)cost": (.*)/\1cost":/ 
+EXPLAIN FORMAT=JSON
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 
 drop table t1;
 

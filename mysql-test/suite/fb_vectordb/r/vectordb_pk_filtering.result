@@ -113,6 +113,61 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
+
+Test EXPLAIN FORMAT=TREE
+
+EXPLAIN FORMAT=TREE
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
+        -> Index scan on t1 using vector_key_1  (rows=1)
+
+
+Test EXPLAIN FORMAT=JSON
+
+EXPLAIN FORMAT=JSON
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost":
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "t1",
+        "access_type": "index",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "vector_key_1",
+        "used_key_parts": [
+          "vector1"
+        ],
+        "key_length": "65535",
+        "rows_examined_per_scan": 1,
+        "rows_produced_per_join": 1,
+        "filtered": "100.00",
+        "cost_info": {
+          "read_cost":
+          "eval_cost":
+          "prefix_cost":
+          "data_read_per_join": "24"
+        },
+        "used_columns": [
+          "pk",
+          "vector1"
+        ],
+        "attached_condition": "((`test`.`t1`.`pk` in (1,5)) or (`test`.`t1`.`pk` like '1%'))"
+      }
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk` in (1,5)) or (`test`.`t1`.`pk` like '1%')) order by `dis` limit 10
 drop table t1;
 
 --------------------------------------------------
@@ -307,6 +362,62 @@ MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 SET @@SESSION.fb_vector_index_cond_pushdown = true;
+
+Test EXPLAIN FORMAT=TREE
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
+        -> Index scan on t1 using vector_key_1  (rows=1)
+
+
+Test EXPLAIN FORMAT=JSON
+
+EXPLAIN FORMAT=JSON
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost":
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "t1",
+        "access_type": "index",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "vector_key_1",
+        "used_key_parts": [
+          "vector1"
+        ],
+        "key_length": "65535",
+        "rows_examined_per_scan": 1,
+        "rows_produced_per_join": 1,
+        "filtered": "100.00",
+        "cost_info": {
+          "read_cost":
+          "eval_cost":
+          "prefix_cost":
+          "data_read_per_join": "32"
+        },
+        "used_columns": [
+          "pk_keypart_1",
+          "pk_keypart_2",
+          "vector1"
+        ],
+        "attached_condition": "((`test`.`t1`.`pk_keypart_2` > 20) and (`test`.`t1`.`pk_keypart_1` like '1%'))"
+      }
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`test`.`t1`.`pk_keypart_2` AS `pk_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk_keypart_2` > 20) and (`test`.`t1`.`pk_keypart_1` like '1%')) order by `dis` limit 10
 drop table t1;
 
 --------------------------------------------

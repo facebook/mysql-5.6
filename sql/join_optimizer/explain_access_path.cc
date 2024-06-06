@@ -975,7 +975,9 @@ static std::unique_ptr<Json_object> SetObjectMembers(
     }
     case AccessPath::INDEX_SCAN: {
       TABLE *table = path->index_scan().table;
-      assert(table->file->pushed_idx_cond == nullptr);
+      assert(table->file->pushed_idx_cond == nullptr ||
+             (table->key_info[path->index_scan().idx].is_fb_vector_index() &&
+              join->thd->variables.fb_vector_index_cond_pushdown));
 
       const KEY *key = &table->key_info[path->index_scan().idx];
       error |= SetIndexInfoInObject(&description, "index_scan", nullptr, table,
