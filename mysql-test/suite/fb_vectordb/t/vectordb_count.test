@@ -231,3 +231,92 @@ SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, 
 SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1, a;
 
 drop table t1;
+
+--echo
+--echo Tests for table with hidden PK
+--echo
+
+CREATE TABLE t1 (
+  id BIGINT NOT NULL,
+  a int,
+  b int,
+  vector1 JSON NOT NULL fb_vector_dimension 3,
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+);
+
+insert into t1 values (1, 2, 2, '[1,2,3]'), (2, 1, 2, '[2,22,31]');
+insert into t1 values (3, 1, 1, '[1,2,4]'), (4, 2, 1, '[2,22,33]');
+insert into t1 values (5, 3, 1, '[11,22,4]'), (6, 2, 3, '[7,22,33]');
+insert into t1 values (7, 3, 2, '[10,20,40]'), (8, 2, 1, '[20,22,41]');
+insert into t1 values (9, 1, 1, '[20,10,30]'), (10, 1, 2, '[25,25,41]');
+
+disable_warnings;
+
+--echo
+--echo 15. Verify basic COUNT(*) on the table with hidden PK
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+EXPLAIN 
+SELECT COUNT(*) from t1;
+SELECT COUNT(*) from t1;
+
+--replace_column 10 ROWS 11 FILTERED
+EXPLAIN
+SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1);
+SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1);
+
+--echo
+--echo 16. Verify COUNT(*) with WHERE clause with REF plan for hidden PK
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+EXPLAIN
+select COUNT(*) from t1 WHERE id = 2;
+SELECT COUNT(*) from t1 WHERE id = 2;
+
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+EXPLAIN
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2;
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE id = 2;
+
+
+--echo
+--echo 17. Verify COUNT(*) with WHERE clause - other columns - for hidden PK
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain
+select COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4;
+SELECT COUNT(*) from t1 WHERE a > 1 and b < 3 and id > 4;
+
+--echo
+
+--replace_column 10 ROWS 11 FILTERED
+explain
+select COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE a > 1 and b < 3 and id > 4;
+SELECT COUNT(*) from t1 FORCE INDEX (vector_key_1) WHERE a > 1 and b < 3 and id > 4;
+
+
+--echo
+--echo 18. Verify COUNT(*) with GROUP BY on PK, vector column, non-key colum - for hidden PK
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
+SELECT id, vector1, a, COUNT(*) FROM t1 GROUP BY id, vector1, a;
+
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1, a;
+SELECT id, vector1, a, COUNT(*) FROM t1 FORCE INDEX (vector_key_1) GROUP BY id, vector1, a;
+
+drop table t1;
+
+enable_warnings;
+
