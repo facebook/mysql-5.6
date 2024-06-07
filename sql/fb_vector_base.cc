@@ -90,9 +90,7 @@ bool parse_fb_vector_from_blob(Field *field, Fb_vector &data) {
   if (blob_length % sizeof(float)) {
     return true;
   }
-  size_t num_floats = blob_length / sizeof(float);
-  data.data_view = reinterpret_cast<const float *>(blob_data);
-  data.data_view_len = num_floats;
+  data.set_data_view(blob_data, blob_length);
   return false;
 }
 
@@ -102,38 +100,87 @@ bool parse_fb_vector_from_json(Json_wrapper &wrapper,
     return true;
   }
 
-  Json_array *arr = down_cast<Json_array *>(wrapper.to_dom());
   data.clear();
+  // try to use binary value when possible, because
+  // converting to dom is expensive
+  if (!wrapper.is_dom()) {
+    bool revert_to_dom = false;
+    auto json_binary = wrapper.get_binary_value();
+    data.reserve(json_binary.element_count());
+    for (uint32_t i = 0; i < json_binary.element_count(); i++) {
+      const auto ele = json_binary.element(i);
+      const auto ele_type = ele.type();
+      switch (ele_type) {
+        case json_binary::Value::INT:
+          data.push_back(ele.get_int64());
+          break;
+        case json_binary::Value::UINT:
+          data.push_back(ele.get_uint64());
+          break;
+        case json_binary::Value::DOUBLE:
+          data.push_back(ele.get_double());
+          break;
+        case json_binary::Value::LITERAL_TRUE:
+          data.push_back(1.0);
+          break;
+        case json_binary::Value::LITERAL_FALSE:
+          data.push_back(0.0);
+          break;
+        case json_binary::Value::OPAQUE:
+          // opaque value need some parsing logic, revert to use to_dom.
+          // this happens when we use json functions like
+          // json_array(i*0.0001, i*0.0001, 0, 0).
+          revert_to_dom = true;
+          break;
+        default:
+          return true;
+      }
+      if (revert_to_dom) {
+        break;
+      }
+    }
+    if (!revert_to_dom) {
+      return false;
+    } else {
+      data.clear();
+    }
+  }
+
+  const Json_array *arr = down_cast<const Json_array *>(wrapper.to_dom());
   data.reserve(arr->size());
   for (auto it = arr->begin(); it != arr->end(); ++it) {
     const auto ele_type = (*it)->json_type();
     // also update ensure_fb_vector when the types here
     // changes
-    if (ele_type == enum_json_type::J_DOUBLE) {
-      Json_double &val = down_cast<Json_double &>(**it);
-      data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_INT) {
-      Json_int &val = down_cast<Json_int &>(**it);
-      data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_UINT) {
-      Json_uint &val = down_cast<Json_uint &>(**it);
-      data.push_back(val.value());
-    } else if (ele_type == enum_json_type::J_DECIMAL) {
-      Json_decimal &val = down_cast<Json_decimal &>(**it);
-      double val_double;
-      if (decimal2double(val.value(), &val_double)) {
-        my_error(ER_INVALID_CAST, MYF(0), "double");
+    Json_dom *ele = (*it).get();
+    switch (ele_type) {
+      case enum_json_type::J_DOUBLE:
+        data.push_back(down_cast<Json_double *>(ele)->value());
+        break;
+      case enum_json_type::J_INT:
+        data.push_back(down_cast<Json_int *>(ele)->value());
+        break;
+      case enum_json_type::J_UINT:
+        data.push_back(down_cast<Json_uint *>(ele)->value());
+        break;
+      case enum_json_type::J_DECIMAL:
+        double val_double;
+        if (decimal2double(down_cast<Json_decimal *>(ele)->value(),
+                           &val_double)) {
+          my_error(ER_INVALID_CAST, MYF(0), "double");
+          return true;
+        }
+        data.push_back(val_double);
+        break;
+      case enum_json_type::J_BOOLEAN:
+        Json_boolean *val;
+        val = down_cast<Json_boolean *>(ele);
+        data.push_back(val->value() ? 1.0 : 0.0);
+        break;
+      default:
         return true;
-      }
-      data.push_back(val_double);
-    } else if (ele_type == enum_json_type::J_BOOLEAN) {
-      Json_boolean &val = down_cast<Json_boolean &>(**it);
-      data.push_back(val.value() ? 1.0 : 0.0);
-    } else {
-      return true;
     }
   }
-
   return false;
 }
 

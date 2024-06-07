@@ -31,20 +31,13 @@ constexpr bool FB_VECTORDB_ENABLED = false;
 */
 class Fb_vector {
  public:
-  /// the parsed json obj
-  Json_wrapper wrapper;
-  std::vector<float> data;
-  const float *data_view = nullptr;
-  size_t data_view_len = 0;
-  // remember to set own_data=true if parsed into data
-  bool own_data = false;
-
+  // return false on success
   bool set_dimension(size_t n) {
     if (n > get_dimension()) {
-      if (!own_data) {
-        copy_data();
+      if (!m_own_data) {
+        own_data();
       }
-      data.resize(n, 0.0);
+      m_data.resize(n, 0.0);
       return false;
     }
     // do not allow shrinking the data
@@ -52,27 +45,48 @@ class Fb_vector {
   }
 
   size_t get_dimension() {
-    if (own_data) return data.size();
-    return data_view_len;
+    if (m_own_data) return m_data.size();
+    return m_data_view_len;
   }
 
   const float *get_data_view() const {
-    if (own_data) return data.data();
-    return data_view;
+    if (m_own_data) return m_data.data();
+    return m_data_view;
   }
 
+  /// get mutable data pointer
   float *get_data() {
-    if (!own_data) copy_data();
-    return data.data();
+    if (!m_own_data) own_data();
+    return m_data.data();
+  }
+
+  std::vector<float> &get_data_ref() {
+    if (!m_own_data) own_data();
+    return m_data;
+  }
+
+  void set_data_view(const uchar *data, const uint32 len) {
+    assert(len % sizeof(float) == 0);
+    assert(data != nullptr);
+    size_t num_floats = len / sizeof(float);
+    m_data_view = reinterpret_cast<const float *>(data);
+    m_data_view_len = num_floats;
+    m_own_data = false;
   }
 
  private:
-  void copy_data() {
-    assert(data.empty());
-    assert(!own_data);
-    data.resize(data_view_len);
-    memcpy(data.data(), data_view, data_view_len * sizeof(float));
-    own_data = true;
+  std::vector<float> m_data;
+  const float *m_data_view = nullptr;
+  size_t m_data_view_len = 0;
+  bool m_own_data = false;
+  void own_data() {
+    assert(m_data.empty());
+    assert(!m_own_data);
+    if (m_data_view_len > 0) {
+      m_data.resize(m_data_view_len);
+      memcpy(m_data.data(), m_data_view, m_data_view_len * sizeof(float));
+    }
+    m_own_data = true;
   }
 };
 

@@ -181,9 +181,7 @@ class Rdb_vector_db_handler {
 
     m_search_type = search_type;
 
-    Fb_vector input_vector;
     Item_func *item_func = (Item_func *)sort_func;
-    Item **args = ((Item_func *)item_func)->arguments();
 
     auto functype = item_func->functype();
     if (functype == Item_func::FB_VECTOR_L2) {
@@ -195,25 +193,10 @@ class Rdb_vector_db_handler {
       assert(false);
       return HA_ERR_UNSUPPORTED;
     }
-
-    // input vector is expected as the second argument
-    uint arg_idx = 1;
-    String tmp_str;
-
-    assert((args[0]->type() == Item::FIELD_ITEM &&
-            (args[0]->data_type() == MYSQL_TYPE_JSON ||
-             args[0]->data_type() == MYSQL_TYPE_BLOB)));
-
-    assert(((args[1]->type() == Item::STRING_ITEM) &&
-            (args[1]->data_type() == MYSQL_TYPE_VARCHAR)) ||
-           ((args[1]->type() == Item::CACHE_ITEM) &&
-            (args[1]->data_type() == MYSQL_TYPE_JSON)));
-
-    if (parse_fb_vector_from_item(args, arg_idx, tmp_str, __FUNCTION__,
-                                  input_vector))
+    auto *distance_func = down_cast<Item_func_fb_vector_distance *>(item_func);
+    if (distance_func->get_input_vector(m_buffer)) {
       return HA_EXIT_FAILURE;
-
-    m_buffer = std::move(input_vector.data);
+    }
     return HA_EXIT_SUCCESS;
   }
 

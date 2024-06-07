@@ -33,16 +33,16 @@ bool parse_fb_vector_from_item(Item **args, uint arg_idx, String &str,
                                const char *func_name, Fb_vector &vector) {
   if (args[arg_idx]->data_type() == MYSQL_TYPE_VARCHAR ||
       args[arg_idx]->data_type() == MYSQL_TYPE_JSON) {
-    if (get_json_wrapper(args, arg_idx, &str, func_name, &vector.wrapper)) {
+    Json_wrapper wrapper;
+    if (get_json_wrapper(args, arg_idx, &str, func_name, &wrapper)) {
       return true;
     }
 
-    if (parse_fb_vector_from_json(vector.wrapper, vector.data)) {
+    if (parse_fb_vector_from_json(wrapper, vector.get_data_ref())) {
       my_error(ER_INCORRECT_TYPE, MYF(0), std::to_string(arg_idx).c_str(),
                func_name);
       return true;
     }
-    vector.own_data = true;
     return false;
   }
 
@@ -88,28 +88,56 @@ Item_func_fb_vector_distance::can_cache_json_arg(Item *arg) {
   return arg == args[0] || arg == args[1] ? CACHE_JSON_VALUE : CACHE_NONE;
 }
 
+bool Item_func_fb_vector_distance::get_input_vector(
+    std::vector<float> &result) {
+  if (fix_input_vector()) {
+    return true;
+  }
+  result.clear();
+  result.reserve(m_input_vector.get_dimension());
+  result.insert(
+      result.begin(), m_input_vector.get_data_view(),
+      m_input_vector.get_data_view() + m_input_vector.get_dimension());
+  return false;
+}
+
+bool Item_func_fb_vector_distance::fix_input_vector() {
+  // the second arg is the input vector, it is a constant,
+  // only need to parse it once.
+  if (m_input_vector.get_dimension() == 0) {
+    if (parse_fb_vector_from_item(args, 1, m_value, func_name(),
+                                  m_input_vector)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 double Item_func_fb_vector_distance::val_real() {
   if (args[0]->null_value || args[1]->null_value) {
     return error_real();
   }
 
   try {
-    Fb_vector vector1;
-    Fb_vector vector2;
-    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1) ||
-        parse_fb_vector_from_item(args, 1, m_value, func_name(), vector2)) {
+    if (fix_input_vector()) {
       return error_real();
     }
-    size_t dimension =
-        std::max(vector1.get_dimension(), vector2.get_dimension());
-    if (vector1.set_dimension(dimension) || vector2.set_dimension(dimension)) {
+
+    Fb_vector vector1;
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
+      return error_real();
+    }
+    const size_t dimension =
+        std::max(vector1.get_dimension(), m_input_vector.get_dimension());
+    if (vector1.set_dimension(dimension) ||
+        m_input_vector.set_dimension(dimension)) {
       assert(false);
       // should never happen
       my_error(ER_INVALID_CAST, MYF(0), "a smaller dimension");
       return error_real();
     }
-    return compute_distance(vector1.get_data_view(), vector2.get_data_view(),
-                            dimension);
+    return compute_distance(vector1.get_data_view(),
+                            m_input_vector.get_data_view(), dimension);
   } catch (...) {
     handle_std_exception(func_name());
     return error_real();
@@ -272,8 +300,8 @@ String *Item_func_fb_vector_json_to_blob::val_str(String *) {
     return error_str();
   }
   m_value.mem_free();
-  const size_t size = vector.data.size() * sizeof(float);
-  m_value.copy((const char *)vector.data.data(), size, &my_charset_bin);
+  const size_t size = vector.get_dimension() * sizeof(float);
+  m_value.copy((const char *)vector.get_data_view(), size, &my_charset_bin);
   return &m_value;
 }
 
@@ -285,7 +313,7 @@ bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
     Fb_vector vector1;
     // Input is blob, so must has data_view and data_view_len set
     if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1) ||
-        !vector1.data_view || !vector1.data_view_len) {
+        !vector1.get_data_view() || !vector1.get_dimension()) {
       return error_json();
     }
     Json_array_ptr array = create_dom_ptr<Json_array>();

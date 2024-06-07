@@ -32,12 +32,16 @@ class Item_func_fb_vector_distance : public Item_real_func {
 
   double val_real() override;
 
+  // get the input vector, return false if successful
+  bool get_input_vector(std::vector<float> &input_vector);
+
  protected:
   /// String used when reading JSON binary values or JSON text values.
   String m_value;
-
+  Fb_vector m_input_vector;
   virtual float compute_distance(const float *v1, const float *v2,
                                  size_t dimension) = 0;
+  bool fix_input_vector();
 };
 
 /**
