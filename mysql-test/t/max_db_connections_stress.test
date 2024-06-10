@@ -19,7 +19,7 @@ let $error_query = sum_error_raised as "errors present" from performance_schema.
 let $error_count_init = `select $error_query`;
 
 
-let $exec = /usr/bin/python3 $MYSQL_TEST_DIR/t/max_db_connections_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --db_prefix='test_db' --db_count=10;
+let $exec = python3 $MYSQL_TEST_DIR/t/max_db_connections_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --db_prefix='test_db' --db_count=10;
 exec $exec > $MYSQLTEST_VARDIR/tmp/max_db_connections_stress.output;
 
 let $i = 10;

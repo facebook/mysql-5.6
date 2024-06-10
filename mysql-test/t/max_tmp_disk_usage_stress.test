@@ -32,7 +32,7 @@ set global max_tmp_disk_usage = 100000000;
 set global temptable_max_ram = 2097152;
 set global temptable_use_mmap = off;
 
-let $exec = /usr/bin/python3 $MYSQL_TEST_DIR/t/max_tmp_disk_usage_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db';
+let $exec = python3 $MYSQL_TEST_DIR/t/max_tmp_disk_usage_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db';
 exec $exec > $MYSQLTEST_VARDIR/tmp/max_tmp_disk_usage_stress.output;
 
 drop database test_db;

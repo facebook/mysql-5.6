@@ -19,7 +19,7 @@ CREATE TABLE `link_table` (
   KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 
-exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+exec python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
 
 DROP TABLE link_table;
 
@@ -37,7 +37,7 @@ CREATE TABLE `link_table` (
   KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
 
-exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+exec python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
 
 DROP TABLE link_table;
 
@@ -55,7 +55,7 @@ CREATE TABLE `link_table` (
   KEY `id1_type` (`link_type`, `id1`, `visibility`,`time`,`id2`,`version`,`data`(255)) COMMENT 'cfname=rev:cf_link_id1_type;partial_group_keyparts=2;partial_group_threshold=10'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
 
-exec /usr/bin/python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
+exec python3 suite/rocksdb/t/partial_index_stress.py root 127.0.0.1 $MASTER_MYPORT test link_table 1000 10;
 
 DROP TABLE link_table;
 

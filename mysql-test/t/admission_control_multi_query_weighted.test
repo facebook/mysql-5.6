@@ -1,5 +1,13 @@
 source include/big_test.inc;
 source include/not_valgrind.inc;
+
+# TODO(laurynas): the path should not be hardcoded
+--let $PYTHON = /usr/bin/python3
+if (`SELECT CONVERT(@@VERSION_COMPILE_OS USING latin1) RLIKE '^(osx|macos)'`)
+{
+--let $PYTHON = python3
+}
+
 create database test_db;
 create user test_user@localhost identified with 'mysql_native_password' BY '';
 grant all on test_db.* to test_user@localhost;
@@ -8,7 +16,7 @@ grant all on test.* to test_user@localhost;
 use test_db;
 create table t1 (a int primary key, b int) engine=InnoDB;
 
-let $exec = /usr/bin/python3 $MYSQL_TEST_DIR/t/admission_control_multi_query.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db' --weighted-queues;
+let $exec = $PYTHON $MYSQL_TEST_DIR/t/admission_control_multi_query.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db' --weighted-queues;
 exec $exec > $MYSQLTEST_VARDIR/tmp/admission_control_multi_query.output;
 
 drop database test_db;
