@@ -1,3 +1,4 @@
+--source include/have_rocksdb.inc
 # Skiping this test from Valgrind execution as per Bug-14627884
 --source include/not_valgrind.inc
 # Adding big test option for this test.
@@ -16,7 +17,9 @@
 #               include/index_merge*.inc files
 #
 
---source include/have_rocksdb.inc
+SET @saved_rocksdb_records_in_range=@@GLOBAL.rocksdb_records_in_range;
+SET global rocksdb_records_in_range=2;
+
 let $engine_type= RocksDB;
 # skipping because too unstable in MyRocks
 let $skip_ror_EXPLAIN_for_MyRocks = 1;
@@ -70,3 +73,5 @@ analyze table t1;
 EXPLAIN SELECT count(*) FROM t1 WHERE id2=7 AND id3=0;
 
 DROP TABLE t1;
+
+SET global rocksdb_records_in_range=@saved_rocksdb_records_in_range;

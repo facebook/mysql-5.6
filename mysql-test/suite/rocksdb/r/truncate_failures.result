@@ -1,4 +1,3 @@
-set global rocksdb_strict_collation_exceptions = 't1,t2';
 CREATE TABLE t1 (
 pk INT,
 a VARCHAR(64),
@@ -39,7 +38,6 @@ pk	a
 TRUNCATE TABLE t2_trunc;
 SELECT * FROM t2_trunc ORDER BY pk;
 pk	a
-set global rocksdb_strict_collation_exceptions = default;
 DROP TABLE t1_trunc, t2_trunc;
 CREATE TABLE t1 (
 pk INT PRIMARY KEY
