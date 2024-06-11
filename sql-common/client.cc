@@ -1437,6 +1437,10 @@ bool cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
     assert(mysql->net.vio != nullptr);
   }
 
+#ifndef NDEBUG
+  if (command == COM_QUIT) vio_set_quit(mysql->net.vio);
+#endif /* NDEBUG */
+
   /* turn off non blocking operations */
   if (!vio_is_blocking(mysql->net.vio))
     vio_set_blocking_flag(mysql->net.vio, true);
@@ -1615,6 +1619,11 @@ net_async_status cli_advanced_command_nonblocking(
     set_mysql_error(mysql, CR_SERVER_GONE_ERROR, unknown_sqlstate);
     goto end;
   }
+
+#ifndef NDEBUG
+  if (command == COM_QUIT) vio_set_quit(mysql->net.vio);
+#endif /* NDEBUG */
+
   /**
     When non blocking API execution is pending and did not complete then
     it can result in async context to be null. In such case if user executes

@@ -323,7 +323,7 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size) {
       SSL_write() returns an error from the error queue, when SSL_write() failed
       because it would block.
     */
-    assert(ERR_peek_error() == 0);
+    assert(ERR_peek_error() == 0 || vio->is_quit);
 
     ret = SSL_write(ssl, buf, (int)size);
 

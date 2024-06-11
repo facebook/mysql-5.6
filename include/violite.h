@@ -197,6 +197,7 @@ int vio_io_wait(MYSQL_VIO vio, enum enum_vio_io_event event, timeout_t timeout);
 bool vio_is_connected(MYSQL_VIO vio);
 #ifndef NDEBUG
 ssize_t vio_pending(MYSQL_VIO vio);
+void vio_set_quit(MYSQL_VIO vio);
 #endif
 /* Set timeout for a network operation. */
 int vio_timeout(MYSQL_VIO vio, uint which, timeout_t timeout);
@@ -455,6 +456,10 @@ struct Vio {
   int (*set_blocking_flag)(Vio *vio, bool val) = {nullptr};
   /* Indicates whether socket or SSL based communication is blocking or not. */
   bool is_blocking_flag = {true};
+
+#ifndef NDEBUG
+  bool is_quit = {false};
+#endif /* NDEBUG */
 
  private:
   friend Vio *internal_vio_create(uint flags);

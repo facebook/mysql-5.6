@@ -1234,6 +1234,11 @@ ssize_t vio_pending(Vio *vio) {
   return (ssize_t)bytes;
 }
 
+/**
+  Set when sending the quit packet and skip certain state checks
+*/
+void vio_set_quit(Vio *vio) { vio->is_quit = true; }
+
 #endif
 
 /**
