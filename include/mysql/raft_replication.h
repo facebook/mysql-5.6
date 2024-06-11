@@ -272,6 +272,11 @@ typedef struct Raft_replication_observer {
    * The primary/secondary behavior is governed by param->is_from_applier
    */
   int (*ingestion)(Raft_ingestion_param *param);
+
+  /**
+   * Callback to get the current applied opid set
+   */
+  int (*get_applied_opid_set)(std::string *opid_set_str);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

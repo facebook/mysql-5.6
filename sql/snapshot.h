@@ -34,6 +34,7 @@ struct snapshot_info_st {
   ulonglong snapshot_id = 0;
   snapshot_operation op = SNAPSHOT_NONE;
   ulonglong snapshot_hlc = 0;
+  std::string applied_opid_set;
 };
 
 class explicit_snapshot {

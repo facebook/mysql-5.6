@@ -1495,6 +1495,13 @@ int Raft_replication_delegate::after_commit(THD *thd) {
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::get_applied_opid_set(std::string *opid_set_str) {
+  DBUG_ENTER("Raft_replication_delegate::get_applied_opid_set");
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, get_applied_opid_set, (opid_set_str));
+  DBUG_RETURN(ret);
+}
+
 int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   DBUG_ENTER("Raft_replication_delegate::purge_logs");
   Raft_replication_param param;

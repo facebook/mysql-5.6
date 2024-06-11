@@ -1650,6 +1650,11 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok) {
         new Item_return_int("Snapshot_HLC", 20, MYSQL_TYPE_LONGLONG));
   }
 
+  if (!ss_info.applied_opid_set.empty()) {
+    field_list.push_back(new Item_empty_string(
+        "Applied_opid_set", ss_info.applied_opid_set.length()));
+  }
+
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_RETURN(true);
@@ -1669,6 +1674,10 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok) {
 
   if (ss_info.snapshot_hlc != 0) {
     protocol->store(ss_info.snapshot_hlc);
+  }
+
+  if (!ss_info.applied_opid_set.empty()) {
+    protocol->store(ss_info.applied_opid_set.c_str(), &my_charset_bin);
   }
 
   if (protocol->end_row()) DBUG_RETURN(true);

@@ -464,6 +464,7 @@ class Raft_replication_delegate : public Delegate {
   int before_stop_applier(THD *thd);
   int after_stop_applier(THD *thd);
   int ingestion(THD *thd, Raft_ingestion_param *param);
+  int get_applied_opid_set(std::string *opid_set_str);
 };
 
 int delegates_init();

@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <atomic>
+#include <condition_variable>
 #include <limits>
 #include <list>
 #include <mutex>
@@ -558,6 +559,21 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_cond_t m_prep_xids_cond;
   std::atomic<int32> m_atomic_prep_xids{0};
 
+  std::atomic<uint32_t> m_num_committing_trxs = 0;
+  std::mutex m_num_committing_trxs_lock;
+  std::condition_variable m_num_committing_trxs_cv;
+
+  void inc_num_committing_trxs() {
+    mysql_mutex_assert_owner(&LOCK_log);
+    ++m_num_committing_trxs;
+  }
+
+  void dec_num_committing_trxs() {
+    if (--m_num_committing_trxs == 0) {
+      m_num_committing_trxs_cv.notify_all();
+    }
+  }
+
   /* binlog offset tracker for the last update done on SE's. */
   my_off_t ha_last_updated_binlog_pos;
   char ha_last_updated_binlog_file; /* Only need the last char */
@@ -595,6 +611,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
                                  int64_t raft_index, bool need_sid_lock);
 
  public:
+  void wait_for_all_committing_trxs_to_finish() {
+    std::unique_lock<std::mutex> lock(m_num_committing_trxs_lock);
+    m_num_committing_trxs_cv.wait(lock,
+                                  [&] { return m_num_committing_trxs == 0; });
+  }
+
   /*
     This is used to start writing to a new log file. The difference from
     new_file() is locking. new_file_without_locking() does not acquire
@@ -991,6 +1013,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool check_hlc_bound(THD *thd) { return hlc.check_hlc_bound(thd); }
 
   bool capture_hlc_bound(THD *thd) { return hlc.capture_hlc_bound(thd); }
+
+  bool get_applied_opid_set(std::string *opid_set);
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};

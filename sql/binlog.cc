@@ -5926,6 +5926,20 @@ uint64_t MYSQL_BIN_LOG::extract_hlc(Metadata_log_event *metadata_ev) {
                   metadata_ev->get_prev_hlc_time());
 }
 
+bool MYSQL_BIN_LOG::get_applied_opid_set(std::string *opid_set) {
+  if (!opid_set) {
+    return false;
+  }
+
+  if (!enable_raft_plugin) {
+    *opid_set = {};
+    return true;
+  }
+
+  return RUN_HOOK_STRICT(raft_replication, get_applied_opid_set, (opid_set)) ==
+         0;
+}
+
 bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
                                                    const Gtid_set *gtid_set,
                                                    Gtid *first_gtid,
@@ -9760,6 +9774,14 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
   }
 
   global_sid_lock->unlock();
+
+  // unlike drain_committing_trxs() this waits for the entire pipeline to finish
+  // i.e. after_commit hook etc.
+  wait_for_all_committing_trxs_to_finish();
+
+  if (!get_applied_opid_set(&ss_info->applied_opid_set)) {
+    ss_info->applied_opid_set = "-1:-1";
+  }
 }
 
 void MYSQL_BIN_LOG::unlock_commits(snapshot_info_st *ss_info
@@ -11590,6 +11612,7 @@ std::pair<bool, bool> MYSQL_BIN_LOG::sync_binlog_file(bool force) {
 int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   DBUG_TRACE;
   DEBUG_SYNC(thd, "reached_finish_commit");
+
   /*
     In some unlikely situations, it can happen that binary
     log is closed before the thread flushes it's cache.
@@ -12040,8 +12063,18 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
                    &LOCK_log)) {
     DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d", thd->thread_id(),
                           thd->commit_error));
-    return finish_commit(thd);
+    // incrementing num committing trxs after holding LOCK_log
+    inc_num_committing_trxs();
+    const int ret = finish_commit(thd);
+    dec_num_committing_trxs();
+    return ret;
   }
+
+  // incrementing num committing trxs after holding LOCK_log
+  inc_num_committing_trxs();
+  // decrement num committing trxs after this method is done
+  raii::Sentry<> num_committing_trxs_guard{
+      [&]() -> void { dec_num_committing_trxs(); }};
 
   if (enable_raft_plugin) {
     enable_raft_plugin_save = enable_raft_plugin;
