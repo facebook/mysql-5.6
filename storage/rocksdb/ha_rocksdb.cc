@@ -853,7 +853,6 @@ static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_sst_mgr_rate_bytes_per_sec;
-static unsigned long long rocksdb_delayed_write_rate;
 static uint32_t rocksdb_max_latest_deadlocks;
 static unsigned long  // NOLINT(runtime/int)
     rocksdb_persistent_cache_size_mb;
@@ -904,12 +903,12 @@ static bool rocksdb_reset_stats = 0;
 static uint32_t rocksdb_io_write_timeout_secs = 0;
 #endif
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
-static long long rocksdb_compaction_sequential_deletes = 0l;
-static long long rocksdb_compaction_sequential_deletes_window = 0l;
-static long long rocksdb_compaction_sequential_deletes_file_size = 0l;
+static uint64_t rocksdb_compaction_sequential_deletes = 0;
+static uint64_t rocksdb_compaction_sequential_deletes_window = 0;
+static long long rocksdb_compaction_sequential_deletes_file_size = 0LL;
 static uint32_t rocksdb_validate_tables = 1;
 char *rocksdb_datadir;
-static uint32_t rocksdb_max_bottom_pri_background_compactions = 0;
+static int rocksdb_max_bottom_pri_background_compactions = 0;
 static int rocksdb_block_cache_numshardbits = -1;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
@@ -1472,7 +1471,7 @@ static constexpr int RDB_MAX_CHECKSUMS_PCT = 100;
 static constexpr ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
 static constexpr ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
 static constexpr ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
-static constexpr uint ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS = 64;
+static constexpr int ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS = 64;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -1658,7 +1657,7 @@ static void rocksdb_update_read_free_rpl_tables(
 }
 
 static void rocksdb_set_max_bottom_pri_background_compactions_internal(
-    uint val) {
+    int val) {
   // Set lower priority for compactions
   if (val > 0) {
     // This creates background threads in rocksdb with BOTTOM priority pool.
@@ -1859,12 +1858,13 @@ static MYSQL_SYSVAR_ULONGLONG(
     /* default */ DEFAULT_SST_MGR_RATE_BYTES_PER_SEC,
     /* min */ 0L, /* max */ UINT64_MAX, 0);
 
-static MYSQL_SYSVAR_ULONGLONG(delayed_write_rate, rocksdb_delayed_write_rate,
-                              PLUGIN_VAR_RQCMDARG,
-                              "DBOptions::delayed_write_rate", nullptr,
-                              rocksdb_set_delayed_write_rate,
-                              rocksdb_db_options->delayed_write_rate, 0,
-                              UINT64_MAX, 0);
+static MYSQL_SYSVAR_UINT64_T(delayed_write_rate,
+                             rocksdb_db_options->delayed_write_rate,
+                             PLUGIN_VAR_RQCMDARG,
+                             "DBOptions::delayed_write_rate", nullptr,
+                             rocksdb_set_delayed_write_rate,
+                             rocksdb_db_options->delayed_write_rate, 0,
+                             UINT64_MAX, 0);
 
 static MYSQL_SYSVAR_UINT(max_latest_deadlocks, rocksdb_max_latest_deadlocks,
                          PLUGIN_VAR_RQCMDARG,
@@ -2033,7 +2033,7 @@ static MYSQL_SYSVAR_INT(max_background_compactions,
                         rocksdb_db_options->max_background_compactions,
                         /* min */ -1, /* max */ 64, 0);
 
-static MYSQL_SYSVAR_UINT(
+static MYSQL_SYSVAR_INT(
     max_bottom_pri_background_compactions,
     rocksdb_max_bottom_pri_background_compactions, PLUGIN_VAR_RQCMDARG,
     "Creating specified number of threads, setting lower "
@@ -2651,7 +2651,7 @@ static MYSQL_SYSVAR_UINT(
     nullptr, nullptr, rocksdb_seconds_between_stat_computes,
     /* min */ 0L, /* max */ UINT_MAX, 0);
 
-static MYSQL_SYSVAR_LONGLONG(compaction_sequential_deletes,
+static MYSQL_SYSVAR_UINT64_T(compaction_sequential_deletes,
                              rocksdb_compaction_sequential_deletes,
                              PLUGIN_VAR_RQCMDARG,
                              "RocksDB will trigger compaction for the file if "
@@ -2659,23 +2659,23 @@ static MYSQL_SYSVAR_LONGLONG(compaction_sequential_deletes,
                              "per window",
                              nullptr, rocksdb_set_compaction_options,
                              DEFAULT_COMPACTION_SEQUENTIAL_DELETES,
-                             /* min */ 0L,
+                             /* min */ 0,
                              /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES, 0);
 
-static MYSQL_SYSVAR_LONGLONG(
+static MYSQL_SYSVAR_UINT64_T(
     compaction_sequential_deletes_window,
     rocksdb_compaction_sequential_deletes_window, PLUGIN_VAR_RQCMDARG,
     "Size of the window for counting rocksdb_compaction_sequential_deletes",
     nullptr, rocksdb_set_compaction_options,
     DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW,
-    /* min */ 0L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
+    /* min */ 0, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
     compaction_sequential_deletes_file_size,
     rocksdb_compaction_sequential_deletes_file_size, PLUGIN_VAR_RQCMDARG,
     "Minimum file size required for compaction_sequential_deletes", nullptr,
     rocksdb_set_compaction_options, 0L,
-    /* min */ -1L, /* max */ LLONG_MAX, 0);
+    /* min */ -1LL, /* max */ LLONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(
     compaction_sequential_deletes_count_sd,
@@ -8004,8 +8004,6 @@ static int rocksdb_init_internal(void *const p) {
         rocksdb::NewGenericRateLimiter(rocksdb_rate_limiter_bytes_per_sec));
     rocksdb_db_options->rate_limiter = rocksdb_rate_limiter;
   }
-
-  rocksdb_db_options->delayed_write_rate = rocksdb_delayed_write_rate;
 
   std::shared_ptr<Rdb_logger> myrocks_logger = std::make_shared<Rdb_logger>();
   rocksdb::Status s = rocksdb::CreateLoggerFromOptions(
@@ -18524,9 +18522,9 @@ static void rocksdb_set_compaction_options(
     *(uint64_t *)var_ptr = *(const uint64_t *)save;
   }
   const Rdb_compact_params params = {
-      (uint64_t)rocksdb_compaction_sequential_deletes,
-      (uint64_t)rocksdb_compaction_sequential_deletes_window,
-      (uint64_t)rocksdb_compaction_sequential_deletes_file_size};
+      rocksdb_compaction_sequential_deletes,
+      rocksdb_compaction_sequential_deletes_window,
+      static_cast<uint64_t>(rocksdb_compaction_sequential_deletes_file_size)};
   if (properties_collector_factory) {
     properties_collector_factory->SetCompactionParams(params);
   }
@@ -18665,8 +18663,8 @@ static void rocksdb_set_delayed_write_rate(
     void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
-  if (rocksdb_delayed_write_rate != new_val) {
-    rocksdb_delayed_write_rate = new_val;
+  if (rocksdb_db_options->delayed_write_rate != new_val) {
+    rocksdb_db_options->delayed_write_rate = new_val;
     rocksdb::Status s =
         rdb->SetDBOptions({{"delayed_write_rate", std::to_string(new_val)}});
 
@@ -18881,16 +18879,17 @@ static int rocksdb_validate_max_bottom_pri_background_compactions(
     struct st_mysql_value *value) {
   assert(value != nullptr);
 
-  long long new_value;
+  long long new_value_ll;
 
   /* value is NULL */
-  if (value->val_int(value, &new_value)) {
+  if (value->val_int(value, &new_value_ll)) {
     return HA_EXIT_FAILURE;
   }
-  if (new_value < 0 ||
-      new_value > ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS) {
+  if (new_value_ll < 0 ||
+      new_value_ll > ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS) {
     return HA_EXIT_FAILURE;
   }
+  const auto new_value = static_cast<int>(new_value_ll);
   RDB_MUTEX_LOCK_CHECK(rdb_bottom_pri_background_compactions_resize_mutex);
   if (rocksdb_max_bottom_pri_background_compactions != new_value) {
     if (new_value == 0) {
@@ -18903,7 +18902,7 @@ static int rocksdb_validate_max_bottom_pri_background_compactions(
     }
     rocksdb_set_max_bottom_pri_background_compactions_internal(new_value);
   }
-  *static_cast<int64_t *>(var_ptr) = static_cast<int64_t>(new_value);
+  *static_cast<int *>(var_ptr) = new_value;
   RDB_MUTEX_UNLOCK_CHECK(rdb_bottom_pri_background_compactions_resize_mutex);
   return HA_EXIT_SUCCESS;
 }
