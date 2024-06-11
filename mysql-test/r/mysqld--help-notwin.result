@@ -1265,6 +1265,16 @@ The following options may be given as the first argument:
  --optimizer-group-by-cost-adjust[=#] 
  Adjust cost of loose index scan group-by plan by this
  factor.
+ --optimizer-icp-with-desc-ref-scans 
+ Some storage engines may not have a good implementation
+ of reverse REF scans in conjunction with Index Condition
+ Pushdown feature. They may scan all the way till the
+ start of the index in the case of ICP misses. This flag
+ can be used to turn on/off ICP with DESC REF scans. When
+ turned on, this will greatly speed up DESC REF scans
+ whenever ICP is an option and the storage engine supports
+ it. Default: ON
+ (Defaults to on; use --skip-optimizer-icp-with-desc-ref-scans to disable.)
  --optimizer-implicit-groups-for-lis 
  Detect groups implied by equality conditions when costing
  group by loose index scans.
@@ -3665,6 +3675,7 @@ optimizer-force-index-for-range FALSE
 optimizer-force-index-rewrite (No default value)
 optimizer-full-scan TRUE
 optimizer-group-by-cost-adjust 1
+optimizer-icp-with-desc-ref-scans TRUE
 optimizer-implicit-groups-for-lis TRUE
 optimizer-limit-heuristic-multiplier-pct 0
 optimizer-max-subgraph-pairs 100000

@@ -488,7 +488,9 @@ int RefIterator<true>::Read() {  // Reverse read.
       to read to the beginning of the index if no qualifying record is
       found.
      */
-    assert(table()->file->pushed_idx_cond == nullptr);
+    assert(
+        (table()->file->pushed_idx_cond == nullptr) ||
+        (table()->in_use->variables.optimizer_icp_with_desc_ref_scans == true));
 
     // Bump rows_requested counter for the index.
     if (ius_requested_rows != nullptr) {

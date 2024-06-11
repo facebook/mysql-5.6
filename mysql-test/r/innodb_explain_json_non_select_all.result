@@ -5701,6 +5701,7 @@ EXPLAIN
         "rows_examined_per_scan": 2,
         "rows_produced_per_join": 2,
         "filtered": "100.00",
+        "index_condition": "(`test`.`t1`.`c1_idx` = 'y')",
         "backward_index_scan": true,
         "cost_info": {
           "read_cost": "0.50",
@@ -5712,8 +5713,7 @@ EXPLAIN
           "pk",
           "c1_idx",
           "c2"
-        ] /* used_columns */,
-        "attached_condition": "(`test`.`t1`.`c1_idx` = 'y')"
+        ] /* used_columns */
       } /* table */
     } /* ordering_operation */
   } /* query_block */
@@ -5807,6 +5807,7 @@ EXPLAIN
         "rows_examined_per_scan": 2,
         "rows_produced_per_join": 2,
         "filtered": "100.00",
+        "index_condition": "(`test`.`t1`.`c1_idx` = 'y')",
         "backward_index_scan": true,
         "cost_info": {
           "read_cost": "0.50",
@@ -5818,8 +5819,7 @@ EXPLAIN
           "pk",
           "c1_idx",
           "c2"
-        ] /* used_columns */,
-        "attached_condition": "(`test`.`t1`.`c1_idx` = 'y')"
+        ] /* used_columns */
       } /* table */
     } /* ordering_operation */
   } /* query_block */

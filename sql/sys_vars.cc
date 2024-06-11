@@ -10518,3 +10518,14 @@ static Sys_var_applied_opid_set Sys_applied_opid_set(
     "applied_opid_set", "Force update applied OPID set",
     NON_PERSIST GLOBAL_VAR(applied_opid_set), NO_CMD_LINE, DEFAULT(nullptr),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr));
+
+static Sys_var_bool Sys_optimizer_icp_with_desc_ref_scans(
+    "optimizer_icp_with_desc_ref_scans",
+    "Some storage engines may not have a good implementation of reverse "
+    "REF scans in conjunction with Index Condition Pushdown feature. They "
+    "may scan all the way till the start of the index in the case of ICP "
+    "misses. This flag can be used to turn on/off ICP with DESC REF scans. "
+    "When turned on, this will greatly speed up DESC REF scans whenever ICP "
+    "is an option and the storage engine supports it. Default: ON",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_icp_with_desc_ref_scans),
+    CMD_LINE(OPT_ARG), DEFAULT(true));

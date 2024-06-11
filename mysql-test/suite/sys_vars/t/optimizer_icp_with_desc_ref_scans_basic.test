@@ -1,0 +1,87 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is true
+####
+--echo Default value of optimizer_icp_with_desc_ref_scans is true
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+
+show session variables like 'optimizer_icp_with_desc_ref_scans';
+
+select * from performance_schema.session_variables
+   where variable_name='optimizer_icp_with_desc_ref_scans';
+
+####
+## Verify that the variable is dynamic
+####
+--echo optimizer_icp_with_desc_ref_scans is a dynamic variable (change to false)
+set @@session.optimizer_icp_with_desc_ref_scans = false;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@session.optimizer_icp_with_desc_ref_scans = true;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+
+####
+## Verify other accepted values 
+####
+--echo Verify other accepted values
+SET @@session.optimizer_icp_with_desc_ref_scans = 1;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+SET @@session.optimizer_icp_with_desc_ref_scans = 0;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+SET @@session.optimizer_icp_with_desc_ref_scans = on;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+SET @@session.optimizer_icp_with_desc_ref_scans = off;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+SET @@session.optimizer_icp_with_desc_ref_scans = "off";
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+SET @@session.optimizer_icp_with_desc_ref_scans = "on";
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+
+####
+## Try changing the value to invalid values
+####
+--echo Attempt setting invalid values
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_icp_with_desc_ref_scans = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_icp_with_desc_ref_scans = 2;
+--Error ER_WRONG_VALUE_FOR_VAR 
+SET @@session.optimizer_icp_with_desc_ref_scans = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_icp_with_desc_ref_scans = "";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_icp_with_desc_ref_scans = '';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_icp_with_desc_ref_scans = ' ';
+
+
+####
+## Other negative test cases 
+####
+--Error ER_PARSE_ERROR
+SET local.optimizer_icp_with_desc_ref_scans = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.optimizer_icp_with_desc_ref_scans;
+--Error ER_UNKNOWN_TABLE
+SELECT session.optimizer_icp_with_desc_ref_scans;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (false)
+--let $restart_parameters = restart: --optimizer_icp_with_desc_ref_scans=false
+--source include/restart_mysqld.inc
+
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+
+--echo restart the server with the default value (true)
+--let $restart_parameters =
+--source include/restart_mysqld.inc
+
+# check value is default (true)
+SELECT @@session.optimizer_icp_with_desc_ref_scans;

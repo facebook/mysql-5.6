@@ -697,6 +697,15 @@ struct System_variables {
     vector db ivf index.
   */
   ulong fb_vector_search_type;
+
+  /**
+    This session var can be used to control whether index conditions are pushed
+    down to the storage engine (ICP) for ORDER BY ... DESC statements that end
+    up using the REF plan. This is not applicable to Range plans. This was
+    disabled until now due to a historical limitation in the implementation of
+    reverse REF iterators in storage engines.
+  */
+  bool optimizer_icp_with_desc_ref_scans;
 };
 
 /**

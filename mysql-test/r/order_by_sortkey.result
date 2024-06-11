@@ -201,7 +201,7 @@ t.col3 IN ('WRITEBACK')
 ORDER BY t.col2 DESC, t.col3 DESC, t.col4 DESC
 LIMIT 1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t	NULL	ref	uc_key	uc_key	782	const,const	1	100.00	Using where; Backward index scan
+1	SIMPLE	t	NULL	ref	uc_key	uc_key	782	const,const	1	100.00	Using index condition; Backward index scan
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t`.`col1` AS `col1`,`test`.`t`.`col2` AS `col2`,`test`.`t`.`col3` AS `col3`,`test`.`t`.`col4` AS `col4`,`test`.`t`.`col5` AS `col5`,`test`.`t`.`col6` AS `col6` from `test`.`t` where ((`test`.`t`.`col2` = 0x4142434445464748494a414243444546) and (`test`.`t`.`col3` = 'WRITEBACK')) order by `test`.`t`.`col2` desc,`test`.`t`.`col3` desc,`test`.`t`.`col4` desc limit 1
 DROP TABLE t;

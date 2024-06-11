@@ -1,0 +1,75 @@
+Default value of optimizer_icp_with_desc_ref_scans is true
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1
+show session variables like 'optimizer_icp_with_desc_ref_scans';
+Variable_name	Value
+optimizer_icp_with_desc_ref_scans	ON
+select * from performance_schema.session_variables
+where variable_name='optimizer_icp_with_desc_ref_scans';
+VARIABLE_NAME	VARIABLE_VALUE
+optimizer_icp_with_desc_ref_scans	ON
+optimizer_icp_with_desc_ref_scans is a dynamic variable (change to false)
+set @@session.optimizer_icp_with_desc_ref_scans = false;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+0
+restore the default value
+SET @@session.optimizer_icp_with_desc_ref_scans = true;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1
+Verify other accepted values
+SET @@session.optimizer_icp_with_desc_ref_scans = 1;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1
+SET @@session.optimizer_icp_with_desc_ref_scans = 0;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+0
+SET @@session.optimizer_icp_with_desc_ref_scans = on;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1
+SET @@session.optimizer_icp_with_desc_ref_scans = off;
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+0
+SET @@session.optimizer_icp_with_desc_ref_scans = "off";
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+0
+SET @@session.optimizer_icp_with_desc_ref_scans = "on";
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1
+Attempt setting invalid values
+SET @@session.optimizer_icp_with_desc_ref_scans = -1;
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of '-1'
+SET @@session.optimizer_icp_with_desc_ref_scans = 2;
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of '2'
+SET @@session.optimizer_icp_with_desc_ref_scans = " ";
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of ' '
+SET @@session.optimizer_icp_with_desc_ref_scans = "";
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of ''
+SET @@session.optimizer_icp_with_desc_ref_scans = '';
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of ''
+SET @@session.optimizer_icp_with_desc_ref_scans = ' ';
+ERROR 42000: Variable 'optimizer_icp_with_desc_ref_scans' can't be set to the value of ' '
+SET local.optimizer_icp_with_desc_ref_scans = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.optimizer_icp_with_desc_ref_scans = 1' at line 1
+SELECT local.optimizer_icp_with_desc_ref_scans;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.optimizer_icp_with_desc_ref_scans;
+ERROR 42S02: Unknown table 'session' in field list
+restart the server with non default value (false)
+# restart: --optimizer_icp_with_desc_ref_scans=false
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+0
+restart the server with the default value (true)
+# restart
+SELECT @@session.optimizer_icp_with_desc_ref_scans;
+@@session.optimizer_icp_with_desc_ref_scans
+1

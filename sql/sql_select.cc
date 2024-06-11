@@ -2812,10 +2812,19 @@ void QEP_TAB::push_index_cond(const JOIN_TAB *join_tab, uint keyno,
   ASSERT_BEST_REF_IN_JOIN_ORDER(join_);
   assert(join_tab == join_->best_ref[idx()]);
 
-  if (join_tab->reversed_access)  // @todo: historical limitation, lift it!
-    return;
-
   TABLE *const tbl = table();
+
+  if ((join_tab->reversed_access) &&
+      (tbl->in_use->variables.optimizer_icp_with_desc_ref_scans == false)) {
+    /*
+      Some storage engines may not have a good implementation of reverse
+      REF scans in conjunction with Index Condition Pushdown feature. They
+      may scan all the way till the start of the index in the case of ICP
+      misses (ICP_NO_MATCH). In such cases, the ICP functionality can be
+      turned off using this session variable.
+    */
+    return;
+  }
 
   // Disable ICP for Innodb intrinsic temp table because of performance
   if ((tbl->s->db_type() == innodb_hton || tbl->s->db_type() == rocksdb_hton) &&
