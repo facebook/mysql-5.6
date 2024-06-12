@@ -1,0 +1,21 @@
+select PLUGIN_VERSION, PLUGIN_DESCRIPTION from information_schema.plugins where PLUGIN_NAME='ROCKSDB_VECTOR_INDEX' and PLUGIN_TYPE='INFORMATION SCHEMA';
+PLUGIN_VERSION	PLUGIN_DESCRIPTION
+0.2	vector index information and stats
+select COLUMN_NAME, COLUMN_DEFAULT, COLUMN_TYPE, IS_NULLABLE, COLUMN_COMMENT from information_schema.columns where TABLE_SCHEMA = 'information_schema' and table_name  = 'ROCKSDB_VECTOR_INDEX' order by ORDINAL_POSITION;
+COLUMN_NAME	COLUMN_DEFAULT	COLUMN_TYPE	IS_NULLABLE	COLUMN_COMMENT
+INDEX_NUMBER		int	NO	
+TABLE_SCHEMA		varchar(193)	NO	
+TABLE_NAME		varchar(193)	NO	
+INDEX_NAME		varchar(193)	NO	
+INDEX_TYPE		varchar(100)	NO	
+DIMENSION		bigint	NO	
+NTOTAL		bigint	NO	
+HIT		bigint	NO	
+CODE_SIZE		bigint	NO	
+NLIST		bigint	NO	
+PQ_M		bigint	NO	
+PQ_NBITS		bigint	NO	
+MIN_LIST_SIZE		bigint	NO	
+MAX_LIST_SIZE		bigint	NO	
+AVG_LIST_SIZE		bigint	NO	
+MEDIAN_LIST_SIZE		bigint	NO	

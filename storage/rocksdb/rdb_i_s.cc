@@ -2798,12 +2798,12 @@ struct st_mysql_plugin rdb_i_s_vector_index_config = {
     &rdb_i_s_info,
     "ROCKSDB_VECTOR_INDEX",
     "Facebook",
-    "vector index information",
+    "vector index information and stats",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_vector_index_config_init,
     nullptr, /* uninstall */
     rdb_i_s_deinit,
-    0x0001,  /* version number (0.1) */
+    0x0002,  /* version number (0.2) */
     nullptr, /* status variables */
     nullptr, /* system variables */
     nullptr, /* config options */
