@@ -282,11 +282,17 @@ void thd_set_not_killable(THD *thd) { thd->set_is_killable(false); }
 
   @param thd            THD object
 
-  @retval               Socket of the connection
+  @retval               Socket of the connection for classic protocol,
+                        -1 for any other protocols.
 */
 
 my_socket thd_get_fd(THD *thd) {
-  return thd->get_protocol_classic()->get_socket();
+  my_socket fd = -1;
+  if (thd->is_classic_protocol()) {
+    fd = thd->get_protocol_classic()->get_socket();
+  }
+
+  return fd;
 }
 
 /**
