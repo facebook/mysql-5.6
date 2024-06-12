@@ -38,7 +38,7 @@ std::atomic<uint64_t> rocksdb_num_sst_entry_other(0);
 std::atomic<uint64_t> rocksdb_additional_compaction_triggers(0);
 bool rocksdb_compaction_sequential_deletes_count_sd = true;
 
-Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
+Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(const Rdb_ddl_manager &ddl_manager,
                                      const Rdb_compact_params &params,
                                      const uint32_t cf_id,
                                      const uint8_t table_stats_sampling_pct)
@@ -57,8 +57,6 @@ Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
       m_params(params),
       m_cardinality_collector(table_stats_sampling_pct),
       m_recorded(false) {
-  assert(ddl_manager != nullptr);
-
   m_deleted_rows_window.resize(m_params.m_window, false);
 }
 
@@ -122,22 +120,19 @@ Rdb_index_stats *Rdb_tbl_prop_coll::AccessStats(const rocksdb::Slice &key) {
     m_stats.emplace_back(gl_index_id);
     m_last_stats = &m_stats.back();
 
-    if (m_ddl_manager) {
-      // safe_find() returns a std::shared_ptr<Rdb_key_def> with the count
-      // incremented (so it can't be deleted out from under us) and with
-      // the mutex locked (if setup has not occurred yet).  We must make
-      // sure to free the mutex (via unblock_setup()) when we are done
-      // with this object.  Currently this happens earlier in this function
-      // when we are switching to a new Rdb_key_def and when this object
-      // is destructed.
-      m_keydef = m_ddl_manager->safe_find(gl_index_id);
-      if (m_keydef != nullptr) {
-        // resize the array to the number of columns.
-        // It will be initialized with zeroes
-        m_last_stats->m_distinct_keys_per_prefix.resize(
-            m_keydef->get_key_parts());
-        m_last_stats->m_name = m_keydef->get_name();
-      }
+    // safe_find() returns a std::shared_ptr<Rdb_key_def> with the count
+    // incremented (so it can't be deleted out from under us) and with the mutex
+    // locked (if setup has not occurred yet).  We must make sure to free the
+    // mutex (via unblock_setup()) when we are done with this object.  Currently
+    // this happens earlier in this function when we are switching to a new
+    // Rdb_key_def and when this object is destructed.
+    m_keydef = m_ddl_manager.safe_find(gl_index_id);
+    if (m_keydef != nullptr) {
+      // resize the array to the number of columns.
+      // It will be initialized with zeroes
+      m_last_stats->m_distinct_keys_per_prefix.resize(
+          m_keydef->get_key_parts());
+      m_last_stats->m_name = m_keydef->get_name();
     }
     m_cardinality_collector.Reset();
   }
@@ -586,8 +581,11 @@ void Rdb_tbl_card_coll::SetCardinality(Rdb_index_stats *stats) {
 rocksdb::TablePropertiesCollector *
 Rdb_tbl_prop_coll_factory::CreateTablePropertiesCollector(
     rocksdb::TablePropertiesCollectorFactory::Context context) {
+  // TODO(laurynas): if needed, possible to shorten the critical section by only
+  // copying out the needed non-cost fields
+  rwlock_scoped_lock guard(&lock, false, __FILE__, __LINE__);
   if (m_skip_system_cf) {
-    auto cf_name = m_cf_manager->get_cf(context.column_family_id);
+    auto cf_name = m_cf_manager.get_cf(context.column_family_id);
     if (cf_name->GetName() == DEFAULT_SYSTEM_CF_NAME) {
       return nullptr;
     }
