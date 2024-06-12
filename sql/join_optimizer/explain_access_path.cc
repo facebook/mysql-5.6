@@ -134,6 +134,7 @@ static bool SetIndexInfoInObject(
   string idx_cond_str = pushed_idx_cond ? ItemToString(pushed_idx_cond) : "";
   string covering_index =
       string(table->key_read ? "Covering index " : "Index ");
+
   bool error = false;
 
   if (prefix) covering_index[0] = tolower(covering_index[0]);
@@ -975,16 +976,24 @@ static std::unique_ptr<Json_object> SetObjectMembers(
     }
     case AccessPath::INDEX_SCAN: {
       TABLE *table = path->index_scan().table;
+      const KEY *key = &table->key_info[path->index_scan().idx];
+      string prefix;
+
+      if (key->is_fb_vector_index()) {
+        prefix += table->in_use->variables.fb_vector_search_type ==
+                          FB_VECTOR_SEARCH_INDEX_SCAN
+                      ? "Vector"
+                      : "Ordered vector";
+      }
+
       assert(table->file->pushed_idx_cond == nullptr ||
-             (table->key_info[path->index_scan().idx].is_fb_vector_index() &&
+             (key->is_fb_vector_index() &&
               join->thd->variables.fb_vector_index_cond_pushdown));
 
-      const KEY *key = &table->key_info[path->index_scan().idx];
-      error |= SetIndexInfoInObject(&description, "index_scan", nullptr, table,
-                                    key, "scan",
-                                    /*lookup condition*/ "", /*range*/ nullptr,
-                                    nullptr, path->index_scan().reverse,
-                                    /*push_condition*/ nullptr, obj);
+      error |= SetIndexInfoInObject(
+          &description, "index_scan", prefix.c_str(), table, key, "scan",
+          /*lookup condition*/ "", /*range*/ nullptr, nullptr,
+          path->index_scan().reverse, table->file->pushed_idx_cond, obj);
       error |= AddChildrenFromPushedCondition(table, children);
       break;
     }

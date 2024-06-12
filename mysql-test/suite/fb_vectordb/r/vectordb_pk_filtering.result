@@ -121,7 +121,7 @@ SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (
 EXPLAIN
 -> Limit: 10 row(s)  (rows=1)
     -> Filter: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
-        -> Index scan on t1 using vector_key_1  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
 
 
 Test EXPLAIN FORMAT=JSON
@@ -370,7 +370,7 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keyp
 EXPLAIN
 -> Limit: 10 row(s)  (rows=1)
     -> Filter: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
-        -> Index scan on t1 using vector_key_1  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
 
 
 Test EXPLAIN FORMAT=JSON
@@ -775,6 +775,16 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	7	7
+
+Test EXPLAIN FORMAT=TREE
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
 drop table t1;
 
 ----------------------------------------------------

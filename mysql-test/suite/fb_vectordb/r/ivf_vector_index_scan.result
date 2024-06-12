@@ -454,6 +454,12 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 198	20	98	100	99
 SET SESSION fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Ordered vector index scan on t1 using key1 (reverse)  (rows=1)
+
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 id	vector1	name	value	dis
 1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	1.9009900093078613
@@ -470,6 +476,13 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 198	21	98	100	99
 SET SESSION fb_vector_search_type = ITERATOR;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis DESC, limit input to 10 row(s) per chunk  (rows=1)
+        -> Vector index scan on t1 using key1 (reverse)  (rows=1)
+
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 id	vector1	name	value	dis
 1099	[1.0099, 0.9901, 0, 0]	val1099aaa	49	1.9009900093078613

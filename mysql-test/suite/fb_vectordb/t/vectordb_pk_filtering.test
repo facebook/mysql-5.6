@@ -479,6 +479,15 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
+--echo
+--echo Test EXPLAIN FORMAT=TREE
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
 drop table t1;
 
 --echo

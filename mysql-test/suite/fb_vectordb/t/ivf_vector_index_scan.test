@@ -150,9 +150,15 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 SET SESSION fb_vector_search_type = KNN;
 
 # IP metric
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
