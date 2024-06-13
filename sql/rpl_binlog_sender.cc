@@ -407,7 +407,7 @@ void Binlog_sender::init() {
 
   if (check_start_file()) return;
 
-  LogErr(INFORMATION_LEVEL, ER_RPL_BINLOG_STARTING_DUMP, thd->thread_id(),
+  LogErr(DEBUG_LEVEL, ER_RPL_BINLOG_STARTING_DUMP, thd->thread_id(),
          thd->server_id, m_start_file, m_start_pos);
 
   // semi-sync is called only when raft is disabled
