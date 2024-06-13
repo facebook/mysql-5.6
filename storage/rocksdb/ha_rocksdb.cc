@@ -13629,16 +13629,9 @@ int ha_rocksdb::index_end() {
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-int ha_rocksdb::vector_index_init(Item *sort_func, int limit) {
-  // update the ORDER BY parameters
-  auto search_type = table->in_use->variables.fb_vector_search_type ==
-                             FB_VECTOR_SEARCH_INDEX_SCAN
-                         ? FB_VECTOR_SEARCH_INDEX_SCAN
-                         : FB_VECTOR_SEARCH_KNN;
+int ha_rocksdb::vector_index_init(Item *distance_func) {
   auto vector_db_handler = get_vector_db_handler();
-  return vector_db_handler->vector_index_orderby_init(
-      sort_func, limit, table->in_use->variables.fb_vector_search_nprobe,
-      table->in_use->variables.fb_vector_search_limit_multiplier, search_type);
+  return vector_db_handler->vector_index_orderby_init(distance_func);
 }
 
 /**
@@ -20051,6 +20044,9 @@ bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
         been provided (i.e., a value of < 0)
      2. check if ORDER's encapsulated item is a FUNC ITEM
      3. check if this FUNC ITEM is a vector DB func
+        a. check the order direction is NOT DESC for L2, either ASC or
+        unspecified is ok.
+        b. check the order direction is DESC for IP
      4. check if the first arg is a FIELD_ITEM with data_type
   MYSQL_TYPE_JSON/MYSQL_TYPE_BLOB
      5. check if the FIELD_ITEM is assocaited with a vector index
@@ -20073,6 +20069,16 @@ bool ha_rocksdb::index_supports_vector_scan(ORDER *order, int idx) {
   if ((item_func->functype() != Item_func::FB_VECTOR_L2) &&
       (item_func->functype() != Item_func::FB_VECTOR_IP))  // 3.
     return false;
+
+  const auto order_direction = order->direction;
+  if (item_func->functype() == Item_func::FB_VECTOR_L2 &&
+      order_direction == ORDER_DESC) {  // 3.a
+    return false;
+  }
+  if (item_func->functype() == Item_func::FB_VECTOR_IP &&
+      order_direction != ORDER_DESC) {  // 3.b
+    return false;
+  }
 
   if (((Item_func *)item_func)->argument_count() != 2) return false;
 

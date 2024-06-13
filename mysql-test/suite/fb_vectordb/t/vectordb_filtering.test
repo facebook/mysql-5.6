@@ -51,8 +51,6 @@ select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis l
 
 select @@local.fb_vector_search_limit_multiplier;
 
-set @old =  @@local.fb_vector_search_limit_multiplier;
-
 let $i = 1;
 
 
@@ -67,19 +65,20 @@ explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
 
---echo
-explain
-select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
-select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
-
---echo
-explain
-select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
-select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
-
 inc $i;
 
 }
+
+--echo
+--echo with having clause
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+
+--echo
+explain
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
 
 --enable_warnings
 
@@ -95,16 +94,8 @@ while ($i < 5) {
 
 eval select /*+ SET_VAR(fb_vector_search_limit_multiplier = $i) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
 
---echo
-eval select /*+ SET_VAR(fb_vector_search_limit_multiplier = $i) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
-
---echo
-eval select /*+ SET_VAR(fb_vector_search_limit_multiplier = $i) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
-
 inc $i;
 
 }
-
-set @@local.fb_vector_search_limit_multiplier = @old;
 
 drop table t1;

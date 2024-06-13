@@ -74,6 +74,7 @@
 #include "sql/index_statistics.h"
 #include "sql/intrusive_list_iterator.h"
 #include "sql/item.h"
+#include "sql/item_fb_vector_func.h"
 #include "sql/item_func.h"
 #include "sql/item_json_func.h"
 #include "sql/item_subselect.h"
@@ -4686,11 +4687,22 @@ bool JOIN::make_tmp_tables_info() {
       OPTION_FOUND_ROWS supersedes LIMIT and is taken into account.
     */
     DBUG_PRINT("info", ("Sorting for order by/group by"));
-    bool fb_vector_ordering_needs_reorder =
-        thd->variables.fb_vector_search_type == FB_VECTOR_SEARCH_INDEX_SCAN &&
+    const auto effective_index = qep_tab[curr_tmp_table].effective_index();
+    const auto curr_table = qep_tab[curr_tmp_table].table();
+    // vector index is selected and vector search type is scan, the result
+    // is not ordered from storage engine, needs to add file sort here.
+    const bool vector_index_selected =
         m_ordered_index_usage == ORDERED_INDEX_ORDER_BY &&
-        qep_tab[curr_tmp_table].table()->file->index_supports_vector_scan(
-            order.order, qep_tab[curr_tmp_table].effective_index());
+        effective_index != MAX_KEY &&
+        curr_table->key_info[effective_index].is_fb_vector_index();
+    bool fb_vector_ordering_needs_reorder = false;
+    if (vector_index_selected) {
+      auto order_item =
+          down_cast<Item_func_fb_vector_distance *>(*order.order->item);
+      fb_vector_ordering_needs_reorder =
+          order_item->m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN;
+      DBUG_PRINT("info", ("Sorting for vector index"));
+    }
     ORDER_with_src order_arg = group_list.empty() ? order : group_list;
     if (qep_tab &&
         (m_ordered_index_usage != (group_list.empty()
@@ -5079,8 +5091,9 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
     select_limit = orig_select_limit;
 
     if (usable_keys.is_set(nr) &&
-        (direction = test_if_order_by_key(order, table, nr, &used_key_parts,
-                                          &skip_quick))) {
+        (direction = test_if_order_by_key(table->in_use, order, table, nr,
+                                          &used_key_parts, &skip_quick,
+                                          select_limit))) {
       bool is_covering = table->covering_keys.is_set(nr) ||
                          (nr == table->s->primary_key &&
                           table->file->primary_key_is_clustered());
@@ -5096,8 +5109,9 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
         temporary table + filesort could be cheaper for grouping
         queries too.
       */
+      bool is_vector_index = false;
       if (is_covering || select_limit != HA_POS_ERROR ||
-          (table->file->index_supports_vector_scan(order->order, nr)) ||
+          (is_vector_index = table->key_info[nr].is_fb_vector_index()) ||
           (ref_key < 0 && (group || table->force_index_order))) {
         rec_per_key_t rec_per_key;
         KEY *keyinfo = table->key_info + nr;
@@ -5197,8 +5211,9 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
           the vector index, we add this as a factor by decreasing the
           index scan time
         */
-        if (table->file->index_supports_vector_scan(order->order, nr)) {
-           index_scan_time /= table->in_use->variables.fb_vector_index_cost_factor;
+        if (is_vector_index) {
+          index_scan_time /=
+              table->in_use->variables.fb_vector_index_cost_factor;
         }
 
         /*
@@ -5277,8 +5292,8 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
       to table->file->stats.records.
 */
 
-uint get_index_for_order(ORDER_with_src *order, TABLE *table, ha_rows limit,
-                         AccessPath *range_scan, bool *need_sort,
+uint get_index_for_order(THD *thd, ORDER_with_src *order, TABLE *table,
+                         ha_rows limit, AccessPath *range_scan, bool *need_sort,
                          bool *reverse) {
   if (range_scan &&
       unique_key_range(range_scan)) {  // Single row select (always
@@ -5315,8 +5330,8 @@ uint get_index_for_order(ORDER_with_src *order, TABLE *table, ha_rows limit,
 
     uint used_key_parts;
     bool skip_path;
-    switch (test_if_order_by_key(order, table, used_index(range_scan),
-                                 &used_key_parts, &skip_path)) {
+    switch (test_if_order_by_key(thd, order, table, used_index(range_scan),
+                                 &used_key_parts, &skip_path, limit)) {
       case 1:  // desired order
         *need_sort = false;
         return used_index(range_scan);

@@ -964,9 +964,8 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
     return HA_EXIT_FAILURE;
   }
 
-  Rdb_vector_search_params params{.m_metric = m_metric,
-                                  .m_k = m_limit * m_limit_multiplier,
-                                  .m_nprobe = m_nprobe};
+  Rdb_vector_search_params params{
+      .m_metric = m_metric, .m_k = m_limit, .m_nprobe = m_nprobe};
   uint rtn = index->knn_search(thd, tbl, pk_index_cond, sk_descr, m_buffer,
                                params, m_search_result);
   if (rtn) {

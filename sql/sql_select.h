@@ -909,11 +909,12 @@ uint actual_key_parts(const KEY *key_info);
 
 class ORDER_with_src;
 
-uint get_index_for_order(ORDER_with_src *order, TABLE *table, ha_rows limit,
-                         AccessPath *range_scan, bool *need_sort,
+uint get_index_for_order(THD *thd, ORDER_with_src *order, TABLE *table,
+                         ha_rows limit, AccessPath *range_scan, bool *need_sort,
                          bool *reverse);
-int test_if_order_by_key(ORDER_with_src *order, TABLE *table, uint idx,
-                         uint *used_key_parts, bool *skip_quick);
+int test_if_order_by_key(THD *thd, ORDER_with_src *order, TABLE *table,
+                         uint idx, uint *used_key_parts, bool *skip_quick,
+                         ha_rows select_limit);
 bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
                               TABLE *table, Key_map usable_keys, int key,
                               ha_rows select_limit, int *new_key,

@@ -71,6 +71,7 @@
 #include "sql/handler.h"
 #include "sql/item.h"
 #include "sql/item_cmpfunc.h"
+#include "sql/item_fb_vector_func.h"
 #include "sql/item_func.h"
 #include "sql/item_row.h"
 #include "sql/item_subselect.h"
@@ -1840,8 +1841,9 @@ bool is_prefix_index(TABLE *table, uint idx) {
     -1   Reverse key can be used
 */
 
-int test_if_order_by_key(ORDER_with_src *order_src, TABLE *table, uint idx,
-                         uint *used_key_parts, bool *skip_quick) {
+int test_if_order_by_key(THD *thd, ORDER_with_src *order_src, TABLE *table,
+                         uint idx, uint *used_key_parts, bool *skip_quick,
+                         ha_rows select_limit) {
   DBUG_TRACE;
   KEY_PART_INFO *key_part, *key_part_end;
   key_part = table->key_info[idx].key_part;
@@ -1865,8 +1867,28 @@ int test_if_order_by_key(ORDER_with_src *order_src, TABLE *table, uint idx,
     const Item *real_itm = (*order->item)->real_item();
 
     if (table->file->index_supports_vector_scan(order, idx)) {
-      Item_func *item_func = (Item_func *)*(order->item);
+      Item_func_fb_vector_distance *item_func =
+          down_cast<Item_func_fb_vector_distance *>(*(order->item));
       real_itm = (Item *)(item_func->arguments()[0]);
+
+      // initialize hint for vector search
+      ha_rows limit = select_limit;
+      const bool using_limit = limit != HA_POS_ERROR;
+      if (using_limit && thd->variables.fb_vector_search_limit_multiplier > 0) {
+        limit *= thd->variables.fb_vector_search_limit_multiplier;
+      }
+      auto search_type = FB_VECTOR_SEARCH_KNN;
+      // always use FB_VECTOR_SEARCH_INDEX_SCAN when there is no
+      // limit
+      if (!using_limit ||
+          thd->variables.fb_vector_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) {
+        search_type = FB_VECTOR_SEARCH_INDEX_SCAN;
+      }
+      // always pass a limit value for knn search
+      assert(search_type != FB_VECTOR_SEARCH_KNN || using_limit);
+      item_func->m_limit = limit;
+      item_func->m_search_type = search_type;
+      item_func->m_nprobe = thd->variables.fb_vector_search_nprobe;
     }
 
     if (real_itm->type() != Item::FIELD_ITEM) return 0;
@@ -2116,8 +2138,9 @@ static bool is_ref_or_null_optimized(const JOIN_TAB *tab, uint ref_key) {
     - the number of found key	Otherwise
 */
 
-static uint test_if_subkey(ORDER_with_src *order, JOIN_TAB *tab, uint ref,
-                           uint ref_key_parts, const Key_map *usable_keys) {
+static uint test_if_subkey(THD *thd, ORDER_with_src *order, JOIN_TAB *tab,
+                           uint ref, uint ref_key_parts,
+                           const Key_map *usable_keys, ha_rows select_limit) {
   uint nr;
   uint min_length = (uint)~0;
   uint best = MAX_KEY;
@@ -2133,7 +2156,8 @@ static uint test_if_subkey(ORDER_with_src *order, JOIN_TAB *tab, uint ref,
         is_subkey(table->key_info[nr].key_part, ref_key_part,
                   ref_key_part_end) &&
         !is_ref_or_null_optimized(tab, nr) &&
-        test_if_order_by_key(order, table, nr, nullptr, &skip_quick) &&
+        test_if_order_by_key(thd, order, table, nr, nullptr, &skip_quick,
+                             select_limit) &&
         !skip_quick) {
       min_length = table->key_info[nr].key_length;
       best = nr;
@@ -2401,8 +2425,9 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
       if (table->covering_keys.is_set(ref_key))
         usable_keys.intersect(table->covering_keys);
 
-      if ((new_ref_key = test_if_subkey(&order, tab, ref_key, ref_key_parts,
-                                        &usable_keys)) < MAX_KEY) {
+      if ((new_ref_key =
+               test_if_subkey(thd, &order, tab, ref_key, ref_key_parts,
+                              &usable_keys, select_limit)) < MAX_KEY) {
         /* Found key that can be used to retrieve data in sorted order */
         if (tab->ref().key >= 0) {
           /*
@@ -2469,8 +2494,8 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
     /* Check if we get the rows in requested sorted order by using the key */
     if (usable_keys.is_set(ref_key))
       // Last parameter can be ignored as it'll be checked later, if needed
-      order_direction =
-          test_if_order_by_key(&order, table, ref_key, &used_key_parts, &dummy);
+      order_direction = test_if_order_by_key(
+          thd, &order, table, ref_key, &used_key_parts, &dummy, select_limit);
   }
   if (ref_key < 0 || order_direction <= 0) {
     /*
@@ -6221,7 +6246,8 @@ static void semijoin_types_allow_materialization(Table_ref *sj_nest) {
   @param thd   THD object.
 */
 
-static bool check_skip_records_in_range_qualification(JOIN_TAB *tab, THD *thd) {
+static bool check_skip_records_in_range_qualification(JOIN_TAB *tab, THD *thd,
+                                                      ha_rows limit) {
   Query_block *select = thd->lex->current_query_block();
   TABLE *table = tab->table();
 
@@ -6252,8 +6278,8 @@ static bool check_skip_records_in_range_qualification(JOIN_TAB *tab, THD *thd) {
   uint used_key_parts;
   bool skip_quick;
   ORDER_with_src order_src(select->order_list.first, ESC_ORDER_BY);
-  int key_order = test_if_order_by_key(&order_src, table, idx, &used_key_parts,
-                                       &skip_quick);
+  int key_order = test_if_order_by_key(thd, &order_src, table, idx,
+                                       &used_key_parts, &skip_quick, limit);
   // Condition F1.e.II
   return key_order != 0;
 }
@@ -6302,7 +6328,7 @@ static ha_rows get_quick_record_count(THD *thd, JOIN_TAB *tab, ha_rows limit,
     return 0;  // Fatal error flag is set
   Table_ref *const tl = tab->table_ref;
   tab->set_skip_records_in_range(
-      check_skip_records_in_range_qualification(tab, thd));
+      check_skip_records_in_range_qualification(tab, thd, limit));
 
   // Derived tables aren't filled yet, so no stats are available.
   if (!tl->uses_materialization()) {
@@ -9941,7 +9967,8 @@ static bool make_join_query_block(JOIN *join, Item *cond) {
                 const uint ref_key = used_index(tab->range_scan());
                 bool skip_quick;
                 read_direction = test_if_order_by_key(
-                    &join->order, tab->table(), ref_key, nullptr, &skip_quick);
+                    thd, &join->order, tab->table(), ref_key, nullptr,
+                    &skip_quick, join->query_expression()->select_limit_cnt);
                 if (skip_quick) read_direction = 0;
                 /*
                   If the index provides order there is no need to recheck

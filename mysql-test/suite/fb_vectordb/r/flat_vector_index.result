@@ -117,6 +117,32 @@ id	vector1	name	dis
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT
 103	8
+
+order by wrong direction should work, but it will not use vector index
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 2;
+id	vector1	name	dis
+110	[102, 103, 1.4]	val110	17885.9609375
+109	[101, 102, 1.4]	val109	17509.9609375
+select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 2;
+id	vector1	name	dis
+1	[1, 2, 3]	val1	37
+10	[2, 3, 1.4]	val10	45
+SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT
+8
+
+delete from t1 where id > 4;
+
+without limit should work
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis;
+id	vector1	name	dis
+3	[10, 6, 5]	val3	0
+4	[3, 9, 4]	val4	59
+1	[1, 2, 3]	val1	101
+2	[2, 22, 31]	val2	996
+SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+HIT
+9
 drop table t1;
 
 test cases when primary key contains varchar columns
@@ -162,7 +188,7 @@ id	FB_VECTOR_BLOB_TO_JSON(blob1)	dis
 4	[3.0, 9.0, 4.0]	59
 1	[1.0, 2.0, 3.0]	101
 2	[2.0, 22.0, 31.0]	996
-select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
 id	FB_VECTOR_BLOB_TO_JSON(blob1)	dis
 2	[2.0, 22.0, 31.0]	307
 3	[9.0, 5.0, 2.0]	130

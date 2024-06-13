@@ -479,8 +479,8 @@ AccessPath *get_best_group_min_max(THD *thd, RANGE_OPT_PARAM *param,
       uint order_used_key_parts;
       bool skip_quick;
       provides_order =
-          test_if_order_by_key(&join->order, table, cur_index,
-                               &order_used_key_parts, &skip_quick) == 1;
+          test_if_order_by_key(thd, &join->order, table, cur_index,
+                               &order_used_key_parts, &skip_quick, limit) == 1;
     }
 
     /* Check (B1) - if current index is covering. */

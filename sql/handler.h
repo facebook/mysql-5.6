@@ -7228,10 +7228,8 @@ class handler {
     @return false to indicate success
             true if the storage engine encounters an error
     */
-
-  virtual int vector_index_init(Item *sort_func [[maybe_unused]],
-                                int limit [[maybe_unused]]) {
-    return 0;
+  virtual int vector_index_init(Item *distance_func [[maybe_unused]]) {
+    return HA_ERR_WRONG_COMMAND;
   }
 
  protected:

@@ -177,11 +177,4 @@ select vector1, FB_VECTOR_L2(vector1, '[1, 2, 3]') as dis from t1 order by dis l
 select id from t1 order by FB_VECTOR_L2(vector1, '[1, 2, 3]') limit 6;
 select id, FB_VECTOR_L2(vector1, '[1, 2, 3]') as dis from t1 order by dis limit 6;
 
---echo
---echo  DESC has no effect on the output currently
-
-select * from t1 order by FB_VECTOR_L2(vector1, '[1, 2, 3]') DESC limit 8;
-
-
-
 drop table t1;

@@ -54,17 +54,17 @@ the LIMIT clause for the above 3 cases
 Case A. SELECT *  
 explain select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using filesort
 
 Case B. SELECT <vector index field>
 explain select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using filesort
 
 Case C. SELECT <primary key field>
 explain select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using filesort
 
 
 4. Verify that the optimizer chooses the vector index for an ORDER BY with 
@@ -132,7 +132,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
 explain select *, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where; Using filesort
 
 Case B. SELECT <vector index field>
 explain select vector1, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
@@ -140,7 +140,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
 explain select vector1, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where; Using filesort
 
 Case C. SELECT <primary key field>
 explain select id, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 order by dis limit 2;
@@ -148,7 +148,7 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
 explain select id, FB_VECTOR_L2(vector1, '[2, 1, 1]') as dis from t1 having dis < 7 order by dis limit 2;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	Using where; Using filesort
 
 
 8. Test ORDER BY and LIMIT pushdown to MyRocks by looking at output of Iterators 
@@ -194,16 +194,4 @@ id	dis
 9	1154
 2	1185
 4	1301
-
-DESC has no effect on the output currently
-select * from t1 order by FB_VECTOR_L2(vector1, '[1, 2, 3]') DESC limit 8;
-id	vector1
-1	[1, 2, 3]
-3	[1, 2, 4]
-5	[11, 22, 4]
-9	[20, 10, 30]
-2	[2, 22, 31]
-4	[2, 22, 33]
-6	[7, 22, 33]
-7	[10, 20, 40]
 drop table t1;

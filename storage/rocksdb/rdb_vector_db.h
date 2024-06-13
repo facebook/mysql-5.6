@@ -172,18 +172,13 @@ class Rdb_vector_db_handler {
   uint knn_search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
                   const Rdb_key_def *sk_descr, Item *pk_index_cond);
 
-  int vector_index_orderby_init(Item *sort_func, int limit, uint nprobe,
-                                uint limit_multiplier,
-                                enum_fb_vector_search_type search_type) {
-    m_limit = limit;
-    m_limit_multiplier = limit_multiplier;
-    m_nprobe = nprobe;
+  int vector_index_orderby_init(Item *sort_func) {
+    auto *distance_func = down_cast<Item_func_fb_vector_distance *>(sort_func);
+    m_limit = distance_func->m_limit;
+    m_search_type = distance_func->m_search_type;
+    m_nprobe = distance_func->m_nprobe;
 
-    m_search_type = search_type;
-
-    Item_func *item_func = (Item_func *)sort_func;
-
-    auto functype = item_func->functype();
+    auto functype = distance_func->functype();
     if (functype == Item_func::FB_VECTOR_L2) {
       m_metric = FB_VECTOR_INDEX_METRIC::L2;
     } else if (functype == Item_func::FB_VECTOR_IP) {
@@ -193,7 +188,7 @@ class Rdb_vector_db_handler {
       assert(false);
       return HA_ERR_UNSUPPORTED;
     }
-    auto *distance_func = down_cast<Item_func_fb_vector_distance *>(item_func);
+
     if (distance_func->get_input_vector(m_buffer)) {
       return HA_EXIT_FAILURE;
     }
@@ -205,7 +200,6 @@ class Rdb_vector_db_handler {
     m_metric = FB_VECTOR_INDEX_METRIC::NONE;
     // reset ORDER BY related
     m_limit = 0;
-    m_limit_multiplier = 0;
     m_nprobe = 0;
     m_buffer.clear();
 
@@ -225,7 +219,6 @@ class Rdb_vector_db_handler {
   // LIMIT associated with the ORDER BY clause
   uint m_limit;
   uint m_nprobe;
-  uint m_limit_multiplier;
 
   uint decode_value_to_buffer(Field *field, FB_vector_dimension dimension,
                               std::vector<float> &buffer);

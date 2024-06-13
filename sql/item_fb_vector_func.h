@@ -18,6 +18,7 @@
 
 #include "sql/item_func.h"
 #include "sql/item_json_func.h"
+#include "sql/system_variables.h"
 
 /**
   parent class of vector distance functions
@@ -34,6 +35,11 @@ class Item_func_fb_vector_distance : public Item_real_func {
 
   // get the input vector, return false if successful
   bool get_input_vector(std::vector<float> &input_vector);
+
+  // hints passed to storage engine
+  ha_rows m_limit = 0;
+  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN;
+  uint m_nprobe = 0;
 
  protected:
   /// String used when reading JSON binary values or JSON text values.

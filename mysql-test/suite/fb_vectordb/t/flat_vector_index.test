@@ -51,6 +51,20 @@ select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis desc l
 
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
+echo;
+echo order by wrong direction should work, but it will not use vector index;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 2;
+select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 2;
+SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
+# trim the table
+echo;
+delete from t1 where id > 4;
+echo;
+echo without limit should work;
+select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis;
+SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+
 drop table t1;
 
 echo;
@@ -86,7 +100,7 @@ CREATE TABLE t1 (
 insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1,2,3]')), (2, FB_VECTOR_JSON_TO_BLOB('[2,22,31]')), (3, FB_VECTOR_JSON_TO_BLOB('[10,6,5]')), (4, FB_VECTOR_JSON_TO_BLOB('[3,9,4]'));
 update t1 set blob1 = FB_VECTOR_JSON_TO_BLOB('[9, 5, 2]') where id = 3;
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
-select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(FB_VECTOR_NORMALIZE_L2(blob1), '[10, 6, 5]') as dis from t1 order by dis limit 10;
 echo FB_VECTOR_NORMALIZE_L2 does not change the value of blob buffer;
 select FB_VECTOR_BLOB_TO_JSON(blob1) from t1;
