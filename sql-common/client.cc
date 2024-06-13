@@ -4301,7 +4301,7 @@ static void mysql_set_character_set_with_default_collation(MYSQL *mysql) {
       */
     }
   }
-  charsets_dir = save;
+  if (charsets_dir != save) charsets_dir = save;
 }
 
 int mysql_init_character_set(MYSQL *mysql) {
@@ -10371,7 +10371,7 @@ int STDCALL mysql_set_character_set(MYSQL *mysql, const char *cs_name) {
                              ER_CLIENT(CR_CANT_READ_CHARSET), cs_name,
                              cs_dir_name);
   }
-  charsets_dir = save_csdir;
+  if (charsets_dir != save_csdir) charsets_dir = save_csdir;
   return mysql->net.last_errno;
 }
 
