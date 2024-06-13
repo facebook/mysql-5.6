@@ -564,7 +564,6 @@ class MYSQL_BIN_LOG : public TC_LOG {
   std::condition_variable m_num_committing_trxs_cv;
 
   void inc_num_committing_trxs() {
-    mysql_mutex_assert_owner(&LOCK_log);
     ++m_num_committing_trxs;
   }
 
