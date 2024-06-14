@@ -219,6 +219,12 @@ source include/wait_condition.inc;
 --let $assert_text = shardbeater should be running
 --let $assert_cond = "$running_state" = "YES"
 
+# Sleep so that no-op write is received by server_2 from server_1
+# Otherwise, if we promote immediately, we will fail mock election
+# when we try to promote out due to "MySQL log role is about to be switched and
+# is not ready for append" errors
+--sleep 2
+
 echo "Transfering leadership: server_2 -> server_1";
 replace_result $uuid1 uuid1;
 eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
