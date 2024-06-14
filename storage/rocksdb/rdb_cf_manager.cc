@@ -38,10 +38,10 @@
 namespace myrocks {
 
 /* Check if ColumnFamily name says it's a reverse-ordered CF */
-bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
-  /* nullptr means the default CF is used.. (TODO: can the default CF be
+bool Rdb_cf_manager::is_cf_name_reverse(std::string_view name) {
+  /* Empty string means the default CF is used. (TODO: can the default CF be
    * reverse?) */
-  return (name && !strncmp(name, "rev:", 4));
+  return name.compare(0, 4, "rev:") == 0;
 }
 
 bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
@@ -461,15 +461,15 @@ int Rdb_cf_manager::drop_cf(Rdb_ddl_manager *const ddl_manager,
 }
 
 int Rdb_cf_manager::create_cf_flags_if_needed(
-    const Rdb_dict_manager *const dict_manager, const uint32 &cf_id,
-    const std::string &cf_name, const bool is_per_partition_cf) {
+    const Rdb_dict_manager &dict_manager, uint32_t cf_id,
+    std::string_view cf_name, bool is_per_partition_cf) {
   assert(!cf_name.empty());
   uchar flags =
-      (is_cf_name_reverse(cf_name.c_str()) ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
+      (is_cf_name_reverse(cf_name) ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
       (is_per_partition_cf ? Rdb_key_def::PER_PARTITION_CF_FLAG : 0);
 
   uint existing_cf_flags;
-  if (dict_manager->get_cf_flags(cf_id, &existing_cf_flags)) {
+  if (dict_manager.get_cf_flags(cf_id, &existing_cf_flags)) {
     // For the purposes of comparison we'll clear the partitioning bit. The
     // intent here is to make sure that both partitioned and non-partitioned
     // tables can refer to the same CF.
@@ -477,17 +477,17 @@ int Rdb_cf_manager::create_cf_flags_if_needed(
     flags &= ~Rdb_key_def::CF_FLAGS_TO_IGNORE;
 
     if (existing_cf_flags != flags) {
-      my_error(ER_CF_DIFFERENT, MYF(0), cf_name.c_str(), flags,
-               existing_cf_flags);
+      my_error(ER_CF_DIFFERENT, MYF(0), static_cast<int>(cf_name.length()),
+               cf_name.data(), flags, existing_cf_flags);
 
       return HA_EXIT_FAILURE;
     }
   } else {
-    const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager->begin();
+    const auto wb = dict_manager.begin();
     rocksdb::WriteBatch *const batch = wb.get();
 
-    dict_manager->add_cf_flags(batch, cf_id, flags);
-    dict_manager->commit(batch);
+    dict_manager.add_cf_flags(batch, cf_id, flags);
+    dict_manager.commit(batch);
   }
 
   return HA_EXIT_SUCCESS;

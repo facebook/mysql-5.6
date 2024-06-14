@@ -18,6 +18,7 @@
 
 /* C++ system header files */
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 /* MySQL header files */
@@ -42,10 +43,15 @@ namespace myrocks {
 */
 class Rdb_cf_options {
  public:
+  // Convert the getters to use std::string_view keys once on C++20 (8.3.0)
+  // where std::unordered_map has the heterogeneous lookup.
   using Name_to_config_t = std::unordered_map<std::string, std::string>;
 
   Rdb_cf_options(const Rdb_cf_options &) = delete;
   Rdb_cf_options &operator=(const Rdb_cf_options &) = delete;
+  Rdb_cf_options(Rdb_cf_options &&) = delete;
+  Rdb_cf_options &operator=(Rdb_cf_options &&) = delete;
+
   Rdb_cf_options() = default;
 
   void get(const std::string &cf_name,
@@ -53,44 +59,45 @@ class Rdb_cf_options {
 
   void update(const std::string &cf_name, const std::string &cf_options);
 
-  bool init(const rocksdb::BlockBasedTableOptions &table_options,
-            std::shared_ptr<rocksdb::TablePropertiesCollectorFactory>
-                prop_coll_factory,
-            const char *const default_cf_options,
-            const char *const override_cf_options);
+  [[nodiscard]] bool init(
+      const rocksdb::BlockBasedTableOptions &table_options,
+      std::shared_ptr<rocksdb::TablePropertiesCollectorFactory>
+          prop_coll_factory,
+      std::string_view default_cf_options,
+      std::string_view override_cf_options);
 
   const rocksdb::ColumnFamilyOptions &get_defaults() const {
     return m_default_cf_opts;
   }
-
-  static const rocksdb::Comparator *get_cf_comparator(
-      const std::string &cf_name);
-
-  std::shared_ptr<rocksdb::MergeOperator> get_cf_merge_operator(
-      const std::string &cf_name);
 
   /* return true when success */
   bool get_cf_options(const std::string &cf_name,
                       rocksdb::ColumnFamilyOptions *const opts)
       MY_ATTRIBUTE((__nonnull__));
 
-  static bool parse_cf_options(const std::string &cf_options,
-                               Name_to_config_t *option_map,
-                               std::stringstream *output = nullptr);
+  [[nodiscard]] static bool parse_cf_options(
+      std::string_view cf_options, Name_to_config_t &option_map,
+      std::stringstream *output = nullptr);
 
  private:
-  bool set_default(const std::string &default_config);
-  bool set_override(const std::string &overide_config);
+  [[nodiscard]] bool set_default(std::string_view default_config);
+  [[nodiscard]] bool set_override(std::string_view override_config);
+
+  [[nodiscard]] static const rocksdb::Comparator *get_cf_comparator(
+      std::string_view cf_name);
+
+  [[nodiscard]] static std::shared_ptr<rocksdb::MergeOperator>
+  get_cf_merge_operator(std::string_view cf_name);
 
   /* Helper string manipulation functions */
-  static void skip_spaces(const std::string &input, size_t *const pos);
-  static bool find_column_family(const std::string &input, size_t *const pos,
-                                 std::string *const key);
-  static bool find_options(const std::string &input, size_t *const pos,
-                           std::string *const options);
-  static bool find_cf_options_pair(const std::string &input, size_t *const pos,
-                                   std::string *const cf,
-                                   std::string *const opt_str);
+  static void skip_spaces(std::string_view input, size_t &pos);
+  [[nodiscard]] static bool find_column_family(std::string_view input,
+                                               size_t &pos, std::string &key);
+  [[nodiscard]] static bool find_options(std::string_view input, size_t &pos,
+                                         std::string &options);
+  [[nodiscard]] static bool find_cf_options_pair(std::string_view input,
+                                                 size_t &pos, std::string &cf,
+                                                 std::string &opt_str);
 
   /* CF name -> value map */
   Name_to_config_t m_name_map;

@@ -10139,7 +10139,7 @@ ER_SK_POPULATE_DURING_ALTER
   eng "MyRocks failed populating secondary key during alter."
 
 ER_CF_DIFFERENT
-  eng "Column family ('%s') flag (%d) is different from an existing flag (%d). Assign a new CF flag, or do not change existing CF flag."
+  eng "Column family ('%.*s') flag (%d) is different from an existing flag (%d). Assign a new CF flag, or do not change existing CF flag."
 
 ER_RDB_TTL_UNSUPPORTED
   eng "TTL support is currently disabled when table has a hidden PK."
