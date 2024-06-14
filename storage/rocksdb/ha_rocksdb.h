@@ -426,8 +426,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   Rdb_io_perf m_io_perf;
 
  public:
-  bool refresh_tmp_table_iterator(const std::string &key);
-  void extract_snapshot_keys(std::string *key);
+  [[nodiscard]] bool refresh_tmp_table_iterator(std::string_view key);
+  [[nodiscard]] std::string extract_snapshot_key();
   [[nodiscard]] static rocksdb::Range get_range(const Rdb_key_def &kd,
                                                 uchar *buf);
 

@@ -5768,36 +5768,31 @@ std::multiset<Rdb_transaction *> Rdb_transaction::s_tx_list;
 Rds_mysql_mutex Rdb_transaction::s_tx_list_mutex;
 
 /* data structure to hold per THD data */
-class Rdb_ha_data {
+class [[nodiscard]] Rdb_ha_data {
  public:
-  Rdb_ha_data()
-      : checkpoint_dir(nullptr), trx(nullptr), disable_file_deletions(false) {}
+  Rdb_ha_data(const Rdb_ha_data &) = delete;
+  Rdb_ha_data(Rdb_ha_data &&) = delete;
+  Rdb_ha_data &operator=(const Rdb_ha_data &) = delete;
+  Rdb_ha_data &operator=(Rdb_ha_data &&) = delete;
 
-  ~Rdb_ha_data() { clear_checkpoint_dir(); }
+  Rdb_ha_data() = default;
+  ~Rdb_ha_data() = default;
 
-  /*
-    open_tmp_tables tracks the number of active intrinsic tmp tables for
-    session. When the query finishes, the number of active intrinsic tmp tables
-    will bump to zero. After that we will remove tmp disk usage for current
-    query.
-  */
-  uint open_tmp_tables = 0;
-  int64_t total_tmp_table_size = 0;
-
-  const char *get_checkpoint_dir() const { return checkpoint_dir; }
-
-  void set_checkpoint_dir(const char *checkpoint_dir_) {
-    clear_checkpoint_dir();
-    if (checkpoint_dir_ != nullptr) {
-      checkpoint_dir = strdup(checkpoint_dir_);
-    }
+  [[nodiscard]] std::string_view get_checkpoint_dir() const noexcept {
+    return checkpoint_dir;
   }
 
-  Rdb_transaction *get_trx() const { return trx; }
+  void set_checkpoint_dir(std::string_view checkpoint_dir_) {
+    checkpoint_dir = checkpoint_dir_;
+  }
+
+  [[nodiscard]] Rdb_transaction *get_trx() const noexcept { return trx; }
 
   void set_trx(Rdb_transaction *t) { trx = t; }
 
-  bool get_disable_file_deletions() const { return disable_file_deletions; }
+  [[nodiscard]] bool get_disable_file_deletions() const noexcept {
+    return disable_file_deletions;
+  }
 
   void set_disable_file_deletions(bool d) { disable_file_deletions = d; }
 
@@ -5809,41 +5804,61 @@ class Rdb_ha_data {
     m_tmp_table_handlers.erase(m_tmp_table_handlers.find(rocksdb_handler));
   }
 
-  bool refresh_iterator_for_all_handlers(
-      const std::vector<std::string> *output) {
-    bool res = false;
-    int count = 0;
+  [[nodiscard]] bool refresh_iterator_for_all_handlers(
+      const std::vector<std::string> &iterator_keys) {
+    assert(m_tmp_table_handlers.size() >= iterator_keys.size());
+
+    auto iterator_key = iterator_keys.cbegin();
     for (auto const &handler : m_tmp_table_handlers) {
-      res = handler->refresh_tmp_table_iterator((*output)[count++]);
+      assert(iterator_key != iterator_keys.cend());
+      const auto res = handler->refresh_tmp_table_iterator(*iterator_key++);
       if (res) {
         return res;
       }
     }
-    return res;
+    return false;
   }
 
-  void extract_iterator_keys_for_all_handlers(
-      std::vector<std::string> *output) {
+  [[nodiscard]] std::vector<std::string>
+  extract_iterator_keys_for_all_handlers() {
+    std::vector<std::string> result;
     for (auto const &handler : m_tmp_table_handlers) {
       // current_key will be empty if the iterator is invalid.
-      std::string current_key = {};
-      handler->extract_snapshot_keys(&current_key);
-      output->push_back(current_key);
+      const auto current_key = handler->extract_snapshot_key();
+      result.push_back(current_key);
     }
+    return result;
+  }
+
+  void inc_open_tmp_tables() noexcept { ++open_tmp_tables; }
+
+  [[nodiscard]] bool dec_open_tmp_tables() noexcept {
+    assert(open_tmp_tables > 0);
+    --open_tmp_tables;
+    return open_tmp_tables == 0;
+  }
+
+  void inc_total_tmp_table_size(std::int64_t delta) noexcept {
+    total_tmp_table_size += delta;
+  }
+
+  [[nodiscard]] std::int64_t get_and_reset_total_tmp_table_size() noexcept {
+    return std::exchange(total_tmp_table_size, 0);
   }
 
  private:
-  void clear_checkpoint_dir() {
-    if (checkpoint_dir) {
-      free(checkpoint_dir);
-      checkpoint_dir = nullptr;
-    }
-  }
+  /*
+    open_tmp_tables tracks the number of active intrinsic tmp tables for
+    session. When the query finishes, the number of active intrinsic tmp tables
+    will bump to zero. After that we will remove tmp disk usage for current
+    query.
+  */
+  uint open_tmp_tables = 0;
+  int64_t total_tmp_table_size = 0;
 
- private:
-  char *checkpoint_dir;
-  Rdb_transaction *trx;
-  bool disable_file_deletions;
+  std::string checkpoint_dir;
+  Rdb_transaction *trx{nullptr};
+  bool disable_file_deletions{false};
   std::multiset<ha_rocksdb *> m_tmp_table_handlers;
 };
 
@@ -5970,8 +5985,8 @@ static int rocksdb_close_connection(
     tx = nullptr;
     set_tx_on_thd(thd, nullptr);
   }
-  const char *checkpoint_dir = get_ha_data(thd)->get_checkpoint_dir();
-  if (checkpoint_dir != nullptr) {
+  const auto checkpoint_dir = get_ha_data(thd)->get_checkpoint_dir();
+  if (!checkpoint_dir.empty()) {
     rocksdb_remove_checkpoint(checkpoint_dir);
   }
   if (get_ha_data(thd)->get_disable_file_deletions()) {
@@ -6010,13 +6025,13 @@ static int rocksdb_create_temporary_checkpoint_validate(
   } else if (current_checkpoint_dir != nullptr) {
     const auto res = rocksdb_remove_checkpoint(current_checkpoint_dir);
     *reinterpret_cast<const char **>(save) = nullptr;
-    get_ha_data(thd)->set_checkpoint_dir(nullptr);
+    get_ha_data(thd)->set_checkpoint_dir("");
     if (res != HA_EXIT_SUCCESS) {
       return res;
     }
   } else {
     *reinterpret_cast<const char **>(save) = nullptr;
-    get_ha_data(thd)->set_checkpoint_dir(nullptr);
+    get_ha_data(thd)->set_checkpoint_dir("");
   }
   return HA_EXIT_SUCCESS;
 }
@@ -10435,8 +10450,9 @@ int ha_rocksdb::create_table(const std::string &table_name,
   // <upgrade>.<table> first, then rename them to mysql.<table>.
   // The rename is a meta-data only change, thus treat these <upgrade>.<table>
   // tables as DD tables.
+  auto *const thd = ha_thd();
   const auto db_name =
-      ha_thd()->is_dd_system_thread() ? "mysql" : table_arg.s->db.str;
+      thd->is_dd_system_thread() ? "mysql" : table_arg.s->db.str;
   bool is_dd_tbl = dd::get_dictionary()->is_dd_table_name(
       db_name, table_arg.s->table_name.str);
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
@@ -10449,7 +10465,7 @@ int ha_rocksdb::create_table(const std::string &table_name,
 
   /* Count active tables */
   if (m_tbl_def->is_intrinsic_tmp_table()) {
-    get_ha_data(ha_thd())->open_tmp_tables++;
+    get_ha_data(thd)->inc_open_tmp_tables();
   }
 
   uint n_keys = table_arg.s->keys;
@@ -12090,23 +12106,24 @@ bool ha_rocksdb::do_intrinsic_table_commit(Rdb_transaction *const tx) {
   bool res = false;
   if (m_tbl_def->get_table_type() == USER_TABLE) return res;
 
+  auto *const thd = ha_thd();
   if (tx->should_refresh_iterator_after_first_write) {
     // This is to handle the special case where we start rocksdb iterator on
     // new transaction(with empty write batch). Then iterator will only see
     // the already committed data, but ignores any new data added in write
     // batch later. So we are pro-actively refreshing the iterator after first
     // write in write batch.
-    std::vector<std::string> output;
-    get_ha_data(ha_thd())->extract_iterator_keys_for_all_handlers(&output);
-    res = get_ha_data(ha_thd())->refresh_iterator_for_all_handlers(&output);
+    const auto iterator_keys =
+        get_ha_data(thd)->extract_iterator_keys_for_all_handlers();
+    res = get_ha_data(thd)->refresh_iterator_for_all_handlers(iterator_keys);
     tx->should_refresh_iterator_after_first_write = false;
     return res;
   } else if (tx->get_write_count(m_tbl_def->get_table_type()) <
              rocksdb_max_intrinsic_tmp_table_write_count) {
     return res;
   } else {
-    std::vector<std::string> output;
-    get_ha_data(ha_thd())->extract_iterator_keys_for_all_handlers(&output);
+    const auto iterator_keys =
+        get_ha_data(thd)->extract_iterator_keys_for_all_handlers();
     res = tx->flush_batch(m_tbl_def->get_table_type());
     if (res) {
       // NO_LINT_DEBUG
@@ -12114,14 +12131,14 @@ bool ha_rocksdb::do_intrinsic_table_commit(Rdb_transaction *const tx) {
                       "flush_batch failed for intrinsic table commit");
       return res;
     }
-    res = get_ha_data(ha_thd())->refresh_iterator_for_all_handlers(&output);
+    res = get_ha_data(thd)->refresh_iterator_for_all_handlers(iterator_keys);
     inc_intrinsic_tmp_table_commits();
     tx->should_refresh_iterator_after_first_write = true;
     return res;
   }
 }
 
-bool ha_rocksdb::refresh_tmp_table_iterator(const std::string &key) {
+bool ha_rocksdb::refresh_tmp_table_iterator(std::string_view key) {
   bool res = false;
   if (m_tbl_def == nullptr || m_tbl_def->get_table_type() == USER_TABLE) {
     return res;
@@ -12129,7 +12146,7 @@ bool ha_rocksdb::refresh_tmp_table_iterator(const std::string &key) {
   // If m_iterator is valid, then after commit reset it back to previous value.
   if (m_iterator != nullptr) {
     if (!key.empty()) {
-      const rocksdb::Slice &current_key = rocksdb::Slice(key);
+      const auto current_key = rocksdb::Slice(key);
       m_iterator->reset();
       rocksdb::Slice empty_end_slice;
       if ((res = m_iterator->seek(HA_READ_KEY_OR_NEXT, current_key,
@@ -12151,11 +12168,11 @@ bool ha_rocksdb::refresh_tmp_table_iterator(const std::string &key) {
   return res;
 }
 
-void ha_rocksdb::extract_snapshot_keys(std::string *key) {
+std::string ha_rocksdb::extract_snapshot_key() {
   if (m_tbl_def != nullptr && m_iterator != nullptr && m_iterator->is_valid()) {
-    *key = m_iterator->key().ToString();
+    return m_iterator->key().ToString();
   } else {
-    *key = {};
+    return {};
   }
 }
 
@@ -12947,7 +12964,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
   if (m_tbl_def->is_intrinsic_tmp_table()) {
     longlong row_size = row_info.new_pk_slice.size() + value_slice.size();
     record_disk_usage_change(row_size);
-    get_ha_data(ha_thd())->total_tmp_table_size += row_size;
+    get_ha_data(ha_thd())->inc_total_tmp_table_size(row_size);
   }
 
   if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
@@ -13189,7 +13206,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   if (m_tbl_def->is_intrinsic_tmp_table()) {
     longlong row_size = new_key_slice.size() + new_value_slice.size();
     record_disk_usage_change(row_size);
-    get_ha_data(ha_thd())->total_tmp_table_size += row_size;
+    get_ha_data(ha_thd())->inc_total_tmp_table_size(row_size);
   }
 
   if (bulk_load_sk && row_info.old_data == nullptr) {
@@ -14854,10 +14871,9 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
     */
     if (tbl->is_intrinsic_tmp_table()) {
       auto ha_data = get_ha_data(ha_thd());
-      ha_data->open_tmp_tables--;
-      if (ha_data->open_tmp_tables == 0) {
-        record_disk_usage_change(-ha_data->total_tmp_table_size);
-        ha_data->total_tmp_table_size = 0;
+      if (ha_data->dec_open_tmp_tables()) {
+        record_disk_usage_change(
+            -ha_data->get_and_reset_total_tmp_table_size());
       }
     }
 
