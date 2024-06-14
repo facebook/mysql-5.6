@@ -296,7 +296,7 @@ static Rdb_cf_manager cf_manager;
 static Rdb_ddl_manager ddl_manager;
 static Rdb_binlog_manager binlog_manager;
 #ifndef __APPLE__
-static Rdb_io_watchdog *io_watchdog = nullptr;
+static std::unique_ptr<Rdb_io_watchdog> io_watchdog;
 #endif
 
 /**
@@ -843,9 +843,7 @@ static uint32_t rocksdb_binlog_ttl_compaction_ts_interval_secs = 0;
 static uint32_t rocksdb_binlog_ttl_compaction_ts_offset_secs = 0;
 static int rocksdb_debug_binlog_ttl_compaction_ts_delta = 0;
 static bool rocksdb_reset_stats = 0;
-#ifndef __APPLE__
 static uint32_t rocksdb_io_write_timeout_secs = 0;
-#endif
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static uint64_t rocksdb_compaction_sequential_deletes = 0;
 static uint64_t rocksdb_compaction_sequential_deletes_window = 0;
@@ -1304,23 +1302,20 @@ int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw) {
   return HA_EXIT_FAILURE;
 }
 
-#ifndef __APPLE__
-
 static void rocksdb_set_io_write_timeout(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   assert(save != nullptr);
   assert(rdb != nullptr);
-  assert(io_watchdog != nullptr);
 
-  const uint32_t new_val = *static_cast<const uint32_t *>(save);
-
+  const auto new_val = *static_cast<const uint32_t *>(save);
   rocksdb_io_write_timeout_secs = new_val;
-  io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
-}
 
+#ifndef __APPLE__
+  io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
 #endif  // !__APPLE__
+}
 
 enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
   FLUSH_LOG_NEVER = 0,
@@ -2515,16 +2510,12 @@ static MYSQL_SYSVAR_BOOL(
     "Reset the RocksDB internal statistics without restarting the DB.", nullptr,
     rocksdb_set_reset_stats, false);
 
-#ifndef __APPLE__
-
 static MYSQL_SYSVAR_UINT(io_write_timeout, rocksdb_io_write_timeout_secs,
                          PLUGIN_VAR_RQCMDARG,
                          "Timeout for experimental I/O watchdog.", nullptr,
                          rocksdb_set_io_write_timeout, /* default */ 0,
                          /* min */ 0L,
                          /* max */ UINT_MAX, 0);
-
-#endif  // !__APPLE__
 
 static MYSQL_SYSVAR_BOOL(ignore_unknown_options, rocksdb_ignore_unknown_options,
                          PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
@@ -3160,9 +3151,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(binlog_ttl_compaction_ts_offset_secs),
     MYSQL_SYSVAR(debug_binlog_ttl_compaction_ts_delta),
     MYSQL_SYSVAR(reset_stats),
-#ifndef __APPLE__
     MYSQL_SYSVAR(io_write_timeout),
-#endif
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
     MYSQL_SYSVAR(compaction_sequential_deletes),
@@ -8443,6 +8432,7 @@ static int rocksdb_init_internal(void *const p) {
   // has been successfully initialized.
   commit_latency_stats = new rocksdb::HistogramImpl();
 
+#ifndef __APPLE__
   // Construct a list of directories which will be monitored by I/O watchdog
   // to make sure that we won't lose write access to them.
   std::vector<std::string> directories;
@@ -8455,8 +8445,7 @@ static int rocksdb_init_internal(void *const p) {
     directories.emplace_back(myrocks::rocksdb_wal_dir);
   }
 
-#ifndef __APPLE__
-  io_watchdog = new Rdb_io_watchdog(std::move(directories));
+  io_watchdog = std::make_unique<Rdb_io_watchdog>(std::move(directories));
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
 #endif
 
@@ -8618,8 +8607,7 @@ static int rocksdb_shutdown(bool minimalShutdown) {
     commit_latency_stats = nullptr;
 
 #ifndef __APPLE__
-    delete io_watchdog;
-    io_watchdog = nullptr;
+    io_watchdog.reset();
 #endif
 
     // Disown the cache data since we're shutting down.
