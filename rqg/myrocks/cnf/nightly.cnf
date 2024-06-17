@@ -1,0 +1,13 @@
+[mysqld]
+datadir=/home/myrocks/builds/nightly/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+default-storage-engine=rocksdb
+skip-innodb
+default-tmp-storage-engine=MyISAM
+rocksdb
+core-file
+log-error=/home/myrocks/builds/nightly/log/mysqlerr.log
+[mysqld_safe]
+core-file-size=unlimited

@@ -1,0 +1,76 @@
+#!/bin/bash -x
+#
+#/*******************************************************************************
+#*  Script Name:    getsql.sh
+#*  Date Created:   2009.02.17
+#*  Author:         Joseph Williams 
+#*  Purpose:        extract lines from log file within time block
+#*
+#*  Parameter:      date      - A day of month in question (dd)
+#*                  starttime - A start time in (HH:mm)
+#*                  endtime   - An end  time in (HH:mm)
+#*                  
+#******************************************************************************/
+#
+#-----------------------------------------------------------------------------
+# command line parameters
+#-----------------------------------------------------------------------------
+date=$1
+starttime=$2
+endtime=$3
+# 21
+host=$(hostname -s)
+#
+# change date format to match sql log date format
+newdate=`date +%y%m$1`
+#
+# clean up previous data files
+if  [ -d /tmp/$host/sql ] 
+then
+    rm -rf /tmp/$host/sql
+fi
+mkdir -p /tmp/$host/sql
+# 33
+# create the beginning and ending time search variables
+start="$newdate $starttime"
+end="$newdate $endtime"
+# 
+#-----------------------------------------------------------------------------
+# Search through the file looking for start and end time matches 
+#-----------------------------------------------------------------------------
+st=`echo $starttime | awk -F":" '{ printf "%02s",$1$2 }'`
+sh=`echo $starttime | awk -F":" '{ printf "%02s",$1 }'`
+sm=`echo $starttime | awk -F":" '{ printf "%02s",$2 }'`
+et=`echo $endtime | awk -F":" '{ printf "%02s",$1$2 }'`
+eh=`echo $endtime | awk -F":" '{ printf "%02s",$1 }'`
+em=`echo $endtime | awk -F":" '{ printf "%02s",$2 }'`
+k=$st
+em=$((em + 1))
+minctr=$sm
+while [ $k -ge $st ] && [ $k -le $et ]
+do
+     if [ $minctr -ge 60 ]; then
+#       k=$((k + 39))
+        k=`expr $k + 39`
+        minctr=`expr $minctr - 61`
+     elif [ $k -ge $st ] && [ $k -le $et ]; then
+	grep -q -m 1 "$newdate $sh:$minctr" /usr/local/Calpont/mysql/db/$host.log
+	grep -q "$newdate $eh:$em" /usr/local/Calpont/mysql/db/$host.log
+#	grep "$end" /usr/local/Calpont/mysql/db/$host.log
+     fi
+     k=$((k + 1))
+#     ((k++))
+     minctr=$((minctr + 1))
+#     ((minctr++))
+done
+#
+#  create the awk command and write it to a temporary  run file 
+cmd="/$start/,/$end/ {print \$0} "
+echo $cmd >> /tmp/$host/sql/cmd.$$
+# 
+# execute the command 
+awk -f /tmp/$host/sql/cmd.$$ /usr/local/Calpont/mysql/db/$host.log > /tmp/$host/sql/temp.log
+#
+exit
+#
+# End of Script

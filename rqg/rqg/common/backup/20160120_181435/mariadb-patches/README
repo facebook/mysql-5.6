@@ -1,0 +1,28 @@
+INTRODUCTION
+---------------------------------------------------------------
+
+This is the source or binary distribution of The Random Query
+Generator, a tool for generating complete databases and executing
+queries against them for the purpose of stress testing.
+
+Copyright © 2008, 2011, Oracle and/or its affiliates. All rights
+reserved.  Use is subject to license terms.
+
+Wiki:
+* http://forge.mysql.com/wiki/Category:RandomQueryGenerator
+
+Launchpad homepage:
+* https://launchpad.net/randgen
+
+Bazaar code repository:
+* lp:randgen
+
+
+LICENSE
+---------------------------------------------------------------
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; version 2 of the License. Please see the
+LICENSE file for information about licensing and use restrictions of
+this software.

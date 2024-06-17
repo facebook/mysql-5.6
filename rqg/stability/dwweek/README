@@ -1,0 +1,62 @@
+Week in the Life of a Data Warehouse
+====================================
+Migrated from InfiniDB test suite
+
+The test will run continuously until it is stopped.  It does not verify if the test results are correct.  It it used check if the DBMS is stable to run continueously.  It runs the peroformance test suite GroupTest.
+
+Stack Configuration:  Single server
+
+TPCH Schema
+All tables have an extra added auto increment column ID.  This is due to the MyRocks requirement of having a primary key column.
+
+Nation
+Region
+Customer
+Orders
+Supplier
+Part
+Partsupp
+Lineitem
+
+Note: Only lineitem gets altered during this test
+
+Database size should be adjusted for the target testing platform.  The following is set for a VM with 8gb of memory.
+
+Day 1:
+
+Create TPCH schema in database
+
+Import 1Gb TPCH data
+
+Days 2 and on
+
+7:00AM – 6:00PM (concurrent queries, similating day-users)
+
+	3 Concurrent sessions executing group 200 queries, without time gap
+	3 Concurrent sessions executing group 201 queries, 15-second time gap
+	4 Concurrent sessions executing group 202 queries, 30-second time gap
+
+6:00PM – Midnight (concurrent queries, similating night reports)
+	2 Concurrent sessions executing group 3 queries, without time gap
+
+9:00PM –11:00PM
+	“Load data infile…” for lineitem, runs every 15 minutes.  Each LDI loads 10000 rows
+
+Midnight – 7:00AM (single pass)
+
+	Delete rows from lineitem that has been marked with l_linestatus="X"
+    select row count from lineitem
+    Update lineitem set l_linestatus=’X” for l_orderkey < 100000;
+    select row count from lineitem
+
+To setup test
+choose a test direcory, which log files will be saved
+
+run: /home/qa/myr/stability/dwweek/sh/initload.sh dwweek
+
+To start test
+run: /home/qa/myr/stability/dwweek/testcase/myrocks.sh
+
+To stop test
+In the test directory, there is a continue.txt with a digit 1 in it. 
+echo 0 > continue.txt

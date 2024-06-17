@@ -1,0 +1,12 @@
+[mysqld]
+port = 3308
+datadir=/home/myrocks/builds/innodb/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+default-storage-engine=innodb
+default-tmp-storage-engine=MyISAM
+core-file
+log-error=/home/myrocks/builds/innodb/log/mysqlerr.log
+[mysqld_safe]
+core-file-size=unlimited

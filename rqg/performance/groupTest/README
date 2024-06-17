@@ -1,0 +1,22 @@
+This test was migrated from InfiniDB tests as part of the stability test.  This test captures timing for each query and for each concurrent session if used. At Calpont, there was a mechanism to interpret this timing information and store them in another database server and present them using Microsoft Excel.  If needed, we can write scripts to interpret the test results.
+
+This test measures the performance of a DBMS by using TPCH group tests.  The tests are defined in the sql subdirectory.
+
+Usage:
+
+pfSubmitGroupTest.sh grpNum testDB numConcur numRepeat testType timeoutVal dbmsType
+
+   grpNum=		group number 
+   testDB=		database to be used
+   numConcur	number of concurrent user
+   numRepeat	number of iterations to repeat the test
+   testType		S = stream run. Do not flush cache and run all queries in the group test
+                M = mixed run.  Use query groups 1 to 5 as one group.  
+                All users will pick queries from the group.
+                Each query will be executed only once.
+   timeoutVal	Timeout value to abort the test.  Not yet implemented.
+   dbmsType		DBMS type, M for mySQL.  Always use M for now.
+
+Test timing for each group test will be log in ~/pf/test/testResult
+
+

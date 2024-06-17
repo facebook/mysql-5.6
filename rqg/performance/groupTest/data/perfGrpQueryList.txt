@@ -1,0 +1,338 @@
+#	GroupID	SequenceNum	FileName
+#
+# Group query #1 test
+#
+#1#	1	q2.3.1.1.1.sql
+#1#	2	q2.3.1.1.2.sql
+#
+# Group query #2 test
+#
+#2#	1	q4.2.sql
+#
+# Group query #3 test
+#
+#3#	1	q4.3.sql
+#3#	2	q4.4.sql
+#3#	3	q4.6.1.sql
+#3#	4	q4.6.2.sql
+#3#	5	q4.6.sql
+#
+# Group query #4 test
+#
+#4#	1	q2.3.4.1.sql
+#4#	2	q2.3.4.2.sql
+#4#	3	q2.3.4.3.sql
+#4#	4	q2.3.4.4.sql
+#4#	5	q4.8.1.sql
+#4#	6	q4.8.2.sql
+#4#	7	q4.8.3.sql
+#4#	8	q4.8.4.sql
+#4#	9	q4.8.5.sql
+#4#	10	q4.8.6.sql
+#4#	11	q4.8.7.sql
+#4#	12	q4.8.8.sql
+#4#	13	q4.8.9.sql
+#4#	14	q5.3.1.sql
+#
+# Group query #5 test
+#
+#5#	1	q2.3.2.1.1.sql
+#5#	2	q2.3.2.1.2.sql
+#5#	3	q2.3.2.1.3.sql
+#5#	4	q2.3.2.1.4.sql
+#5#	5	q2.3.6.sql
+#5#	6	q5.1.1.sql
+#5#	7	q5.1.2.sql
+#5#	8	q5.1.3.sql
+#5#	9	q5.2.1.sql
+#5#	10	q5.2.2.sql
+#5#	11	q5.2.3.sql
+#5#	12	q5.2.4.sql
+#5#	13	q5.2.5.sql
+#5#	14	q5.4.1.sql
+#5#	15	q5.4.2.sql
+#5#	16	q5.4.3.sql
+#
+# Temp test groups
+#
+#6#    1      lineitemCPTest.sql
+#
+# Temp test groups
+#
+#7#    1      nation.sql
+#7#    1      q1.sql
+#7#    2      q2.sql
+#7#    3      q3.sql
+#7#    4      q4.sql
+#
+# PM scan test
+#
+#101#	1	pmscan.1.sql
+#101#	2	pmscan.2.sql
+#101#	3	pmscan.3.sql
+#101#	4	pmscan.4.sql
+#
+# PM Join
+#
+#102#	1	pmmj.2tbls.1.sql
+#102#	2	pmmj.2tbls.2.sql
+#102#	3	pmmj.3tbls.1.sql
+#102#	4	pmmj.3tbls.2.sql
+#
+# 22 TPCH queries
+#
+#22#	1	q22.1.sql
+#22#	2	q22.2.sql
+#22#	3	q22.3.sql
+#22#	4	q22.4.sql
+#22#	5	q22.5.sql
+#22#	6	q22.6.sql
+#22#	7	q22.7.sql
+#22#	8	q22.8.sql
+#22#	9	q22.9.sql
+#22#	10	q22.10.sql
+#22#	11	q22.11.sql
+#22#	12	q22.12.sql
+#22#	13	q22.13.sql
+#22#	14	q22.14.sql
+#22#	15	q22.15.sql
+#22#	16	q22.16.sql
+#22#	17	q22.17.sql
+#22#	18	q22.18.sql
+#22#	19	q22.19.sql
+#22#	20	q22.20.sql
+#22#	21	q22.21.sql
+#22#	22	q22.22.sql
+#
+# Aggregation functions
+#
+#103#	1	aggr.1tbl.avg.sql
+#103#	2	aggr.1tbl.count.num.col.sql
+#103#	3	aggr.1tbl.count.str.col.sql
+#103#	4	aggr.1tbl.count.table.sql
+#103#	5	aggr.1tbl.max.num.sql
+#103#	6	aggr.1tbl.max.str.sql
+#103#	7	aggr.1tbl.min.num.sql
+#103#	8	aggr.1tbl.min.str.sql
+#103#	9	aggr.1tbl.sum.sql
+#103#	10	aggr.2tbls.avg.sql
+#103#	11	aggr.2tbls.count.num.col.1.sql
+#103#	12	aggr.2tbls.count.num.col.2.sql
+#103#	13	aggr.2tbls.count.str.col.sql
+#103#	14	aggr.2tbls.count.table.sql
+#103#	15	aggr.2tbls.max.num.sql
+#103#	16	aggr.2tbls.max.str.sql
+#103#	17	aggr.2tbls.min.num.sql
+#103#	18	aggr.2tbls.min.str.sql
+#103#	19	aggr.2tbls.sum.sql
+#
+# Aggregation join
+#
+#104#	1	aj.pmmj.1.sql
+#104#	2	aj.pmmj.2.sql
+#104#	3	aj.ummj.1.sql
+#104#	4	aj.ummj.2.sql
+#
+# UM Join
+#
+#105#	1	ummj.2tbls.1.sql
+#105#	2	ummj.2tbls.2.sql
+#105#	3	ummj.3tbls.1.sql
+#105#	4	ummj.3tbls.2.sql
+#
+# DM post process for group by and order by clauses
+#
+#106#	1	dmpp.1tbl.groupby.1.sql
+#106#	2	dmpp.1tbl.groupby.2.sql
+#106#	3	dmpp.1tbl.groupby.orderby.num.1.sql
+#106#	4	dmpp.1tbl.groupby.orderby.num.2.sql
+#106#	5	dmpp.1tbl.groupby.orderby.num.str.sql
+#106#	6	dmpp.1tbl.groupby.orderby.str.sql
+#106#	7	dmpp.1tbl.orderby.1.sql
+#106#	8	dmpp.1tbl.orderby.2.sql
+#106#	9	dmpp.2tbls.groupby.1.sql
+#106#	10	dmpp.2tbls.groupby.2.sql
+#106#	11	dmpp.2tbls.groupby.orderby.num.1.sql
+#106#	12	dmpp.2tbls.groupby.orderby.num.2.sql
+#106#	13	dmpp.2tbls.groupby.orderby.str.sql
+#106#	14	dmpp.2tbls.orderby.1.sql
+#106#	15	dmpp.2tbls.orderby.2.sql
+#
+#
+#
+# Bench_HJ_Orders_Line.sql 
+#
+#107#	1       q107.1.sql 
+#107#	2	q107.2.sql
+#107#	3	q107.3.sql
+#107#	4	q107.4.sql
+#107#	5	q107.5.sql
+#107#	6	q107.6.sql
+#107#	7	q107.7.sql
+#107#	8	q107.8.sql
+#107#	9	q107.9.sql
+#107#	10	q107.10.sql
+#107#	11	q107.11.sql
+#107#	12	q107.12.sql
+#107#	13	q107.13.sql
+#107#	14	q107.14.sql
+#107#	15	q107.15.sql
+#107#	16	q107.16.sql
+#
+#
+# TPCH06_Modified.sql
+#
+#108#	2       q108.2.sql 
+#108#	3	q108.3.sql
+#
+#
+# Bench_HJ_Part_PartSupp.sql
+#
+#109#	1       q109.1.sql 
+#109#	2	q109.2.sql
+#109#	3	q109.3.sql
+#109#	4	q109.4.sql
+#109#	5	q109.5.sql
+#109#	6	q109.6.sql
+#109#	7	q109.7.sql
+#109#	8	q109.8.sql
+#109#	9	q109.9.sql
+#109#	10	q109.10.sql
+#109#	11	q109.11.sql
+#109#	12	q109.12.sql
+#109#	13	q109.13.sql
+#
+#
+# Bench_HJ_Cust_Orders.sql
+#
+#110#	1       q110.1.sql 
+#110#	2	q110.2.sql
+#110#	3	q110.3.sql
+#110#	4	q110.4.sql
+#110#	5	q110.5.sql
+#110#	6	q110.6.sql
+#110#	7	q110.7.sql
+#110#	8	q110.8.sql
+#110#	9	q110.9.sql
+#110#	10	q110.10.sql
+#110#	11	q110.11.sql
+#110#	12	q110.12.sql
+#110#	13	q110.13.sql
+#110#	14	q110.14.sql
+#110#	15	q110.15.sql
+#110#	16	q110.16.sql
+#
+#
+# Bench_Scan_Aggregate_7x.sql
+#
+#
+#111#	1       q111.1.sql 
+#111#	2	q111.2.sql
+#111#	3	q111.3.sql
+#111#	4	q111.4.sql
+#111#	5	q111.5.sql
+#111#	6	q111.6.sql
+#111#	7	q111.7.sql
+#111#	8	q111.8.sql
+#111#	9	q111.9.sql
+#111#	10	q111.10.sql
+#111#	11	q111.11.sql
+#111#	12	q111.12.sql
+#111#	13	q111.13.sql
+#111#	14	q111.14.sql
+#111#	15	q111.15.sql
+#111#	16	q111.16.sql
+#211#	17	q111.17.sql
+#211#	18	q111.18.sql
+#111#	19	q111.19.sql
+#111#	20	q111.20.sql
+#211#	21	q111.21.sql
+#211#	22	q111.22.sql
+#
+#
+# Bench_DBT3_Aggregation.sql
+#
+# 
+#112#	1       q112.1.sql 
+#112#	2	q112.2.sql
+#112#	3	q112.3.sql
+#112#	4	q112.4.sql
+#112#	5	q112.5.sql
+#112#	6	q112.6.sql
+#
+#
+# dwweek - 4 concurrent users
+#200#	1	week_scenario_jt_1.sql
+#200#	2	week_scenario_jt_2.sql
+#200#	3	week_scenario_jt_3.sql
+#200#	4	week_scenario_jt_4.sql
+#200#	5	week_scenario_jt_1.1.sql
+#200#	6	week_scenario_jt_2.1.sql
+#200#	7	week_scenario_jt_3.1.sql
+#200#	8	week_scenario_jt_4.1.sql
+#
+# dwweek - 3 concurrent users with 15-second pause
+#201#	1	week_scenario_jt_5_1.sql
+#201#	2	week_scenario_jt_5_2.sql
+#201#	3	week_scenario_jt_5_3.sql
+#201#	4	week_scenario_jt_7.sql
+#201#	5	week_scenario_jt_5_1.1.sql
+#201#	6	week_scenario_jt_5_2.1.sql
+#201#	7	week_scenario_jt_5_3.1.sql
+#201#	8	week_scenario_jt_7.1.sql
+#
+# dwweek - 3 concurrent users with 30-second pause
+#202#	1	q2.3.4.1.sql
+#202#	2	q2.3.4.2.sql
+#202#	3	q2.3.4.3.sql
+#202#	4	q2.3.4.4.sql
+#202#	5	q4.8.1.sql
+#202#	6	q4.8.2.sql
+#202#	7	q4.8.3.sql
+#202#	8	q4.8.4.sql
+#202#	9	q4.8.5.sql
+#202#	10	q4.8.6.sql
+#202#	11	q4.8.7.sql
+#202#	12	q4.8.8.sql
+#202#	13	q4.8.9.sql
+#202#	14	q5.3.1.sql
+#
+# dwweek - delete and update
+#
+#203#  1  	delete.sql
+#203#  2	update.sql
+#
+# dwweek - nightly stats
+#
+#204#	1	lineitemstats.sql
+#
+# dwweek - nightly lengthy reports
+#
+#
+# dwweek - 4 concurrent users
+#300#	1	week_scenario_jt_1.sql
+#
+# dwweek - 4 concurrent users
+#301#	1	week_scenario_jt_1.sql
+#301#	2	week_scenario_jt_2.sql
+#
+# dwweek - 4 concurrent users
+#302#	1	week_scenario_jt_1.sql
+#302#	2	week_scenario_jt_2.sql
+#302#	3	week_scenario_jt_3.sql
+#
+# dwweek - 4 concurrent users
+#303#	1	week_scenario_jt_1.sql
+#303#	2	week_scenario_jt_2.sql
+#303#	3	week_scenario_jt_3.sql
+#303#	4	week_scenario_jt_4.sql
+#
+#999#	1	TestQuery1.sql
+#999#	1	TestQuery2.sql
+
+
+
+
+
+
+

@@ -1,0 +1,533 @@
+############################################################
+#### Both for the bootstrap and for the server
+############################################################
+
+[mariadb]
+innodb_checksum_algorithm                                  [ innodb , crc32 , none , strict_innodb , strict_crc32 , strict_none ]
+#### innodb_data_file_path	ibdata1:12M:autoextend          
+#### innodb_data_home_dir	                                
+#### innodb_log_block_size                                      [ 16 .. 4096 ]    ## Asserts, said to be BETA-quality
+innodb_log_file_size                                       [ 16777216 .. 1073741824 ]
+innodb_log_files_in_group	                                [ 1 .. 4 ]
+#### innodb_log_group_home_dir	./
+innodb_page_size                                           [ 4K , 8K , 16K ]
+innodb_undo_tablespaces                                    [ 0 .. 126 ] 
+
+
+############################################################
+#### For the server but not bootstrap
+############################################################
+
+[mariadb.runtime]
+allow-suspicious-udfs                                      [ FALSE , TRUE ] 
+auto-increment-increment                                   [ 1 .. 65535 ] 
+auto-increment-offset                                      [ 1 .. 65535 ]
+autocommit                                                 [ TRUE , FALSE ]
+automatic-sp-privileges                                    [ TRUE , FALSE ]
+back-log                                                   [ 1 .. 65535 ]
+#### basedir                                                    /usr/local/mysql/
+big-tables                                                 [ FALSE , TRUE ]
+#### bind-address                                               (No default value)
+binlog-annotate-row-events                                 [ FALSE , TRUE ]
+binlog-cache-size                                          [ 4096 .. 67108864 ]  # max 18446744073709547520
+binlog-commit-wait-count                                   [ 0 .. 10000 ]        # max 18446744073709551615
+binlog-commit-wait-usec                                    [ 0 .. 10000000 ]     # max 18446744073709551615
+binlog-direct-non-transactional-updates                    [ FALSE , TRUE ]
+binlog-format                                              [ STATEMENT , MIXED , ROW ]
+binlog-row-event-max-size                                  [ 256 .. 262144 ]     # max 18446744073709547520
+binlog-stmt-cache-size                                     [ 4096 .. 67108864 ]  # max 18446744073709547520
+bulk-insert-buffer-size                                    [ 0 .. 67108864 ]  # max 18446744073709547520
+character-set-client-handshake                             [ TRUE , FALSE ]
+character-set-filesystem                                   [ binary , latin1 , utf8 , utf8mb4 , euckr ]
+character-set-server                                       [ binary , latin1 , utf8 , utf8mb4 , euckr ]
+#### character-sets-dir                                         /usr/local/mysql/share/charsets/
+#### chroot                                                     (No default value)
+#### collation-server                                           [ character-set-server == binary ? binary ; character-set-server == latin1 ? latin1_general_ci , latin1_general_cs ; character-set-server == utf8 ? utf8_bin , utf8_general_ci ; character-set-server == utf8mb4 ? utf8mb4_bin , utf8mb4_general_ci ; character-set-server == euckr ? euckr_bin , euckr_korean_ci ]
+completion-type                                            [ NO_CHAIN , CHAIN , RELEASE ]
+concurrent-insert                                          [ NEVER , AUTO , ALWAYS ]
+connect-timeout                                            [ 0 .. 100 ]
+#### console                                                    FALSE
+#### datadir                                                    /usr/local/mysql/data/
+#### date-format                                                %Y-%m-%d               # unused, deprecated in 5.6.7
+#### datetime-format                                            %Y-%m-%d %H:%i:%s      # unused, deprecated in 5.6.7
+deadlock-search-depth-long                                 [ 0 .. 33 ]
+deadlock-search-depth-short                                [ 0 .. 33 ]
+deadlock-timeout-long                                      [ 0 .. 100000000 ]    # max 4294967295
+deadlock-timeout-short                                     [ 0 .. 100000000 ]    # max 4294967295
+#### debug                                                      (No default value)
+#### debug-abort-slave-event-count                              0
+#### debug-assert-if-crashed-table                              FALSE
+#### debug-assert-on-error                                      FALSE
+debug-binlog-fsync-sleep                                   [ 0 .. 1000000 ]
+#### debug-crc-break                                            0
+#### debug-dbug                                                 (No default value)
+#### debug-disconnect-slave-event-count                         0
+#### debug-gdb                                                  FALSE
+debug-max-binlog-dump-events                               [ 0 .. 1000 ]
+#### debug-mutex-deadlock-detector                              TRUE
+debug-no-sync                                              [ FALSE , TRUE ]
+debug-no-thread-alarm                                      [ FALSE , TRUE ]
+#### debug-sporadic-binlog-dump-fail                            FALSE
+#### debug-sync-timeout                                         0
+#### default-storage-engine                                     InnoDB
+#### default-time-zone                                          (No default value)
+default-week-format                                        [ 0 .. 7 ]
+delay-key-write                                            [ OFF , ON , ALL ]
+delayed-insert-limit                                       [ 1 .. 10000 ]        # max 18446744073709547520
+delayed-insert-timeout                                     [ 0 .. 1000 ]
+delayed-queue-size                                         [ 1 .. 10000 ]        # max 18446744073709547520
+#### des-key-file                                               (No default value)
+div-precision-increment                                    [ 0 .. 30 ]
+event-scheduler                                            [ OFF , ON ]
+expensive-subquery-limit                                   [ 0 .. 10000 ]
+expire-logs-days                                           [ 0 .. 99 ]
+external-locking                                           [ FALSE , TRUE ]
+extra-max-connections                                      [ 1 .. 20 ]
+#### extra-port                                                 [ 0 , 10739 ]
+flush                                                      [ FALSE , TRUE ]
+flush-time                                                 [ 0 .. 10 ]
+#### ft-boolean-syntax                                          + -><()~*:""&|
+ft-max-word-len                                            [ 10 .. 10000 ]
+ft-min-word-len                                            [ 1 .. 1000 ]
+ft-query-expansion-limit                                   [ 0 .. 1000 ]
+#### ft-stopword-file                                           (No default value)
+#### gdb                                                        FALSE
+general-log =                                              ON
+#### general-log-file                                           (No default value)
+group-concat-max-len                                       [ 4 .. 1048576 ]  # max 18446744073709547520
+gtid-domain-id                                             [ 0 , 1 , 1000 , 10000 ]
+gtid-strict-mode                                           [ FALSE , TRUE ]
+#### help                                                       TRUE
+histogram-size                                             [ 0 .. 255 ]
+histogram-type                                             [ SINGLE_PREC_HB , DOUBLE_PREC_HB ]
+host-cache-size                                            [ 0 .. 65536 ]
+#### ignore-builtin-innodb                                      FALSE
+ignore-db-dirs                                             [ tmp , tmp,lost&found ]
+#### init-connect                                               
+#### init-file                                                  (No default value)
+init-rpl-role                                              [ MASTER , SLAVE ]
+#### init-slave                                                 
+interactive-timeout                                        [ 100 .. 28800 ]
+join-buffer-size                                           [ 128 .. 33554432 ]   # max 18446744073709547520
+join-buffer-space-limit                                    [ 1048576 .. 134217728 ]
+join-cache-level                                           [ 0 .. 8 ]
+keep-files-on-create                                       [ FALSE , TRUE ] 
+key-buffer-size                                            [ 8 .. 268435456 ]    # max OS_PER_PROCESS_LIMIT
+key-cache-age-threshold                                    [ 100 .. 100000 ]      # max 18446744073709547520
+key-cache-block-size                                       [ 512 .. 16384 ]
+key-cache-division-limit                                   [ 1 .. 100 ]
+key-cache-segments                                         [ 0 .. 64 ]
+large-files-support                                        [ TRUE , FALSE ]
+large-pages                                                [ FALSE , TRUE ]
+lc-messages                                                [ en_US , ru_RU ]
+#### lc-messages-dir                                            (No default value)
+lc-time-names                                              [ en_US , ru_RU ]
+local-infile =                                              TRUE
+lock-wait-timeout                                          [ 1 .. 86400 ]        # max 31536000
+#### log-basename                                               wheezy-64
+log-bin                                                    
+#### log-bin-index                                              (No default value)
+log-bin-trust-function-creators                            [ FALSE , TRUE ]
+log-error                                                  
+#### log-isam                                                   myisam.log
+log-output                                                 [ FILE , FILE,TABLE ]
+log-queries-not-using-indexes                              [ FALSE , TRUE ]
+log-short-format                                           [ FALSE , TRUE ]
+log-slave-updates                                          [ FALSE , TRUE ]
+log-slow-admin-statements                                  [ FALSE , TRUE ]
+log-slow-filter                                            [ ( admin,filesort,filesort_on_disk,full_join,full_scan,query_cache,query_cache_miss,tmp_table,tmp_table_on_disk ) ]
+log-slow-rate-limit                                        [ 1 .. 100 ]
+log-slow-slave-statements                                  [ FALSE , TRUE ]
+# log-slow-verbosity                                         [ ( microtime,query_plan,innodb,minimal,standard,full,profiling,profiling_use_getrusage,explain ) ]
+log-slow-verbosity                                         [ ( query_plan,innodb,explain ) ]
+#### log-tc                                                     tc.log
+log-tc-size                                                [ 1024 .. 1048576 ]   # max 18446744073709547520
+log-warnings                                               [ 0 .. 4294967295 ]   # max 18446744073709547520
+long-query-time                                            [ 0.0 .. 100.0 ]
+low-priority-updates                                       [ FALSE , TRUE ]
+lower-case-file-system                                     [ FALSE , TRUE ]
+lower-case-table-names                                     [ 0 , 1 ]
+#### master-info-file                                           master.info
+master-retry-count                                         [ 100 .. 86400 ]      # max 18446744073709551615
+master-verify-checksum                                     [ FALSE , TRUE ]
+max-allowed-packet                                         [ 1048576 .. 1073741824 ]  # min 1024 max 1073741824
+max-binlog-cache-size                                      [ 4096 .. 4294967295 ]  # max 18446744073709551615
+max-binlog-size                                            [ 4096 .. 1073741824 ]
+max-binlog-stmt-cache-size                                 [ 4096 .. 4294967295 ]  # max 18446744073709551615
+max-connect-errors                                         [ 10 .. 10000 ]         # min 1, max 18446744073709547520
+#### max-connections                                            151
+max-delayed-threads                                        [ 0 .. 100 ]          # max 16384
+max-error-count                                            [ 0 .. 65535 ]
+max-heap-table-size                                        [ 16384 .. 134217728 ] # max 1844674407370954752
+max-join-size                                              [ 1 .. 4294967295 ]    # max 18446744073709551615
+max-length-for-sort-data                                   [ 4 .. 8388608 ]
+max-long-data-size                                         [ 1024 .. 4294967295 ] # removed in 5.6
+max-prepared-stmt-count                                    [ 0 .. 1048576 ] 
+max-relay-log-size                                         [ 0 .. 1073741824 ]   # either 0 or min 4096
+max-seeks-for-key                                          [ 1 .. 4294967295 ]   # max 18446744073709547520
+max-sort-length                                            [ 4 .. 8388608 ]
+max-sp-recursion-depth                                     [ 0 .. 255 ]
+max-tmp-tables                                             [ 0 .. 255 ]          # unused?
+max-user-connections                                       [ 0 .. 4294967295 ] 
+max-write-lock-count                                       [ 1 .. 4294967295 ]   # max 18446744073709547520
+memlock                                                    [ FALSE , TRUE ]
+metadata-locks-cache-size                                  [ 1 .. 1048576 ] 
+metadata-locks-hash-instances                              [ 1 .. 1024 ]
+min-examined-row-limit                                     [ 0 .. 4294967295 ]   # max 18446744073709547520
+mrr-buffer-size                                            [ 8192 .. 2147483648 ]
+multi-range-count                                          [ 0 .. 1024 ]         # ignored?
+mutex-deadlock-detector                                    [ TRUE , FALSE ]
+net-buffer-length                                          [ 1024 .. 1048576 ]
+net-read-timeout                                           [ 1 .. 600 ]
+net-retry-count                                            [ 1 .. 4294967295 ]   # max 18446744073709547520
+net-write-timeout                                          [ 1 .. 4294967295 ]
+old                                                        [ FALSE , TRUE ]
+old-alter-table                                            [ FALSE , TRUE ]
+old-mode                                                   [ ( NO_DUP_KEY_WARNINGS_WITH_IGNORE,NO_PROGRESS_INFO,ZERO_DATE_TIME_CAST ) ]
+old-passwords                                              [ FALSE , TRUE ]
+old-style-user-limits                                      [ FALSE , TRUE ]
+#### open-files-limit                                           8192
+optimizer-prune-level                                      [ 0 , 1 ]
+optimizer-search-depth                                     [ 0 .. 62 ]
+optimizer-selectivity-sampling-limit                       [ 10 .. 10000 ]
+#### optimizer-switch                                [ index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,index_merge_sort_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,derived_merge=on,derived_with_keys=on,firstmatch=on,loosescan=on,materialization=on,in_to_exists=on,semijoin=on,partial_match_rowid_merge=on,partial_match_table_scan=on,subquery_cache=on,mrr=on,mrr_cost_based=on,mrr_sort_keys=on,outer_join_with_cache=on,semijoin_with_cache=on,join_cache_incremental=on,join_cache_hashed=on,join_cache_bka=on,optimize_join_buffer_size=on,table_elimination=on,extended_keys=on , index_merge=off,index_merge_union=off,index_merge_sort_union=off,index_merge_intersection=off,index_merge_sort_intersection=off,engine_condition_pushdown=off,index_condition_pushdown=off,derived_merge=off,derived_with_keys=off,firstmatch=off,loosescan=off,materialization=off,in_to_exists=on,semijoin=off,partial_match_rowid_merge=off,partial_match_table_scan=off,subquery_cache=off,mrr=off,mrr_cost_based=off,mrr_sort_keys=off,outer_join_with_cache=off,semijoin_with_cache=off,join_cache_incremental=off,join_cache_hashed=off,join_cache_bka=off,optimize_join_buffer_size=off,table_elimination=off,extended_keys=off ]
+optimizer-use-condition-selectivity                        [ 1 .. 5 ]
+performance-schema                                         [ TRUE , FALSE ]
+performance-schema-accounts-size                           [ -1 .. 100 ]
+performance-schema-consumer-events-stages-current          [ FALSE , TRUE ]
+performance-schema-consumer-events-stages-history          [ FALSE , TRUE ]
+performance-schema-consumer-events-stages-history-long     [ FALSE , TRUE ]
+performance-schema-consumer-events-statements-current      [ TRUE , FALSE ]
+performance-schema-consumer-events-statements-history      [ FALSE , TRUE ]
+performance-schema-consumer-events-statements-history-long [ FALSE , TRUE ]
+performance-schema-consumer-events-waits-current           [ FALSE , TRUE ]
+performance-schema-consumer-events-waits-history           [ FALSE , TRUE ]
+performance-schema-consumer-events-waits-history-long      [ FALSE , TRUE ]
+performance-schema-consumer-global-instrumentation         [ TRUE , FALSE ]
+performance-schema-consumer-statements-digest              [ TRUE , FALSE ]
+performance-schema-consumer-thread-instrumentation         [ TRUE , FALSE ]
+performance-schema-digests-size                            [ -1 .. 10000 ]
+performance-schema-events-stages-history-long-size         [ -1 .. 1000 ]
+performance-schema-events-stages-history-size              [ -1 .. 50 ]
+performance-schema-events-statements-history-long-size     [ -1 .. 1000 ]
+performance-schema-events-statements-history-size          [ -1 .. 50 ]
+performance-schema-events-waits-history-long-size          [ -1 .. 1000 ]
+performance-schema-events-waits-history-size               [ -1 .. 50 ]
+performance-schema-hosts-size                              [ -1 .. 200 ]
+#### performance-schema-instrument                              
+performance-schema-max-cond-classes                        [ 0 .. 800 ]
+performance-schema-max-cond-instances                      [ -1 .. 8000 ]
+performance-schema-max-file-classes                        [ 0 .. 500 ]
+performance-schema-max-file-handles                        [ 0 .. 262144 ]
+performance-schema-max-file-instances                      [ -1 .. 16384 ]
+performance-schema-max-mutex-classes                       [ 0 .. 2000 ]
+performance-schema-max-mutex-instances                     [ -1 .. 32768 ]
+performance-schema-max-rwlock-classes                      [ 0 .. 400 ]
+performance-schema-max-rwlock-instances                    [ -1 .. 16384 ]
+performance-schema-max-socket-classes                      [ 0 .. 100 ]
+performance-schema-max-socket-instances                    [ -1 .. 2000 ]
+performance-schema-max-stage-classes                       [ 0 .. 1500 ]
+performance-schema-max-statement-classes                   [ -1 .. 2000 ]
+performance-schema-max-table-handles                       [ -1 .. 5000 ]
+performance-schema-max-table-instances                     [ -1 .. 5000 ]
+performance-schema-max-thread-classes                      [ 0 .. 500 ]
+performance-schema-max-thread-instances                    [ -1 .. 2000 ]
+performance-schema-session-connect-attrs-size              [ -1 .. 5000 ]
+performance-schema-setup-actors-size                       [ 0 .. 1000 ]
+performance-schema-setup-objects-size                      [ 0 .. 1000 ]
+performance-schema-users-size                              [ -1 .. 50 ]
+#### pid-file                                                   /usr/local/mysql/data/wheezy-64.pid
+#### plugin-dir                                                 /usr/local/mysql/lib/plugin/
+plugin-maturity                                            [ unknown , experimental , alpha , beta , gamma , stable ]
+#### port                                                       3306
+port-open-timeout                                          [ 0 .. 60 ]
+preload-buffer-size                                        [ 1024 .. 67108864 ]  # max 1073741824
+profiling-history-size                                     [ 0 .. 100 ]
+progress-report-time                                       [ 0 .. 100 ]          # max 4294967295
+#### protocol-version                                           10
+query-alloc-block-size                                     [ 1024 .. 1048576 ]   # max 4294967295
+query-cache-limit                                          [ 0 .. 134217728 ]    # max 4294967295
+query-cache-min-res-unit                                   [ 0 .. 262144 ]       # max 4294967295
+query-cache-size                                           [ 0 .. 134217728 ]
+query-cache-strip-comments                                 [ FALSE , TRUE ]
+query-cache-type                                           [ ON , DEMAND ] # OFF is removed due to MDEV-5866
+query-cache-wlock-invalidate                               [ FALSE , TRUE ]
+query-prealloc-size                                        [ 8192 .. 8388608 ]   # max 4294967295
+range-alloc-block-size                                     [ 4096 .. 8388608 ]   # max 4294967295
+read-buffer-size                                           [ 8200 .. 1048576 ]   # max 2147479552
+#### read-only                                                  [ FALSE , TRUE ]  # does not do us any good
+read-rnd-buffer-size                                       [ 8200 .. 1048576 ]   # max 2147483647
+#### relay-log                                                  (No default value)
+#### relay-log-index                                            (No default value)
+#### relay-log-info-file                                        relay-log.info
+relay-log-purge                                            [ TRUE , FALSE ]
+relay-log-recovery                                         [ FALSE , TRUE ]
+relay-log-space-limit                                      [ 0 .. 4294967295 ]   # max 18446744073709547520
+replicate-annotate-row-events                              [ FALSE , TRUE ]
+replicate-events-marked-for-skip                           [ REPLICATE , FILTER_ON_SLAVE , FILTER_ON_MASTER ]
+replicate-same-server-id                                   [ FALSE , TRUE ]
+report-host                                                [ "" , slave.home ]
+report-password                                            [ "" , slave ]
+report-port                                                [ 0 , 10000 ]
+report-user                                                [ "" , slave ]
+rowid-merge-buff-size                                      [ 0 .. 134217728 ]    # max 2147483647
+rpl-recovery-rank                                          [ 0 .. 10 ]           # unused ?
+safe-user-create                                           [ FALSE , TRUE ]
+secure-auth                                                [ FALSE , TRUE ]
+#### secure-file-priv                                           (No default value)
+#### server-id                                                  0
+show-slave-auth-info                                       [ FALSE , TRUE ]
+#### skip-grant-tables                                          FALSE
+skip-name-resolve                                          [ FALSE , TRUE ]
+#### skip-networking                                            [ FALSE , TRUE ]
+skip-show-database                                         [ FALSE , TRUE ]
+skip-slave-start                                           [ FALSE , TRUE ]
+slave-compressed-protocol                                  [ FALSE , TRUE ]
+slave-ddl-exec-mode                                        [ IDEMPOTENT , STRICT ]
+slave-domain-parallel-threads                              [ 0 .. 128 ]
+slave-exec-mode                                            [ STRICT , IDEMPOTENT ]
+#### slave-load-tmpdir                                          /tmp
+#### slave-max-allowed-packet                                   1073741824
+slave-net-timeout                                          [ 0 .. 3600 ]
+slave-parallel-max-queued                                  [ 0 .. 134217728 ]    # max 2147483647
+slave-parallel-threads                                     [ 0 .. 128 ]
+#### slave-skip-errors                                          (No default value)
+slave-sql-verify-checksum                                  [ TRUE , FALSE ]
+slave-transaction-retries                                  [ 0 .. 1000 ]
+slave-type-conversions                                     [ "" , ALL_LOSSY , ALL_NON_LOSSY ]
+slow-launch-time                                           [ 0 .. 60 ]
+slow-query-log                                             [ FALSE , TRUE ]
+#### slow-query-log-file                                        (No default value)
+#### socket                                                     /tmp/mysql.sock
+sort-buffer-size                                           [ 32768 .. 134217728 ] # max 18446744073709551615
+sql-mode                                                   [ ( ALLOW_INVALID_DATES,ANSI,ANSI_QUOTES,DB2,ERROR_FOR_DIVISION_BY_ZERO,HIGH_NOT_PRECEDENCE,IGNORE_BAD_TABLE_OPTIONS,IGNORE_SPACE,MAXDB,MSSQL,MYSQL323,MYSQL40,NO_AUTO_CREATE_USER,NO_AUTO_VALUE_ON_ZERO,NO_BACKSLASH_ESCAPES,NO_DIR_IN_CREATE,NO_ENGINE_SUBSTITUTION,NO_FIELD_OPTIONS,NO_KEY_OPTIONS,NO_TABLE_OPTIONS,NO_UNSIGNED_SUBTRACTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,ONLY_FULL_GROUP_BY,ORACLE,PAD_CHAR_TO_FULL_LENGTH,PIPES_AS_CONCAT,POSTGRESQL,REAL_AS_FLOAT,STRICT_ALL_TABLES,STRICT_TRANS_TABLES,TRADITIONAL ) ]
+ssl                                                        [ FALSE , TRUE ]
+#### ssl-ca                                                     (No default value)
+#### ssl-capath                                                 (No default value)
+#### ssl-cert                                                   (No default value)
+#### ssl-cipher                                                 (No default value)
+#### ssl-crl                                                    (No default value)
+#### ssl-crlpath                                                (No default value)
+#### ssl-key                                                    (No default value)
+stack-trace                                                [ TRUE , FALSE ]
+stored-program-cache                                       [ 256 .. 524288 ]
+super-large-pages                                          [ FALSE , TRUE ]
+symbolic-links                                             [ TRUE , FALSE ]
+sync-binlog                                                [ 0 .. 1000 ] 
+sync-frm                                                   [ TRUE , FALSE ]
+sync-master-info                                           [ 0 .. 1000 ]
+sync-relay-log                                             [ 0 .. 1000 ]
+sync-relay-log-info                                        [ 0 .. 1000 ]
+sysdate-is-now                                             [ FALSE , TRUE ]
+system-time-zone                                           [ MSK , GMT , CET ]
+#### table-cache                                                400
+#### table-definition-cache                                     400
+#### table-open-cache                                           400
+#### tc-heuristic-recover                                       [ COMMIT , ROLLBACK ] # unused? not sure but fails with bootstrap
+temp-pool                                                  [ TRUE , FALSE ]
+thread-cache-size                                          [ -1 .. 200 ]         # max 16384
+thread-concurrency                                         [ 1 .. 512 ]          # Solaris, deprecated
+thread-handling                                            [ one-thread-per-connection , pool-of-threads ]
+thread-pool-idle-timeout                                   [ 0 .. 600 ]
+thread-pool-max-threads                                    [ 1 .. 1024 ]         # max 65536
+thread-pool-oversubscribe                                  [ 1 .. 100 ]
+thread-pool-size                                           [ 1 .. 8 ]            # max 64
+thread-pool-stall-limit                                    [ 4 .. 600 ]
+thread-stack                                               [ 294912 .. 524288 ]
+#### time-format                                                %H:%i:%s  # unused?
+timed-mutexes                                              [ FALSE , TRUE ]
+tmp-table-size                                             [ 1024 .. 268435456 ] # max 4294967295
+#### tmpdir                                                     /tmp
+transaction-alloc-block-size                               [ 1024 .. 1048576 ]
+transaction-isolation                                      [ READ-UNCOMMITTED , READ-COMMITTED , REPEATABLE-READ , SERIALIZABLE ]
+transaction-prealloc-size                                  [ 1024 .. 1048576 ]
+# transaction-read-only                                      [ FALSE , TRUE ] # does not do us any good
+updatable-views-with-limit                                 [ YES , NO ]
+use-stat-tables                                            [ NEVER , COMPLEMENTARY , PREFERABLY ]
+userstat                                                   [ FALSE , TRUE ]
+#### verbose                                                    TRUE
+#### version                                                    10.0.9-MariaDB-debug
+#### version-comment                                            Source distribution
+#### version-compile-machine                                    x86_64
+#### version-compile-os                                         Linux
+#### version-malloc-library                                     bundled jemalloc
+wait-timeout                                               [ 10 .. 28800 ]
+
+
+#####--------------------------
+##### InnoDB (XtraDB) options
+#####--------------------------
+
+innodb_adaptive_flushing                                   [ ON , OFF ]
+innodb_adaptive_flushing_lwm	                             [ 0 .. 70 ]
+innodb_adaptive_hash_index	                                [ ON , OFF ]
+innodb_adaptive_hash_index_partitions	                    [ 1 .. 32 ]          # max 64 on a 64-bit system
+innodb_adaptive_max_sleep_delay                            [ 0 .. 1000000 ]
+innodb_additional_mem_pool_size                            [ 2097152 .. 268435456 ]  # max 4294967295
+innodb_api_bk_commit_interval	                             [ 1 .. 1073741824 ]
+innodb_api_disable_rowlock	                                [ OFF , ON ]
+innodb_api_enable_binlog                                   [ OFF , ON ]
+innodb_api_enable_mdl                                      [ OFF , ON ]
+innodb_api_trx_level                                       [ 0 .. 3 ]
+innodb_autoextend_increment                                [ 1 .. 1000 ]
+innodb_autoinc_lock_mode                                   [ 0 .. 2 ]
+#### innodb_blocking_buffer_pool_restore                        [ OFF , ON ]
+innodb_buffer_pool_dump_at_shutdown                        [ OFF , ON ]
+innodb_buffer_pool_dump_now                                [ OFF , ON ] 
+#### innodb_buffer_pool_evict	
+innodb_buffer_pool_filename                                [ bp, my_buffer_pool ]
+innodb_buffer_pool_instances	                             [ 1 .. 128 ]
+innodb_buffer_pool_load_abort                              [ OFF , ON ]
+innodb_buffer_pool_load_at_startup                         [ OFF , ON ]
+innodb_buffer_pool_load_now                                [ OFF , ON ]
+innodb_buffer_pool_populate                                [ OFF , ON ]
+innodb_buffer_pool_size                                    [ 134217728 .. 2147483648 ]
+innodb_change_buffer_max_size                              [ 0 .. 50 ]
+innodb_change_buffering                                    [ inserts , none , deletes , purges , changes , all ]
+innodb_change_buffering_debug                              [ 0 , 1 ]
+#### innodb_checksum_algorithm                                  [ innodb , crc32 , none , strict_innodb , strict_crc32 , strict_none ]  # should be in bootstrap too
+#### innodb_checksums                                           [ ON , OFF ]  # deprecated
+
+###### Cleaner tuning is experimental and causes hang ups as of MariaDB 10.0.9
+###### http://www.percona.com/doc/percona-server/5.6/performance/page_cleaner_tuning.html
+#### innodb_cleaner_eviction_factor                             [ OFF , ON ]
+#### innodb_cleaner_flush_chunk_size                            [ 0 .. 1000 ]
+#### innodb_cleaner_free_list_lwm                               [ 0 .. 100 ]
+#### innodb_cleaner_lru_chunk_size                              [ 0 .. 1000 ]
+#### innodb_cleaner_lsn_age_factor	                             [ high_checkpoint , legacy ]
+#### innodb_cleaner_max_flush_time                              [ 0 .. 10000 ]
+#### innodb_cleaner_max_lru_time                                [ 0 .. 10000 ]
+
+innodb_cmp_per_index_enabled                               [ OFF , ON ]
+innodb_commit_concurrency                                  [ 0 .. 1000 ]
+innodb_compression_failure_threshold_pct                   [ 0 .. 100 ]
+innodb_compression_level                                   [ 0 .. 9 ]
+innodb_compression_pad_pct_max                             [ 0 .. 75 ]
+innodb_concurrency_tickets                                 [ 0 .. 50000 ]
+innodb_corrupt_table_action                                [ assert , warn , salvage ]
+#### innodb_data_file_path	ibdata1:12M:autoextend    # should go to bootstrap too
+#### innodb_data_home_dir	                          # should go to bootstrap too
+innodb_disable_background_merge                            [ OFF , ON ]
+innodb_disable_sort_file_cache                             [ OFF , ON ]
+innodb_doublewrite                                         [ ON , OFF ]
+innodb_doublewrite_batch_size                              [ 0 .. 200 ]
+innodb_empty_free_list_algorithm                           [ backoff , legacy ]
+#### innodb_fake_changes                                        [ OFF , ON ]
+innodb_fast_shutdown                                       [ 0 .. 2 ]
+innodb_file_format                                         [ Antelope , Barracuda ]
+innodb_file_format_check                                   [ ON , OFF ]
+innodb_file_format_max                                     [ Antelope , Barracuda ]
+innodb_file_per_table                                      [ ON , OFF ]
+innodb_flush_log_at_timeout                                [ 0 .. 2700 ]
+innodb_flush_log_at_trx_commit                             [ 0 .. 3 ] 
+innodb_flush_method                                        [  O_DSYNC , O_DIRECT , O_DIRECT_NO_FSYNC ]
+innodb_flush_neighbors                                     [ 0 .. 2 ]
+innodb_flushing_avg_loops                                  [ 1 .. 1000 ]
+innodb_force_load_corrupted                                [ OFF , ON ]
+#### innodb_force_recovery	0
+#### innodb_force_recovery_crash	0
+innodb_foreground_preflush	                                [ exponential_backoff , sync_preflush ]
+#### innodb_ft_aux_table	
+innodb_ft_cache_size                                       [ 0 .. 128000000 ]
+innodb_ft_enable_diag_print                                [ OFF , ON ]
+innodb_ft_enable_stopword                                  [ ON , OFF ]
+innodb_ft_max_token_size                                   [ 10 .. 252 ]
+innodb_ft_min_token_size                                   [ 0 .. 16 ]
+innodb_ft_num_word_optimize                                [ 0 .. 20000 ]
+innodb_ft_result_cache_limit                               [ 0 .. 8000000000 ]
+#### innodb_ft_server_stopword_table	
+innodb_ft_sort_pll_degree                                  [ 1 .. 32 ]
+innodb_ft_total_cache_size                                 [ 32000000 .. 1000000000 ]
+#### innodb_ft_user_stopword_table	
+innodb_io_capacity                                         [ 100 .. 2000 ]
+innodb_io_capacity_max                                     [ 2000 .. 10000 ]
+innodb_kill_idle_transaction                               [ 0 .. 600 ]
+innodb_large_prefix                                        [ OFF , ON ]
+innodb_limit_optimistic_insert_debug                       [ 60 .. 10000 ]
+innodb_lock_wait_timeout                                   [ 1 .. 30 ]
+innodb_locking_fake_changes                                [ ON , OFF ]
+innodb_locks_unsafe_for_binlog                             [ OFF , ON ]
+#### innodb_log_arch_dir	./
+innodb_log_arch_expire_sec                                 [ 0 .. 1200 ]
+innodb_log_archive                                         [ OFF , ON ]
+#### innodb_log_block_size                           # has to go to bootstrap too
+innodb_log_buffer_size                                     [ 1048576 .. 268435456 ]
+innodb_log_checkpoint_now                                  [ OFF , ON ]
+innodb_log_checksum_algorithm                              [ innodb , none , crc32 , strict_none , strict_innodb , strict_crc32 ]
+innodb_log_compressed_pages                                [ ON , OFF ]
+#### innodb_log_file_size	                          # should go to bootstrap too
+#### innodb_log_files_in_group	2                   # should go to bootstrap too
+#### innodb_log_group_home_dir	./                  # should go to bootstrap too
+innodb_lru_scan_depth                                      [ 100 .. 1048576 ]
+innodb_max_bitmap_file_size                                [ 4096 .. 134217728 ]
+innodb_max_changed_pages                                   [ 1 .. 10000000 ]
+innodb_max_dirty_pages_pct                                 [ 0 .. 99 ]
+innodb_max_dirty_pages_pct_lwm                             [ 0 .. 99 ]
+innodb_max_purge_lag                                       [ 0 .. 4294967295 ]
+innodb_max_purge_lag_delay                                 [ 0 .. 600000 ]
+#### innodb_mirrored_log_groups	1
+#### innodb_monitor_disable	
+#### innodb_monitor_enable	
+#### innodb_monitor_reset	
+#### innodb_monitor_reset_all	
+innodb_old_blocks_pct                                      [ 5 .. 95 ]
+innodb_old_blocks_time                                     [ 0 .. 1200000 ]
+innodb_online_alter_log_max_size                           [ 65536 .. 268435456 ]
+innodb_open_files                                          [ 200 .. 800 ]
+innodb_optimize_fulltext_only                              [ OFF , ON ]
+innodb_page_hash_locks                                     [ 8 .. 64 ]
+#### innodb_page_size                                           [ 4K , 8K , 16K ]    # needs to be in bootstrap too
+innodb_print_all_deadlocks                                 [ OFF , ON ]
+#### innodb_priority_cleaner                                    [ OFF , ON ]
+innodb_priority_io                                         [ OFF , ON ]
+innodb_priority_master                                     [ OFF , ON ]
+innodb_priority_purge                                      [ OFF , ON ]
+innodb_purge_batch_size                                    [ 2 .. 500 ]
+innodb_purge_run_now                                       [ OFF , ON ]
+innodb_purge_stop_now                                      [ OFF , ON ]
+innodb_purge_threads                                       [ 0 , 1 ]
+innodb_random_read_ahead                                   [ OFF , ON ]
+innodb_read_ahead_threshold                                [ 0 .. 64 ]
+innodb_read_io_threads                                     [ 1 .. 64 ]
+#### innodb_read_only	OFF
+innodb_replication_delay                                   [ 0 .. 1200000 ]
+innodb_rollback_on_timeout                                 [ OFF , ON ]
+innodb_rollback_segments                                   [ 1 .. 128 ]
+innodb_sched_priority_cleaner                              [ 0 .. 64 ]
+innodb_sched_priority_io                                   [ 0 .. 64 ]
+innodb_sched_priority_master                               [ 0 .. 64 ]
+innodb_sched_priority_purge                                [ 0 .. 64 ]
+innodb_show_locks_held                                     [ 0 .. 1000 ]
+innodb_show_verbose_locks                                  [ 0 , 1 ]
+innodb_sort_buffer_size                                    [ 65536 .. 67108864 ]
+innodb_spin_wait_delay                                     [ 0 .. 100000 ]       # max 4294967295
+innodb_stats_auto_recalc                                   [ ON , OFF ]
+innodb_stats_method                                        [ nulls_equal , nulls_unequal , nulls_ignored ]
+innodb_stats_on_metadata                                   [ OFF , ON ]
+innodb_stats_persistent                                    [ ON , OFF ]
+innodb_stats_persistent_sample_pages                       [ 0 .. 200 ]
+innodb_stats_sample_pages                                  [ 0 .. 80 ]
+innodb_stats_transient_sample_pages                        [ 0 .. 80 ]
+innodb_strict_mode                                         [ OFF , ON ]
+innodb_support_xa                                          [ ON , OFF ]
+innodb_sync_array_size                                     [ 1 .. 1024 ]
+innodb_sync_spin_loops                                     [ 1 .. 1000 ]
+innodb_table_locks                                         [ ON , OFF ]
+innodb_thread_concurrency                                  [ 0 .. 1000 ]
+innodb_thread_sleep_delay                                  [ 0 .. 100000 ]
+innodb_track_changed_pages                                 [ OFF , ON ]
+innodb_track_redo_log_now                                  [ OFF , ON ]
+innodb_trx_purge_view_update_only_debug                    [ OFF , ON ]
+innodb_trx_rseg_n_slots_debug                              [ 0 , 1 ]
+#### innodb_undo_directory	.
+innodb_undo_logs                                           [ 0 .. 128 ]
+# innodb_undo_tablespaces                                    [ 0 .. 126 ]    # should be in bootstrap as well
+#### innodb_use_atomic_writes                                   [ OFF , ON ]
+innodb_use_fallocate                                       [ OFF , ON ]
+innodb_use_global_flush_log_at_trx_commit                  [ ON , OFF ]
+innodb_use_native_aio                                      [ ON , OFF ]
+innodb_use_stacktrace                                      [ OFF , ON ]
+innodb_use_sys_malloc                                      [ ON , OFF ]
+#### innodb_version	5.6.15-63.0
+innodb_write_io_threads                                    [ 1 .. 64 ]
+

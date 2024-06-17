@@ -1,0 +1,23 @@
+# number of rows to use for testing
+tableRowCnt 10000
+# the value to be increased according to the sqlStatements.txt file
+incrVal 100000
+# number of statements to generate for each script
+numStmtsPerScript 50
+# number of rows in order #1
+order1RowCnt 6
+
+#setting specific for each test
+#need to overwrite number of statements processed for some updates since ones the keys gets updated,
+#subsequent statements will not update any rows even it is processed successfully
+#testName, colidx for result count, number of rows expected to be updated, statement processed overwrite
+insert1 2 1
+update1 2 1
+update2 2 6
+update3 2 10000
+update4 3 1 1
+update5 3 6 1
+update6 3 10000
+update7 4 1 1 
+update8 4 1 1
+update9 4 10000

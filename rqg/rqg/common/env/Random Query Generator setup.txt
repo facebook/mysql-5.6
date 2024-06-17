@@ -1,0 +1,52 @@
+The following instruction is for setting up Random Query Generator
+on an Ubuntu system (My system is 14.04.3 LTS).  It is based on the information
+available on https://github.com/RQG/RQG-Documentation/wiki/RandomQueryGeneratorQuickStart
+
+1. DBD::mysql perl module
+
+  install libdbd-mysql-perl
+  apt-get update
+  apt-get install libdbd-mysql-perl
+
+2. Windows tools, Skipped
+
+3. CPAN
+  
+  perl -MCPAN -e shell
+  cpan> install Bundle::CPAN
+
+  Additional information is available at http://www.twiki.org/cgi-bin/view/TWiki/HowToInstallCpanModules
+  
+4. Perl modules
+  
+sudo perl -MCPAN -e 'install Test::More'
+sudo perl -MCPAN -e 'install Digest::MD5'
+sudo perl -MCPAN -e 'install Log::Log4perl'
+sudo perl -MCPAN -e 'install XML::Writer'
+sudo perl -MCPAN -e 'install DBIx::MyParsePP'
+sudo perl -MCPAN -e 'install Statistics::Descriptive'
+sudo perl -MCPAN -e 'install JSON'
+sudo perl -MCPAN -e 'install Test::Unit'  Failed to install
+
+5. Downloading Random Query Generator
+
+   RQG can be downloaded from this at https://launchpad.net/randgen/+download
+   
+6. Running your first test
+  
+   Before running the following sample test, you need to get the conf directory from
+   the MariaDB distribution and save it in the RQG directory.  It is in the
+   mysql-5.6/xtrabackup/test/kewpie/randgen directory.
+  
+   perl gentest.pl \
+   --dsn=dbi:mysql:host=127.0.0.1:port=3306:user=root:database=test \
+   --gendata=conf/examples/example.zz \
+   --grammar=conf/examples/example.yy
+   
+Elena's mariadb-patches branch
+
+Directory link: https://launchpad.net/~elenst/randgen/mariadb-patches
+
+to download:
+
+bzr branch lp:~elenst/randgen/mariadb-patches

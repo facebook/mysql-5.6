@@ -1,0 +1,9 @@
+concurTrans
+===========
+# Usage: concurTrans.sh testDB numSessions
+#
+The test uses a 1gb TPCH database for testing.
+#
+This test runs with N concurrent users, each executing serveral DML commands in two transactions,
+one with commit and other with rollback.  Some commands may succeed and others may erred due to timeout.
+The end results is verified using execution status of each command in the log files.

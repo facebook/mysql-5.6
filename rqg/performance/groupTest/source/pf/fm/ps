@@ -1,0 +1,2 @@
+# run system activity report tool every 1 minute
+*/1 * * * * root /etc/pscollect

@@ -1,0 +1,51 @@
+# MyRocks run modes
+# Test modes can be either 1 or 2 (Can be expanded in the future if needed)
+#
+# MYRRunMode=1
+# This mode is more suitable for development when MyRocks may not be stable.
+# The test framework will run end-to-end tests in its down self-contained environment.
+# The test framework performs the following tasks:
+# 1. Initializes database (copy from an archived empty database)
+# 2. Starts database server(s) (single node or replication)
+# 3. If replication is used, synchronizes binlog between master and slave nodes
+# 4. Executes test
+# 5. If replication is used, compare databases using mysqldump
+#
+# MYRRunMode=1
+# This mode is more suitable when MyRocks has been deployed (ie: QA or regression environments)
+# The test framework will run requested tests on an existing database server environment
+# The test framework performs the following tasks:
+# 1. Executes test
+# 2. If replication is used, compare databases using mysqldump
+#
+myrRunMode=1
+
+# Ports used by master and slave nodes in a MySQL replication setup
+# If replication is not used, the master port is used
+#
+# For both MYRMode 1 or 2, make sure the port assignment matches that of the respective .cnf files.
+myrMasterPort=3306
+myrSlave1Port=3307
+
+# MySQL socket file, both path and file name
+#
+myrMasterSocket=/tmp/mysql.sock
+myrSlave1Socket=/tmp/repSlave1.sock
+
+# MySQL client directory
+#
+mysqlClientDir=/home/myrocks/builds/reptest/mysql-5.6/client
+
+# For replication test, such as RQG, specify the name of the replication stack to be used
+# reptest: MyRocks to InnoDB replication
+# idbreptest: InnoDB to InnoDB replication
+# User can add other replication configurations and reference them by name
+repBuildName=reptest
+
+# Replication takes time to finished.  After tests on the master server is done,
+# we need to wait for certain time.  This variable controls how much time to wait.
+# myrRepWaitTime: not assigned = wait forever, until replication is done.
+#                    This could be an issue in error condition
+#                 0 = no wait time
+#                 n = a numeric value, wait for n seconds
+#myrRepWaitTime=

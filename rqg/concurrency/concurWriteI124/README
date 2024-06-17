@@ -1,0 +1,16 @@
+concurWriteI124
+===============
+# Usage: concurWriteI124.sh testDB numSessions
+#
+This test case implemented for the request in issue #124.
+The test case by customized by modifying testSetup.txt in the data directory.
+
+This test runs with N concurrent users, each executing a test that does the following tasks:
+   Inserting rows, causing a auto increment column to increase
+   updating a column value
+   update both keys of a combined primary key
+   
+   Each updates would caused locking of a single row, multiple rows, or the entire table.
+
+   Some commands may succeed and others may erred due to timeout.  The end results is verified using 
+   execution status of each command in the log files.

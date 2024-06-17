@@ -1,0 +1,114 @@
+0.  We can be testing different builds in the same test environment.  Therefore, the
+    environment variable ROCKSDBDIR is used to specify the current test directory
+    
+    add the following lines to .profile in the user's home directory
+-----
+# set default Rocksdb test directory
+export ROCKSDBDIR=$HOME/rocksdb/default
+#
+
+     You can change the environment to point to a different location.  For example:
+     export ROCKSDBDIR=$HOME/rocksdb/nightly for a nightly regression test
+     
+1.  Building MariaDB with RocksDB engine
+
+Instruction can be found in the following link:
+https://github.com/MySQLOnRocksDB/mysql-5.6/wiki/Build-steps
+
+-----
+   cd $ROCKSDBIR
+   git clone https://github.com/facebook/mysql-5.6.git
+   cd mysql-5.6
+   git submodule init
+   git submodule update
+   cmake . -DCMAKE_BUILD_TYPE=Debug -DWITH_SSL:STRING=system -DWITH_ZLIB:STRING=system -DMYSQL_MAINTAINER_MODE=1
+   make -j8
+   cd
+-----
+
+Script: /home/qa/rdb/sh/rdbBuild.sh
+
+
+2.  Quick test to verify the build is correct.  This test initialize the database
+
+-----
+   ./mysql-test-run t/alias.test 
+-----
+
+Script: /home/qa/rdb/sh/rdbAliasTest.sh
+
+3.  Copy data directory to another location
+    This step is done so the different builds can use the same test database
+    It needs to be done only once
+    
+-----
+    cp -r $ROCKSDBDIR/mysql-5.6/mysql-test/var/install.db ~/rocksdb/rdbdata
+-----
+
+4.  Create an .cnf file for running MariaDB with the RocksDB engine and place it
+    in the $ROCKSDBDIR directory.
+    
+    The datadir parameter reference the database data directory in step #3
+    
+-----
+[mysqld]
+datadir=/home/myrocks/rocksdb/rdbdata/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+default-storage-engine=rocksdb
+skip-innodb
+default-tmp-storage-engine=MyISAM
+rocksdb
+-----
+
+cnf file: ~/rocksdb/cnf/myrocks.cnf
+cnf template: /home/qa/rdb/cnf/myrocks.cnf.template
+
+5.  Start mysqld daemon
+    The mysqld daemon is in the ./sql subdirectory. such as
+    $ROCKSDBDIR/mysql-5.6/sql
+
+-----
+    cd $ROCKSDBDIR/mysql-5.6/sql
+    ./mysqld --defaults-file=$ROCKSDBDIR/myrocks.cnf
+-----
+
+If successful, the end of the terminal output should be similar to the following:
+
+2015-11-04 10:53:20 24558 [Note] Server hostname (bind-address): '*'; port: 3306
+2015-11-04 10:53:20 24558 [Note] IPv6 is available.
+2015-11-04 10:53:20 24558 [Note]   - '::' resolves to '::';
+2015-11-04 10:53:20 24558 [Note] Server socket created on IP: '::'.
+2015-11-04 10:53:20 24558 [Note] Event Scheduler: Loaded 0 events
+2015-11-04 10:53:20 24558 [Note] ./mysqld: ready for connections.
+Version: '5.6.24-debug'  socket: '/tmp/mysql.sock'  port: 3306  Source distribution
+
+Script: /home/qa/rdb/sh/startmysqld.sh
+
+
+6.  Simple RocksDB engine test
+
+    By now, you should have mysqld running in a termianl.  To run a test, you need to use another terminal session.
+    
+    The mysql client is in the ./client subdirectory, such as
+    $ROCKSDBDIR/mysql-5.6/client
+    
+    To start the client:
+-----
+    cd $ROCKSDBDIR/mysql-5.6/client
+    ./mysql -uroot --socket=/tmp/mysql.sock
+-----
+
+When creating a table, make sure to use a primary key and the 'engine=rocksdb' clause, such as
+     create table t1 (c1 int, c2 varchar(50), primary key (c1)) engine=rocksdb;
+     
+Script: /home/qa/rdb/sql/simpleTest.sql 
+     
+    
+    
+    
+    
+
+
+     

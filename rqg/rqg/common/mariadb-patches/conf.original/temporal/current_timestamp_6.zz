@@ -1,0 +1,48 @@
+# Copyright (c) 2008, 2012 Oracle and/or its affiliates. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# For this grammer, use the --strict-fields and --short_column_names options to RQG. See current_timestamp_6.yy for more information.
+
+$tables = {
+  names => ['A','AA','B','BB','C','CC','D','DD','E','EE','F','FF','G','GG','H','HH',
+            'I','II','J','JJ','K','KK','L','LL','M','MM','N','NN','O','OO'],
+  pk => [undef,'int','int auto_increment','datetime(6)','timestamp(6)'],
+  engines => ['InnoDB','MyISAM','MEMORY'],
+  rows => [100,500]
+};
+
+$fields = {
+  types => ["datetime(6) null","datetime(6) not null","datetime(6) null default 0","datetime(6) not null default 0",
+            "datetime(6) null default current_timestamp(6)","datetime(6) not null default current_timestamp(6)",
+            "datetime(6) not null default current_timestamp(6) on update current_timestamp(6)","datetime(6) null default now(6) on update now(6)",
+            "datetime(6) null default current_timestamp(6) on update current_timestamp(6)","datetime(6) not null default now(6) on update now(6)",
+            "datetime(6) null on update now(6)","datetime(6) not null on update now(6)",
+            "datetime(6) not null default \'2000-01-01 00:00:00.000000\'","datetime(6) null default \'2000-01-01 00:00:00.000000\'",
+            "datetime(6) not null default \'2000-01-01 00:00:00.000000\' on update now(6)","datetime(6) null default \'2000-01-01 00:00:00.000000\' on update now(6)",
+            "timestamp(6)","timestamp(6) null","timestamp(6) null default 0","timestamp(6) not null default 0",
+            "timestamp(6) null default now(6)","timestamp(6) not null default now(6)",
+            "timestamp(6) not null default now(6) on update now(6)","timestamp(6) null default current_timestamp(6) on update current_timestamp(6)",
+            "timestamp(6) null on update current_timestamp(6)","timestamp(6) not null on update current_timestamp(6)",
+            "timestamp(6) not null default \'2000-01-01 00:00:00.000000\'","timestamp(6) null default \'2000-01-01 00:00:00.000000\'",
+           ],
+  indexes => ['unique','key'],
+};
+
+$data = {
+    numbers => ['int'],
+    temporals => ['datetime(6)','timestamp(6)']
+}

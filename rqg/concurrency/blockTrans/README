@@ -1,0 +1,7 @@
+blockTrans
+==========
+# Usage: blockTrans.sh testDB
+#
+This test case implemented for the simple test scenario in issue #124.
+A simple timed test with three concurrent users, each executing commands in a transactions.  
+The end results is verified agains an expected result.

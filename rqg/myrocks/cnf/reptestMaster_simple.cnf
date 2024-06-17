@@ -1,0 +1,20 @@
+[client]
+port=3306
+[mysqld]
+server-id = 1
+port = 3306
+log_bin = /home/myrocks/builds/reptest/mysql-bin.log
+binlog-format=row
+datadir=/home/myrocks/builds/reptest/data1/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+default-storage-engine=rocksdb
+skip-innodb
+default-tmp-storage-engine=MyISAM
+rocksdb
+core-file
+log-error=/home/myrocks/builds/reptest/log/mastererr.log
+open_files_limit=5000
+[mysqld_safe]
+core-file-size=unlimited

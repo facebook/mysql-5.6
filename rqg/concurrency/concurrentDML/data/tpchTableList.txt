@@ -1,0 +1,9 @@
+# tableName ColName numIterations zeroRowCnt allRowCnt 
+region r_regionkey 100 0 5 
+nation n_nationkey 100 0 25
+customer c_custkey 20 0 150
+part p_partkey 5 0 200
+supplier s_suppkey 100 0 10
+partsupp ps_partkey 8 0 800
+orders o_orderkey 20 0 1500
+lineitem l_orderkey 1 0 6005

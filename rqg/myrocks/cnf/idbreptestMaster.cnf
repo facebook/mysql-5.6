@@ -1,0 +1,18 @@
+[client]
+port=3306
+[mysqld]
+server-id = 1
+port = 3306
+log_bin = /home/myrocks/builds/idbreptest/mysql-bin.log
+binlog-format=row
+datadir=/home/myrocks/builds/idbreptest/data1/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+default-storage-engine=innodb
+default-tmp-storage-engine=MyISAM
+core-file
+log-error=/home/myrocks/builds/idbreptest/log/mastererr.log
+open_files_limit=5000
+[mysqld_safe]
+core-file-size=unlimited

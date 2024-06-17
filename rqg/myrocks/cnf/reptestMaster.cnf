@@ -1,0 +1,34 @@
+[client]
+port=3306
+[mysqld]
+server-id = 1
+port = 3306
+log_bin = /home/myrocks/builds/reptest/mysql-bin.log
+binlog-format=row
+datadir=/home/myrocks/builds/reptest/data1/install.db
+socket=/tmp/mysql.sock
+gdb
+language=./share/english
+
+default-storage-engine=rocksdb
+skip-innodb
+default-tmp-storage-engine=MyISAM
+rocksdb
+core-file
+log-error=/home/myrocks/builds/reptest/log/mastererr.log
+open_files_limit=5000
+
+collation-server=latin1_bin 
+rocksdb_max_open_files=-1
+rocksdb_base_background_compactions=1
+rocksdb_max_background_compactions=8
+rocksdb_max_total_wal_size=4G
+rocksdb_max_background_flushes=4
+rocksdb_block_size=16384
+rocksdb_block_cache_size=12G
+rocksdb_lock_wait_timeout=2
+rocksdb_rpl_lookup_rows=0
+rocksdb_default_cf_options=write_buffer_size=128m;target_file_size_base=32m;max_bytes_for_level_base=512m;level0_file_num_compaction_trigger=4;level0_slowdown_writes_trigger=10;level0_stop_writes_trigger=15;max_write_buffer_number=4;compression_per_level=kNoCompression:kNoCompression:kNoCompression:kZlibCompression:kZlibCompression:kZlibCompression:kZlibCompression;compression_opts=-14:6:0;block_based_table_factory={cache_index_and_filter_blocks=1;filter_policy=bloomfilter:10:false;whole_key_filtering=0};prefix_extractor=capped:12;level_compaction_dynamic_level_bytes=true;optimize_filters_for_hits=true
+
+[mysqld_safe]
+core-file-size=unlimited

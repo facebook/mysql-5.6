@@ -1,0 +1,76 @@
+# Copyright (c) 2012 Oracle and/or its affiliates. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# Certain parts (c) Percona Inc
+
+# Version 2.0: Advanced Combinatorics
+# Note that --short_column_names is required for this grammar (see .zz1 for use of 'c1' name)
+
+$combinations=
+[
+ ['
+  --seed=random --duration=300 --querytimeout=60 --short_column_names
+  --reporter=Shutdown,Backtrace,QueryTimeout,ErrorLog,ErrorLogAlarm
+  --mysqld=--log-output=none --mysqld=--sql_mode=ONLY_FULL_GROUP_BY
+
+--mysqld=--utility-user-password=test'
+ ],[
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=15 --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=20 --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=1  --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=17 --mask-level=1 --validator=Transformer
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64 --mysqld=--enforce-storage-engine=InnoDB',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=1  --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=13 --mask-level=1 --validator=Transformer
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz2 --threads=1  --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz2 --threads=11 --mask-level=1 --validator=Transformer
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz2 --threads=25 --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz2 --threads=8 --mask-level=1 --validator=Transformer
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz3 --threads=10 --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz3 --threads=15 --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434-debug-valgrind.Linux.x86_64 --valgrind --reporter=ValgrindErrors --validator=MarkErrorLog',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz2 --threads=15 --mask-level=1 --validator=Transformer
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434.Linux.x86_64',
+  '--grammar=conf/percona_qa/5.6/5.6.yy --gendata=conf/percona_qa/5.6/5.6.zz1 --threads=1  --no-mask
+     --basedir=/ssd/Percona-Server-5.6.13-rc60.5-434.Linux.x86_64'
+ ],[
+  '--views',
+  '--notnull'
+ ],[
+  '--mysqld=--innodb_buffer_pool_instances=-1',
+  '--mysqld=--innodb_buffer_pool_instances=1',
+  '--mysqld=--innodb_buffer_pool_instances=3',
+  '--mysqld=--innodb_buffer_pool_instances=4',
+  '--mysqld=--innodb_buffer_pool_instances=5',
+  '--mysqld=--innodb_buffer_pool_instances=7',
+  '--mysqld=--innodb_buffer_pool_instances=8',
+  '--mysqld=--innodb_buffer_pool_instances=16',
+  '--mysqld=--innodb_buffer_pool_instances=32',
+  '--mysqld=--innodb_buffer_pool_instances=63',
+  '--mysqld=--innodb_buffer_pool_instances=64'
+ ]
+]

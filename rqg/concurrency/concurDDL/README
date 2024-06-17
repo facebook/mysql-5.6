@@ -1,0 +1,8 @@
+ConcurDDL
+=========
+Usage: testDB tableCnt columnCnt numSessions
+#
+Creates n tables, with n columns each, for n concurrent sessions
+
+Check log files to make sure no errors were returned.
+

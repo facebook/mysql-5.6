@@ -1,0 +1,44 @@
+query:
+	select | select | insert | insert | delete | delete | replace | update | transaction |
+        alter | views | set | flush | proc_func | outfile_infile | update_multi | kill_idle | query_cache |
+        ext_slow_query_log | user_stats | drop_create_table | table_comp | table_comp | optimize_table |
+        bitmap | bitmap | archive_logs | thread_pool | max_stmt_time | locking | prio_shed |
+        cleaner | preflush | toku_clustering_key | toku_clustering_key | audit_plugin | binlog_event |
+        i_s_buffer_pool_stats | full_text_index | i_s | i_s_fti | prio_shed_dbg | innodb_prio_dbg ;
+
+prio_shed_dbg:
+        SELECT @@GLOBAL.innodb_sched_priority_io |
+        SET GLOBAL innodb_sched_priority_io = zero_to_forty |
+        SELECT @@GLOBAL.innodb_sched_priority_master |
+        SET GLOBAL innodb_sched_priority_master = zero_to_forty |
+        SELECT @@GLOBAL.innodb_sched_priority_purge |
+        SET GLOBAL innodb_sched_priority_purge = zero_to_forty ;
+
+innodb_prio_dbg:
+        SET GLOBAL innodb_prio_set = moreoff |
+        SHOW scope VARIABLES LIKE 'INNODB_PRIORITY_PURGE' |
+        SHOW scope VARIABLES LIKE 'INNODB_PRIORITY_IO' |
+        SHOW scope VARIABLES LIKE 'INNODB_PRIORITY_CLEANER' |
+        SHOW scope VARIABLES LIKE 'INNODB_PRIORITY_MASTER' ;
+
+innodb_prio_set:
+        INNODB_PRIORITY_PURGE | INNODB_PRIORITY_IO | INNODB_PRIORITY_CLEANER | INNODB_PRIORITY_MASTER ;
+
+moreoff:
+        0 | 0 | 0 | 0 | 1 ;
+
+# Temporarily disabled due to bug https://bugs.launchpad.net/percona-server/+bug/1368530 
+#       SET @@GLOBAL.innodb_track_redo_log_now = truefalse |
+#       SET @@GLOBAL.innodb_track_changed_pages = truefalse |
+set:
+        SET GLOBAL innodb_show_verbose_locks = onoff |
+        SET GLOBAL innodb_show_locks_held = zero_to_thousand |
+        SET GLOBAL INNODB_USE_GLOBAL_FLUSH_LOG_AT_TRX_COMMIT = onoff  |
+        SET GLOBAL INNODB_CORRUPT_TABLE_ACTION = action |
+        SET scope INNODB_STRICT_MODE = onoff |
+        SET scope OLD_ALTER_TABLE = onoff |
+        SET scope EXPAND_FAST_INDEX_CREATION = ON |
+        SET scope EXPAND_FAST_INDEX_CREATION = OFF |
+        SET @@GLOBAL.innodb_log_checkpoint_now = truefalse |
+        SET GLOBAL innodb_empty_free_list_algorithm = innodb_empty_free_list_algo |
+        SET GLOBAL innodb_log_checksum_algorithm = innodb_log_checksum_algorithm_list ;

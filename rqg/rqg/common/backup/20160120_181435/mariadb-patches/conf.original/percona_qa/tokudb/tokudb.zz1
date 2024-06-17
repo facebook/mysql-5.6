@@ -1,0 +1,50 @@
+# Copyright (c) 2008, 2012 Oracle and/or its affiliates. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# Certain parts (c) Percona Inc
+
+# Note that some (8 atm) table creations will fail with:
+#  yyyy-mm-ddThh:mm:ss key (`cnr` (255))) ENGINE=innodb ... /*!50100 PARTITION BY key (pk) partitions 2 */ failed:
+#  1488 Field in list of fields for partition function not found in table
+# The reason is clear: we use "undef" in pk definition. So, for some (those) tables there is no pk.
+# Using c1 as an alternative is not a good idea either, as that would never test PARTITIONS in combination with PRIMARY keys
+# A smarter RQG (bugfix/improvement) would be good here: if KEY (pk) is used, and pk does not exist, do no try to create table + report warning
+
+$tables = {
+  pk => [undef,'int','int auto_increment'],
+  partitions => [ undef , 'KEY (pk) PARTITIONS 2' ],
+  engines => ['TokuDB'],
+  rows => [100,500],
+  row_formats => ['tokudb_default','tokudb_fast','tokudb_small']
+};
+
+$fields = {
+  types => ['int','varchar(240)','blob','text','date'],
+  indexes => [undef,'key'],
+  null => [undef,'not null'],
+  default => [undef,'default null'],
+  sign => [undef, 'unsigned'],
+  charsets => ['latin1']
+};
+
+$data = {
+  numbers => ['digit','null',undef],
+  temporals => ['datetime','timestamp'],
+  strings => ['varchar(129)','varchar(257)','english','letter'],
+  blobs => ['letter','data','english'],
+  temporals => ['date','year','null',undef]
+}

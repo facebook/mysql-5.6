@@ -1,0 +1,14 @@
+The alter_online grammars are for hunting server crashes when
+concurrent DDL meets concurrent DML in transactions.
+
+Please note that MySQL/InnoDB decide depending on the situation
+if some ALTER TABLE operation will use the old ALTER TABLE
+algorithm (COPY) or the new ALTER TABLE algorithm (INPLACE).
+
+Recommended RQG setup:
+   duration = 1200,
+   queries  = 30000,
+   threads  ~ 12
+   lock-wait-timeout        = 2,
+   innodb-lock-wait-timeout = 1,
+   default-storage-engine   = 'InnoDB',

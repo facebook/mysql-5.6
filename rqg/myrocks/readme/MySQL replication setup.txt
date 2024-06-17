@@ -1,0 +1,77 @@
+The following instruction is for setting up a two-node replication stack on the same machine
+
+The instruction is mainly based on the following web link:
+
+https://www.digitalocean.com/community/tutorials/how-to-set-up-master-slave-replication-in-mysql
+
+The web page also has been saved as a PDF file "How To Set Up Master Slave Replication in MySQL.pdf"
+
+Besides following the noted instruction, the following items are important:
+
+1) Both master and slave are setup on the same machine, using the same MySQL installation
+2) Master uses port 3306, slave uses 3307
+3) If you copy a sample database for both master and slave to use, you will get this error
+   when showing slave status:
+   
+   Errno: 1593 Fatal error: The slave I/O thread stops because master and slave 
+   have equal MySQL server UUIDs; these UUIDs must be different for replication to work.
+   
+   The cause for this error is that both master and slave databases have the same UUID,
+   which is stored in the data_dir/auto.cnf file.  To solve the issue, please do
+   a) stop the slave server
+   b) edit the data_dir/auto.cnf and remove the server-uuid entry and save the file
+   c) start the slave server, a new UUID will be automatically generated
+   
+The following script can be used to build the MySQL binary and have the defaults
+databases and cnf files setup
+
+/home/qa/rdb/sh/setupRepMasterSlave.sh
+
+
+The master and slave will be using port 3306 and 3307, respectively.
+
+Startup both master and slave
+
+On the master, execute:
+
+GRANT REPLICATION SLAVE ON *.* TO 'slave_user'@'%' IDENTIFIED BY 'password';
+FLUSH PRIVILEGES;
+
+restart master
+
+On the slave
+
+The value for both MASAER_LOG_FILE and MASTER_LOG_POS can be obtained by executing the
+following command on the master:
+
+show master status;
+
+CHANGE MASTER TO MASTER_HOST='localhost',MASTER_USER='slave_user', MASTER_PASSWORD='password', MASTER_LOG_FILE='mysql-bin.000004', MASTER_LOG_POS=  403;
+
+To start master:
+
+  ./mysqld --defaults-file=/home/myrocks/rocksdb/testdb/testMaster.cnf
+
+To start slave:
+
+  ./mysqld --defaults-file=/home/myrocks/rocksdb/testdb/testSlave1.cnf
+
+./mysql -u root --port=3306 --socket=/tmp/testMaster.sock
+./mysql -u root --port=3307 --socket=/tmp/testSlave1.sock
+
+MySQL [test]> checksum table one_k;
++------------+------------+
+| Table      | Checksum   |
++------------+------------+
+| test.one_k | 4294966796 |
++------------+------------+
+1 row in set (0.01 sec)
+
+spetrunia [3:16 PM]3:16
+master> mysqldump .... > file1.sql
+
+spetrunia [3:16 PM]
+slave> mysqldump > file2.sql
+
+spetrunia [3:16 PM]
+diff -u file1.sql file2.sql

@@ -1,0 +1,14 @@
+#insert 
+insert1 INSERT INTO lineitem (l_orderkey, id, l_linenumber) VALUES(1, 1, 1) ON DUPLICATE KEY UPDATE l_linenumber=l_linenumber+100000;
+#update non-key column value
+update1 UPDATE lineitem SET l_linenumber=l_linenumber+100000 WHERE l_orderkey=1 AND id=1;
+update2 UPDATE lineitem SET l_linenumber=l_linenumber+100000 WHERE l_orderkey=1;
+update3 UPDATE lineitem SET l_linenumber=l_linenumber+100000;
+# update 2nd key
+update4 UPDATE lineitem SET l_orderkey=l_orderkey+100000 WHERE l_orderkey=1 AND id=1;
+update5 UPDATE lineitem SET l_orderkey=l_orderkey+100000 WHERE l_orderkey=1;
+update6 UPDATE lineitem SET l_orderkey=l_orderkey+100000;
+# update primary key
+update7 UPDATE lineitem SET id=id+100000 WHERE l_orderkey=1 AND id=1;
+update8 UPDATE lineitem SET id=id+100000 WHERE id=1;
+update9 UPDATE lineitem SET id=id+100000;

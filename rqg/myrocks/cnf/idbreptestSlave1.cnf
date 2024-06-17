@@ -1,0 +1,19 @@
+[client]
+port=3307
+[mysqld]
+server-id = 2
+port = 3307
+log_bin = /home/myrocks/builds/idbreptest/mysql-bin.log
+relay-log = /home/myrocks/builds/idbreptest/mysql-relay-bin.log
+binlog-format=row
+datadir=/home/myrocks/builds/idbreptest/data2/install.db
+socket=/tmp/repSlave1.sock
+gdb
+language=./share/english
+default-storage-engine=innodb
+default-tmp-storage-engine=MyISAM
+core-file
+log-error=/home/myrocks/builds/idbreptest/log/slave1err.log
+open_files_limit=5000
+[mysqld_safe]
+core-file-size=unlimited

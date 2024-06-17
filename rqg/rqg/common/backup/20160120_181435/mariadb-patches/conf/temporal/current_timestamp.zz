@@ -1,0 +1,48 @@
+# Copyright (c) 2008, 2012 Oracle and/or its affiliates. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# For this grammer, use the --strict-fields and --short_column_names options to RQG. See current_timestamp.yy for more information.
+
+$tables = {
+  names => ['A','AA','B','BB','C','CC','D','DD','E','EE','F','FF','G','GG','H','HH',
+            'I','II','J','JJ','K','KK','L','LL','M','MM','N','NN','O','OO'],
+  pk => [undef,'int','int auto_increment','datetime','timestamp'],
+  engines => ['InnoDB','MyISAM','MEMORY'],
+  rows => [100,500]
+};
+
+$fields = {
+  types => ["datetime null","datetime not null","datetime null default 0","datetime not null default 0",
+            "datetime null default current_timestamp","datetime not null default current_timestamp",
+            "datetime not null default current_timestamp on update current_timestamp","datetime null default now() on update now()",
+            "datetime null default current_timestamp on update current_timestamp","datetime not null default now() on update now()",
+            "datetime null on update now()","datetime not null on update now()",
+            "datetime not null default \'2000-01-01 00:00:00\'","datetime null default \'2000-01-01 00:00:00\'",
+            "datetime not null default \'2000-01-01 00:00:00\' on update now()","datetime null default \'2000-01-01 00:00:00\' on update now()",
+            "timestamp","timestamp null","timestamp null default 0","timestamp not null default 0",
+            "timestamp null default now()","timestamp not null default now()",
+            "timestamp not null default now() on update now()","timestamp null default current_timestamp on update current_timestamp",
+            "timestamp null on update current_timestamp","timestamp not null on update current_timestamp",
+            "timestamp not null default \'2000-01-01 00:00:00\'","timestamp null default \'2000-01-01 00:00:00\'",
+           ],
+  indexes => ['unique','key'],
+};
+
+$data = {
+    numbers => ['int'],
+    temporals => ['datetime','timestamp']
+}

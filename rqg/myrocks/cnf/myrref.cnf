@@ -1,0 +1,8 @@
+[mysqld]
+datadir=/home/myrocks/builds/myrref/install.db
+socket=/tmp/testdbref.sock
+gdb
+language=./share/english
+default-storage-engine=innodb
+default-tmp-storage-engine=MyISAM
+log-error=/home/myrocks/builds/myrref/log/mysqlerr.log

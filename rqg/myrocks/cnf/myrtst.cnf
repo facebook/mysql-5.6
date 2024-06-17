@@ -1,0 +1,10 @@
+[mysqld]
+datadir=/home/myrocks/builds/myrtst/install.db
+socket=/tmp/testdbtst.sock
+gdb
+language=./share/english
+default-storage-engine=rocksdb
+skip-innodb
+default-tmp-storage-engine=MyISAM
+rocksdb
+log-error=/home/myrocks/builds/myrtst/log/mysqlerr.log

@@ -1,0 +1,15 @@
+#RunTest	category	testName
+#
+=Y= rqg	examples
+=Y= rqg	runtime
+=Y= rqg	transactions
+
+=Y= performance	groupTest
+#
+=Y=	concurrency		concurDDL
+=Y=	concurrency		blockTrans
+=Y= concurrency		concurrentDML
+=Y=	concurrency		concurTrans
+=Y=	concurrency		concurWriteI124
+#
+#=N= stability   dwweek
