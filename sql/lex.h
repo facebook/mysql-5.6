@@ -380,6 +380,7 @@ static const SYMBOL symbols[] = {
     {SYM("LAG", LAG_SYM)},
     {SYM("LANGUAGE", LANGUAGE_SYM)},
     {SYM("LAST", LAST_SYM)},
+    {SYM("LAST_INSERT_IDS", LAST_INSERT_IDS_SYM)},
     {SYM("LAST_VALUE", LAST_VALUE_SYM)},
     {SYM("LATERAL", LATERAL_SYM)},
     {SYM("LEAD", LEAD_SYM)},

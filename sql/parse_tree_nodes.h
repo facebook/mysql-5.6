@@ -469,6 +469,19 @@ class PT_table_factor_function : public PT_table_reference {
   const LEX_STRING m_table_alias;
 };
 
+class PT_last_insert_ids_function : public PT_table_reference {
+  using super = PT_table_reference;
+
+ public:
+  PT_last_insert_ids_function(const LEX_STRING &table_alias)
+      : m_table_alias{table_alias} {}
+
+  bool contextualize(Parse_context *pc) override;
+
+ private:
+  const LEX_STRING m_table_alias;
+};
+
 class PT_table_reference_list_parens : public PT_table_reference {
   typedef PT_table_reference super;
 

@@ -1309,6 +1309,27 @@ bool PT_table_factor_function::contextualize(Parse_context *pc) {
   return false;
 }
 
+bool PT_last_insert_ids_function::contextualize(Parse_context *pc) {
+  if (super::contextualize(pc)) return true;
+  auto *const fn = new (pc->mem_root) Table_function_last_insert_ids{};
+  if (unlikely(fn == nullptr)) return true;
+
+  LEX_CSTRING alias;
+  alias.length = strlen(fn->func_name());
+  alias.str = sql_strmake(fn->func_name(), alias.length);
+  if (unlikely(alias.str == nullptr)) return true;
+
+  auto *const ti = new (pc->mem_root) Table_ident(alias, fn);
+  if (ti == nullptr) return true;
+
+  m_table_ref = pc->select->add_table_to_list(pc->thd, ti, m_table_alias.str, 0,
+                                              TL_READ, MDL_SHARED_READ);
+  if (m_table_ref == nullptr || pc->select->add_joined_table(m_table_ref))
+    return true;
+
+  return false;
+}
+
 PT_derived_table::PT_derived_table(bool lateral, PT_subquery *subquery,
                                    const LEX_CSTRING &table_alias,
                                    Create_col_name_list *column_names)

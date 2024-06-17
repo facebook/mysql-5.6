@@ -1,0 +1,41 @@
+--source include/big_test.inc
+
+--source include/count_sessions.inc
+
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY);
+
+CREATE TABLE clients_finished(client INT AUTO_INCREMENT PRIMARY KEY);
+
+CREATE TABLE test_failures(commit_or_rollback INT, t1_or_lii INT, value INT);
+
+delimiter |;
+CREATE PROCEDURE insert_128_rows()
+BEGIN
+  INSERT INTO t1 VALUES (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+  (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), ();
+END|
+delimiter ;|
+
+--echo Issuing load
+
+--exec_in_background $MYSQL_SLAP --create-schema=test --concurrency=4 --iterations=100 --query="BEGIN; CALL insert_128_rows(); COMMIT; INSERT INTO test_failures SELECT 0, 0, t1.pk FROM t1 LEFT JOIN LAST_INSERT_IDS() lii ON t1.pk = lii.id WHERE lii.id IS NULL UNION SELECT 0, 1, lii.id FROM LAST_INSERT_IDS() lii LEFT JOIN t1 ON t1.pk = lii.id WHERE t1.pk IS NULL" --post-query="INSERT INTO test.clients_finished VALUES ()"
+
+--exec_in_background $MYSQL_SLAP --create-schema=test --concurrency=4 --iterations=100 --query="BEGIN; CALL insert_128_rows(); ROLLBACK; INSERT INTO test_failures SELECT 1, 0, t1.pk FROM t1 JOIN LAST_INSERT_IDS() lii ON t1.pk = lii.id" --post-query="INSERT INTO test.clients_finished VALUES ()"
+
+--let $count=200
+--let $table=clients_finished
+--let $wait_timeout=600
+--source include/wait_until_rows_count.inc
+
+# Should be empty
+SELECT * FROM test_failures;
+
+DROP PROCEDURE insert_128_rows;
+DROP TABLE test_failures, clients_finished, t1;
+
+--source include/wait_until_count_sessions.inc

@@ -1,0 +1,18 @@
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY);
+CREATE TABLE clients_finished(client INT AUTO_INCREMENT PRIMARY KEY);
+CREATE TABLE test_failures(commit_or_rollback INT, t1_or_lii INT, value INT);
+CREATE PROCEDURE insert_128_rows()
+BEGIN
+INSERT INTO t1 VALUES (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (),
+(), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), (), ();
+END|
+Issuing load
+SELECT * FROM test_failures;
+commit_or_rollback	t1_or_lii	value
+DROP PROCEDURE insert_128_rows;
+DROP TABLE test_failures, clients_finished, t1;

@@ -1442,6 +1442,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> MB_SYM 10021              /* FB MYSQL */
 %token<lexer.keyword> GB_SYM 10022              /* FB MYSQL */
 %token<lexer.keyword> OPID_SYM 10023              /* FB MYSQL */
+%token  LAST_INSERT_IDS_SYM 10024                /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1847,6 +1848,7 @@ void warn_about_deprecated_binary(THD *thd)
 
 %type <table_reference> table_reference esc_table_reference
         table_factor single_table single_table_parens table_function
+        json_table_function last_insert_ids_function
 
 %type <bipartite_name> lvalue_variable rvalue_system_variable
 
@@ -12329,6 +12331,27 @@ derived_table:
         ;
 
 table_function:
+          json_table_function
+        | last_insert_ids_function
+        ;
+
+last_insert_ids_function:
+          LAST_INSERT_IDS_SYM '(' ')'
+          opt_table_alias
+          {
+            // Alias isn't optional, follow derived's behavior
+            if ($4 == NULL_CSTR)
+            {
+                my_message(ER_TF_MUST_HAVE_ALIAS,
+                           ER_THD(YYTHD, ER_TF_MUST_HAVE_ALIAS), MYF(0));
+                MYSQL_YYABORT;
+            }
+
+            $$= NEW_PTN PT_last_insert_ids_function(to_lex_string($4));
+          }
+        ;
+
+json_table_function:
           JSON_TABLE_SYM '(' expr ',' text_literal columns_clause ')'
           opt_table_alias
           {

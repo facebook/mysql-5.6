@@ -769,3 +769,40 @@ void JT_data_source::cleanup() {
   v.clear();
   producing_records = false;
 }
+
+Table_function_last_insert_ids::~Table_function_last_insert_ids() {
+  // fields.elements is 0 inside a trigger declaration
+  assert(fields.elements == 0 || fields.elements == 1);
+  if (fields.elements == 1) delete fields.head();
+}
+
+List<Create_field> *Table_function_last_insert_ids::get_field_list() {
+  assert(fields.is_empty());
+
+  auto *const field = new Create_field;
+  field->init_for_tmp_table(MYSQL_TYPE_LONGLONG, MAX_BIGINT_WIDTH,
+                            DECIMAL_NOT_SPECIFIED, /* is_nullable */ false,
+                            /* is_unsigned */ true, 0, "insert_id");
+  fields.push_back(field);
+
+  return &fields;
+}
+
+bool Table_function_last_insert_ids::fill_result_table() {
+  assert(fields.elements == 1);
+  assert(!table->materialized);
+  assert(table->s->fields == 1);
+
+  empty_table();
+
+  auto &field = *get_field(0);
+  assert(field.field_index() == 0);
+  auto &thd = *current_thd;
+  for (const auto insert_id_val : thd.successful_insert_ids_in_prev_stmt) {
+    field.store(insert_id_val);
+    field.set_notnull();
+    write_row();
+  }
+
+  return false;
+}

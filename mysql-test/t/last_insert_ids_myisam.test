@@ -1,0 +1,19 @@
+# Regression tests for LAST_INSERT_IDS with MyISAM. This storage engine is
+# unique in that it allows composite primary keys with auto_increment suffix
+# parts.
+--source include/have_myisam.inc
+--source include/force_myisam_default.inc
+
+CREATE TABLE t1 (
+       a CHAR(10) NOT NULL,
+       b INT NOT NULL AUTO_INCREMENT,
+       PRIMARY KEY(a,b));
+
+INSERT INTO t1 VALUES ("a",2);
+SELECT LAST_INSERT_ID();
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+
+INSERT INTO t1 VALUES ("a",NULL),("c",NULL);
+SELECT LAST_INSERT_ID();
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+DROP TABLE t1;

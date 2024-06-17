@@ -2165,6 +2165,9 @@ void THD::cleanup_after_query() {
     first_successful_insert_id_in_prev_stmt =
         first_successful_insert_id_in_cur_stmt;
     first_successful_insert_id_in_cur_stmt = 0;
+    successful_insert_ids_in_prev_stmt =
+        std::move(successful_insert_ids_in_cur_stmt);
+    successful_insert_ids_in_cur_stmt.clear();
   }
   arg_of_last_insert_id_function = false;
   /* Hack for cleaning up view security contexts */
