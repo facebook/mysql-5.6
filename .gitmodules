@@ -1,9 +1,6 @@
 [submodule "rocksdb"]
 	path = rocksdb
 	url = https://github.com/facebook/rocksdb.git
-[submodule "rqg"]
-	path = rqg
-	url = https://github.com/yoshinorim/rqg.git
 [submodule "boost"]
 	path = boost
 	url = https://github.com/boostorg/boost.git
