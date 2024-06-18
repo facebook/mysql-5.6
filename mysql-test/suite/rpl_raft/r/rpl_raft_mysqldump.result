@@ -1,0 +1,55 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+create table t1 (a int primary key, b int) engine = innodb;
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+insert into t1 values(4, 4);
+insert into t1 values(5, 5);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+begin;
+update t1 set b = 200 where a = 2;
+update t1 set b = 10 where a = 1;
+update t1 set b = 20 where a = 2;
+update t1 set b = 30 where a = 3;
+update t1 set b = 40 where a = 4;
+update t1 set b = 50 where a = 5;
+select @@global.applied_opid_set;
+@@global.applied_opid_set
+1:8,1:10-1:12
+rollback;
+include/sync_slave_sql_with_master.inc
+select @@global.applied_opid_set;
+@@global.applied_opid_set
+1:12
+reset master;
+select @@global.applied_opid_set;
+@@global.applied_opid_set
+1:8,1:10-1:12
+reset master;
+set @@global.gtid_purged = 'uuid:1-11';
+set @@global.applied_opid_set = '1:12';
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

@@ -1,0 +1,19 @@
+!include ../my.cnf
+
+[mysqld.1]
+slave_parallel_workers = 8
+slave_parallel_type = DEPENDENCY
+mts_dependency_replication = STMT
+mts_dependency_order_commits = NONE
+
+[mysqld.2]
+slave_parallel_workers = 8
+slave_parallel_type = DEPENDENCY
+mts_dependency_replication = STMT
+mts_dependency_order_commits = NONE
+
+[mysqld.3]
+slave_parallel_workers = 8
+slave_parallel_type = DEPENDENCY
+mts_dependency_replication = STMT
+mts_dependency_order_commits = NONE

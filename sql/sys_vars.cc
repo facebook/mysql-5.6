@@ -10495,6 +10495,7 @@ static Sys_var_bool Sys_fb_vector_index_cond_pushdown(
     "Default: ON",
     HINT_UPDATEABLE SESSION_VAR(fb_vector_index_cond_pushdown),
     CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static const char *fb_vector_search_type_names[] = {"KNN", "ITERATOR", nullptr};
 static Sys_var_enum Sys_fb_vector_search_type(
     "fb_vector_search_type",
@@ -10506,3 +10507,9 @@ static Sys_var_enum Sys_fb_vector_search_type(
     SESSION_VAR(fb_vector_search_type), CMD_LINE(OPT_ARG),
     fb_vector_search_type_names, DEFAULT(FB_VECTOR_SEARCH_KNN), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+std::string applied_opid_set;
+static Sys_var_applied_opid_set Sys_applied_opid_set(
+    "applied_opid_set", "Force update applied OPID set",
+    NON_PERSIST GLOBAL_VAR(applied_opid_set), NO_CMD_LINE, DEFAULT(nullptr),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr));

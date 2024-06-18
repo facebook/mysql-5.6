@@ -1,0 +1,14 @@
+SET @start_global_value = @@global.applied_opid_set;
+SELECT @start_global_value;
+
+SELECT @@global.applied_opid_set;
+error ER_INCORRECT_GLOBAL_LOCAL_VAR;
+SELECT @@session.applied_opid_set;
+
+SET @@global.applied_opid_set = "1:2";
+SET @@global.applied_opid_set = "1:2,1:5-1:11";
+SET @@global.applied_opid_set = "1:2,1:5-1:11,1:15-2:30";
+
+SELECT @@global.applied_opid_set;
+
+SET @@global.applied_opid_set = @start_global_value;

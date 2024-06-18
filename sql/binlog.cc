@@ -5940,6 +5940,15 @@ bool MYSQL_BIN_LOG::get_applied_opid_set(std::string *opid_set) {
          0;
 }
 
+bool MYSQL_BIN_LOG::set_applied_opid_set(const std::string &opid_set) {
+  if (!enable_raft_plugin) {
+    return true;
+  }
+
+  return RUN_HOOK_STRICT(raft_replication, set_applied_opid_set, (opid_set)) ==
+         0;
+}
+
 bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
                                                    const Gtid_set *gtid_set,
                                                    Gtid *first_gtid,

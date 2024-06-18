@@ -277,6 +277,11 @@ typedef struct Raft_replication_observer {
    * Callback to get the current applied opid set
    */
   int (*get_applied_opid_set)(std::string *opid_set_str);
+
+  /**
+   * Callback to set the current applied opid set
+   */
+  int (*set_applied_opid_set)(const std::string &opid_set_str);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

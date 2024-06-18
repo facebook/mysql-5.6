@@ -1015,6 +1015,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   bool get_applied_opid_set(std::string *opid_set);
 
+  bool set_applied_opid_set(const std::string &opid_set);
+
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
 

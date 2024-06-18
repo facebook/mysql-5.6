@@ -132,7 +132,8 @@ static bool opt_ignore_views = false, opt_rocksdb = false,
             opt_rocksdb_bulk_load_allow_sk = false,
             opt_order_by_primary_desc = false, opt_rocksdb_bulk_load = false,
             opt_innodb_stats_on_metadata = false, opt_set_minimum_hlc = false,
-            opt_order_by_primary_force_index = false;
+            opt_order_by_primary_force_index = false,
+            opt_set_applied_opid_set = false;
 static bool insert_pat_inited = false, debug_info_flag = false,
             debug_check_flag = false;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
@@ -772,6 +773,11 @@ static struct my_option my_long_options[] = {
      "Sets the minimum HLC in the output file based on the snapshot HLC",
      &opt_set_minimum_hlc, &opt_set_minimum_hlc, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
+    {"set-applied-opid-set", OPT_SET_APPLIED_OPID_SET,
+     "Sets the applied OPID set in the output file based on the snapshot "
+     "applied opid set",
+     &opt_set_applied_opid_set, &opt_set_applied_opid_set, 0, GET_BOOL, NO_ARG,
+     0, 0, 0, nullptr, 0, nullptr},
     {"skip-generated-invisible-primary-key", 0,
      "Controls whether generated invisible primary key and key column should "
      "be dumped or not.",
@@ -5713,7 +5719,8 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char *log_name) {
 
 static int start_transaction(MYSQL *mysql_con, char *filename_out,
                              char *pos_out, char **gtid_executed_set_pointer,
-                             char *snapshot_hlc) {
+                             char *snapshot_hlc,
+                             char **applied_opid_set_pointer) {
   verbose_msg("-- Starting transaction...\n");
   /*
     We use BEGIN for old servers. --single-transaction --source-data will fail
@@ -5762,7 +5769,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
     // get the column indexes for all necessary columns
     MYSQL_FIELD *field = NULL;
     int snapshot_hlc_col = -1, gtid_executed_col = -1;
-    int file_col = -1, position_col = -1;
+    int file_col = -1, position_col = -1, applied_opid_set_col = -1;
     for (int i = 0; (field = mysql_fetch_field(res)); i++) {
       if (strcmp("Snapshot_HLC", field->name) == 0)
         snapshot_hlc_col = i;
@@ -5772,6 +5779,8 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
         file_col = i;
       else if (strcmp("Position", field->name) == 0)
         position_col = i;
+      else if (strcmp("Applied_opid_set", field->name) == 0)
+        applied_opid_set_col = i;
     }
 
     {
@@ -5793,6 +5802,13 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
       }
 
       if (snapshot_hlc_col != -1) strcpy(snapshot_hlc, row[snapshot_hlc_col]);
+
+      if (row[applied_opid_set_col][0] != '\0') {
+        *applied_opid_set_pointer = (char *)my_malloc(
+            PSI_NOT_INSTRUMENTED, strlen(row[applied_opid_set_col]) + 1,
+            MYF(MY_WME));
+        strcpy(*applied_opid_set_pointer, row[applied_opid_set_col]);
+      }
     }
 
     mysql_free_result(res);
@@ -6515,6 +6531,7 @@ int main(int argc, char **argv) {
   char bin_log_pos[21] = "";   // 20 digits plus trailing null byte
   char snapshot_hlc[21] = "";  // 20 digits plus trailing null byte
   char *gtid_executed_set = NULL;
+  char *applied_opid_set = NULL;
   int exit_code, md_result_fd = 0;
   MY_INIT("mysqldump");
 
@@ -6587,7 +6604,7 @@ int main(int argc, char **argv) {
 
   if (opt_single_transaction &&
       start_transaction(mysql, bin_log_name, bin_log_pos, &gtid_executed_set,
-                        snapshot_hlc))
+                        snapshot_hlc, &applied_opid_set))
     goto err;
 
   /* Add 'STOP SLAVE to beginning of dump */
@@ -6601,6 +6618,14 @@ int main(int argc, char **argv) {
   if (opt_set_minimum_hlc && strlen(snapshot_hlc) != 0) {
     fprintf(md_result_file, "SET @@GLOBAL.MINIMUM_HLC_NS = %s;\n",
             snapshot_hlc);
+  }
+
+  /* Process opt_set_applied_opid_set and add SET @@GLOBAL.APPLIED_OPID_SET if
+   * required.
+   */
+  if (opt_set_applied_opid_set && strlen(applied_opid_set) != 0) {
+    fprintf(md_result_file, "SET @@GLOBAL.APPLIED_OPID_SET = '%s';\n",
+            applied_opid_set);
   }
 
   if (opt_master_data) {
@@ -6692,6 +6717,7 @@ int main(int argc, char **argv) {
 err:
   dbDisconnect(current_host);
   if (gtid_executed_set) my_free(gtid_executed_set);
+  if (applied_opid_set) my_free(applied_opid_set);
   if (!path) write_footer(md_result_file);
   free_resources();
 
