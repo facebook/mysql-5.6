@@ -1688,6 +1688,7 @@ int BufferingWindowIterator::ReadBufferedRow(bool new_partition_or_eof) {
     thd()->send_kill_message();
     return 1;
   }
+  thd()->check_yield();
   if (output_row_ready) {
     // Return the buffered row, and there are possibly more.
     // These will be checked on the next call to Read().

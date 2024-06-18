@@ -256,6 +256,7 @@ int GroupIndexSkipScanIterator::Read() {
     bool reset_max_value = true;
     while (!thd()->killed && !append_next_infix()) {
       assert(!result || !is_index_access_error(result));
+      thd()->check_yield();
       if (!min_functions->empty() || !max_functions->empty()) {
         if (min_max_keypart_asc) {
           if (!min_functions->empty()) {

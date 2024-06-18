@@ -2259,6 +2259,7 @@ bool sp_head::execute(THD *thd, bool merge_da_on_success) {
 #ifdef HAVE_PSI_ERROR_INTERFACE
       if (error_num) MYSQL_LOG_ERROR(error_num, PSI_ERROR_OPERATION_HANDLED);
 #endif
+      thd->check_yield();
     }
 
     /* Reset sp_rcontext::end_partial_result_set flag. */

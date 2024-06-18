@@ -591,6 +591,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
         if (skip_record) {
           // Row failed condition check, release lock
           table->file->unlock_row();
+          thd->check_yield();
           continue;
         }
       }
@@ -1186,6 +1187,7 @@ int DeleteRowsIterator::Read() {
       thd()->send_kill_message();
       return 1;
     } else {
+      thd()->check_yield();
       if (DoImmediateDeletesAndBufferRowIds()) {
         local_error = true;
         break;

@@ -782,6 +782,7 @@ bool sp_lex_instr::validate_lex_and_execute_core(THD *thd, uint *nextp,
 
     thd->clear_error();
     invalidate();
+    thd->check_yield();
   }
 }
 

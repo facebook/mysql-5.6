@@ -125,6 +125,7 @@ void BKAIterator::BeginNewBatch() {
 
 int BKAIterator::ReadOuterRows() {
   for (;;) {
+    thd()->check_yield();
     if (m_has_row_from_previous_batch) {
       // The outer row will be in m_outer_row_buffer already. Load it back
       // into the global table buffers; MultiRangeRowIterator has loaded other
@@ -244,6 +245,8 @@ void BKAIterator::BatchFinished() {
     BeginNewBatch();
     assert(m_state == State::NEED_OUTER_ROWS);
   }
+
+  thd()->check_yield();
 }
 
 int BKAIterator::MakeNullComplementedRow() {

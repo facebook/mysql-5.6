@@ -171,6 +171,8 @@ bool IndexMergeIterator::Init() {
           return true;
         }
 
+        thd()->check_yield();
+
         /* skip row if it will be retrieved by clustered PK scan */
         if (pk_quick_select && down_cast<IndexRangeScanIterator *>(
                                    pk_quick_select.get()->real_iterator())

@@ -2872,6 +2872,7 @@ int UpdateRowsIterator::Read() {
       thd()->send_kill_message();
       return 1;
     } else {
+      thd()->check_yield();
       local_error =
           DoImmediateUpdatesAndBufferRowIds(&trans_safe, &transactional_tables);
       diagnostics->inc_current_row_for_condition();

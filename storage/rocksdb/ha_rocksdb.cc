@@ -11000,9 +11000,13 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
 
   THD *thd = ha_thd();
   DEBUG_SYNC(thd, "rocksdb.check_flags_iri");
-  if (thd && thd->killed) {
-    rc = HA_ERR_QUERY_INTERRUPTED;
-    DBUG_RETURN(rc);
+  if (thd) {
+    if (thd->killed) {
+      rc = HA_ERR_QUERY_INTERRUPTED;
+      DBUG_RETURN(rc);
+    }
+
+    thd->check_yield();
   }
 
   switch (find_flag) {
@@ -11185,10 +11189,15 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
     DEBUG_SYNC(thd, "rocksdb.check_flags_iri_scan");
-    if (thd && thd->killed) {
-      rc = HA_ERR_QUERY_INTERRUPTED;
-      break;
+    if (thd) {
+      if (thd->killed) {
+        rc = HA_ERR_QUERY_INTERRUPTED;
+        break;
+      }
+
+      thd->check_yield();
     }
+
     /*
       This will open the iterator and position it at a record that's equal or
       greater than the lookup tuple.
@@ -11639,8 +11648,12 @@ int ha_rocksdb::get_row_by_sk(uchar *buf, const Rdb_key_def &kd,
   DBUG_ENTER_FUNC();
 
   THD *thd = ha_thd();
-  if (thd && thd->killed) {
-    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  if (thd) {
+    if (thd->killed) {
+      DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+    }
+
+    thd->check_yield();
   }
 
   Rdb_transaction *const tx = get_tx_from_thd(thd);
@@ -11779,9 +11792,13 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
 
   for (;;) {
     DEBUG_SYNC(thd, "rocksdb.check_flags_inwdi");
-    if (thd && thd->killed) {
-      rc = HA_ERR_QUERY_INTERRUPTED;
-      break;
+    if (thd) {
+      if (thd->killed) {
+        rc = HA_ERR_QUERY_INTERRUPTED;
+        break;
+      }
+
+      thd->check_yield();
     }
 
     assert(m_iterator != nullptr);
@@ -12780,8 +12797,12 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
   DBUG_ENTER_FUNC();
   int res;
   THD *thd = ha_thd();
-  if (thd && thd->killed) {
-    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  if (thd) {
+    if (thd->killed) {
+      DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+    }
+
+    thd->check_yield();
   }
 
   auto &cf = kd.get_cf();
@@ -13254,8 +13275,12 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
          (old_data == nullptr && new_data == table->record[0]));
 
   THD *thd = ha_thd();
-  if (thd && thd->killed) {
-    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  if (thd) {
+    if (thd->killed) {
+      DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+    }
+
+    thd->check_yield();
   }
 
   bool pk_changed = false;
@@ -13533,8 +13558,12 @@ int ha_rocksdb::index_init(uint idx, bool sorted MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   THD *thd = ha_thd();
-  if (thd && thd->killed) {
-    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  if (thd) {
+    if (thd->killed) {
+      DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+    }
+
+    thd->check_yield();
   }
 
   Rdb_transaction *const tx =
@@ -19424,6 +19453,8 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       if (table->in_use->killed) {
         return HA_POS_ERROR;
       }
+
+      table->in_use->check_yield();
     }
 
     if (all_eq_ranges) {
@@ -19748,6 +19779,8 @@ int ha_rocksdb::mrr_fill_buffer() {
       return HA_ERR_QUERY_INTERRUPTED;
     }
 
+    table->in_use->check_yield();
+
     new (&mrr_keys[elem]) rocksdb::Slice(buf, key_size);
     new (&mrr_statuses[elem]) rocksdb::Status;
     new (&mrr_values[elem]) rocksdb::PinnableSlice;
@@ -19835,6 +19868,8 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
   while (true) {
     while (true) {
       if (table->in_use->killed) return HA_ERR_QUERY_INTERRUPTED;
+
+      table->in_use->check_yield();
 
       if (mrr_read_index >= mrr_n_elements) {
         if (mrr_rowid_reader->eof() || mrr_n_elements == 0) {

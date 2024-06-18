@@ -1046,6 +1046,8 @@ static ha_rows read_all_rows(
       return HA_POS_ERROR;
     }
 
+    thd->check_yield();
+
     ++(*found_rows);
     num_total_records++;
     if (pq)
@@ -2018,6 +2020,7 @@ static int merge_buffers(THD *thd, Sort_param *param, IO_CACHE *from_file,
       return 1; /* purecov: inspected */
     }
     for (;;) {
+      thd->check_yield();
       merge_chunk = queue.top();
       unsigned row_length, payload_length;
       {

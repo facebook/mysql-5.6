@@ -245,22 +245,32 @@ int TableScanIterator::Read() {
        ha_rnd_next can return RECORD_DELETED for MyISAM when one thread is
        reading and another deleting without locks.
        */
-      if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+      if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) {
+        thd()->check_yield();
+        continue;
+      }
       return HandleError(tmp);
     }
     if (m_examined_rows != nullptr) {
       ++*m_examined_rows;
     }
+
+    thd()->check_yield();
   } else {
     while (true) {
       if (m_remaining_dups == 0) {  // always initially
         while ((tmp = table()->file->ha_rnd_next(m_record))) {
-          if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) continue;
+          if (tmp == HA_ERR_RECORD_DELETED && !thd()->killed) {
+            thd()->check_yield();
+            continue;
+          }
           return HandleError(tmp);
         }
         if (m_examined_rows != nullptr) {
           ++*m_examined_rows;
         }
+
+        thd()->check_yield();
 
         // Filter out rows not qualifying for INTERSECT, EXCEPT by reading
         // the counter.

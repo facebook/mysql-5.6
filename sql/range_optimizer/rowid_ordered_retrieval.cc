@@ -336,6 +336,7 @@ int RowIDIntersectionIterator::Read() {
         if (int error = child->Read(); error != 0) {
           return error;
         }
+        thd()->check_yield();
       }
     }
 
@@ -370,6 +371,7 @@ int RowIDIntersectionIterator::Read() {
           /* This row is being skipped.  Release lock on
            * it. */
           child->UnlockRow();
+          thd()->check_yield();
         }
       } while (cmp < 0);
 
@@ -387,6 +389,7 @@ int RowIDIntersectionIterator::Read() {
                 child_with_last_rowid->UnlockRow();
               return error;
             }
+            thd()->check_yield();
           }
         }
         memcpy(m_last_rowid, child_rowid, table()->file->ref_length);
