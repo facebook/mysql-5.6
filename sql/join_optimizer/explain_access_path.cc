@@ -978,12 +978,15 @@ static std::unique_ptr<Json_object> SetObjectMembers(
       TABLE *table = path->index_scan().table;
       const KEY *key = &table->key_info[path->index_scan().idx];
       string prefix;
+      const char *prefix_ptr = nullptr;
 
       if (key->is_fb_vector_index()) {
+
         prefix += table->in_use->variables.fb_vector_search_type ==
                           FB_VECTOR_SEARCH_INDEX_SCAN
                       ? "Vector"
                       : "Ordered vector";
+        prefix_ptr = prefix.c_str();
       }
 
       assert(table->file->pushed_idx_cond == nullptr ||
@@ -991,7 +994,7 @@ static std::unique_ptr<Json_object> SetObjectMembers(
               join->thd->variables.fb_vector_index_cond_pushdown));
 
       error |= SetIndexInfoInObject(
-          &description, "index_scan", prefix.c_str(), table, key, "scan",
+          &description, "index_scan", prefix_ptr, table, key, "scan",
           /*lookup condition*/ "", /*range*/ nullptr, nullptr,
           path->index_scan().reverse, table->file->pushed_idx_cond, obj);
       error |= AddChildrenFromPushedCondition(table, children);
