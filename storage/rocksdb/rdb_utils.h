@@ -144,11 +144,12 @@ namespace myrocks {
   Macros to better convey the intent behind checking the results from locking
   and unlocking mutexes.
 */
-#define RDB_MUTEX_LOCK_CHECK(m) \
-  rdb_check_mutex_call_result(__PRETTY_FUNCTION__, true, mysql_mutex_lock(&m))
-#define RDB_MUTEX_UNLOCK_CHECK(m)                         \
-  rdb_check_mutex_call_result(__PRETTY_FUNCTION__, false, \
-                              mysql_mutex_unlock(&m))
+#define RDB_MUTEX_LOCK_CHECK(m)                                   \
+  myrocks::rdb_check_mutex_call_result(__PRETTY_FUNCTION__, true, \
+                                       mysql_mutex_lock(&m))
+#define RDB_MUTEX_UNLOCK_CHECK(m)                                  \
+  myrocks::rdb_check_mutex_call_result(__PRETTY_FUNCTION__, false, \
+                                       mysql_mutex_unlock(&m))
 
 // The default limit for rdb_hexdump output length, happens to fit the longest
 // possible keys (16K)

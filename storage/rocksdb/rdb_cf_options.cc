@@ -20,7 +20,7 @@
 #endif
 
 /* This C++ files header file */
-#include "./rdb_cf_options.h"
+#include "rdb_cf_options.h"
 
 /* C++ system header files */
 #include <string>
@@ -29,9 +29,10 @@
 #include "rocksdb/utilities/options_util.h"
 
 /* MyRocks header files */
-#include "./rdb_cf_manager.h"
-#include "./rdb_compact_filter.h"
-#include "./rdb_sst_partitioner_factory.h"
+#include "rdb_cf_manager.h"
+#include "rdb_compact_filter.h"
+#include "rdb_sst_partitioner_factory.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -39,7 +40,7 @@ bool Rdb_cf_options::init(
     const rocksdb::BlockBasedTableOptions &table_options,
     std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
     std::string_view default_cf_options, std::string_view override_cf_options) {
-  if (rocksdb_enable_udt_in_mem) {
+  if (sysvars::enable_udt_in_mem) {
     m_default_cf_opts.comparator = rocksdb::BytewiseComparatorWithU64Ts();
   } else {
     m_default_cf_opts.comparator = rocksdb::BytewiseComparator();
@@ -345,7 +346,7 @@ bool Rdb_cf_options::set_override(std::string_view override_config) {
 
 bool Rdb_cf_options::is_timestamp_aware_comparator(
     const std::string_view cf_name) {
-  return rocksdb_enable_udt_in_mem && cf_name != DEFAULT_SYSTEM_CF_NAME &&
+  return sysvars::enable_udt_in_mem && cf_name != DEFAULT_SYSTEM_CF_NAME &&
          cf_name != DEFAULT_TMP_SYSTEM_CF_NAME &&
          cf_name != DEFAULT_TMP_CF_NAME;
 }

@@ -29,6 +29,7 @@
 #include "./ha_rocksdb_proto.h"
 #include "./properties_collector.h"
 #include "./rdb_datadic.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -63,7 +64,7 @@ void Rdb_event_listener::update_index_stats(
   //
   // This lag is acceptable now and we will change when it becomes
   // an issue.
-  if (rdb_is_table_scan_index_stats_calculation_enabled()) {
+  if (sysvars::is_table_scan_index_stats_calculation_enabled()) {
     return;
   }
 
@@ -83,7 +84,7 @@ void Rdb_event_listener::OnCompactionCompleted(
   assert(db != nullptr);
   assert(m_ddl_manager != nullptr);
 
-  if (rdb_is_table_scan_index_stats_calculation_enabled()) {
+  if (sysvars::is_table_scan_index_stats_calculation_enabled()) {
     return;
   }
 

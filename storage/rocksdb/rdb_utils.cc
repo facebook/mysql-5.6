@@ -310,11 +310,11 @@ void rdb_log_status_error(const rocksdb::Status &s, const char *msg) {
 }
 
 bool rdb_has_rocksdb_corruption() {
-  rocksdb::DBOptions *rocksdb_db_options = get_rocksdb_db_options();
-  assert(rocksdb_db_options->env != nullptr);
+  const auto &rocksdb_db_options = get_rocksdb_db_options();
+  assert(rocksdb_db_options.env != nullptr);
   const std::string fileName(myrocks::rdb_corruption_marker_file_name());
 
-  const auto &fs = rocksdb_db_options->env->GetFileSystem();
+  const auto &fs = rocksdb_db_options.env->GetFileSystem();
   rocksdb::IOStatus io_s =
       fs->FileExists(fileName, rocksdb::IOOptions(), nullptr);
 
@@ -322,11 +322,11 @@ bool rdb_has_rocksdb_corruption() {
 }
 
 void rdb_persist_corruption_marker() {
-  rocksdb::DBOptions *rocksdb_db_options = get_rocksdb_db_options();
-  assert(rocksdb_db_options->env != nullptr);
+  const auto &rocksdb_db_options = get_rocksdb_db_options();
+  assert(rocksdb_db_options.env != nullptr);
   const std::string fileName(myrocks::rdb_corruption_marker_file_name());
 
-  const auto &fs = rocksdb_db_options->env->GetFileSystem();
+  const auto &fs = rocksdb_db_options.env->GetFileSystem();
   std::unique_ptr<rocksdb::FSWritableFile> file;
   rocksdb::IOStatus io_s =
       fs->NewWritableFile(fileName, rocksdb::FileOptions(), &file, nullptr);

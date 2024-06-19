@@ -31,8 +31,9 @@
 #include "rocksdb/compaction_filter.h"
 
 /* MyRocks includes */
-#include "./ha_rocksdb_proto.h"
-#include "./rdb_datadic.h"
+#include "ha_rocksdb_proto.h"
+#include "rdb_datadic.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -57,14 +58,14 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
 
     m_expiration_timestamp = oldest_transaction_ts;
 
-    if (rdb_is_binlog_ttl_enabled()) {
+    if (sysvars::is_binlog_ttl_enabled()) {
       m_expiration_timestamp =
           std::min(rocksdb_binlog_ttl_compaction_timestamp.load(),
                    m_expiration_timestamp.value());
     }
 
 #ifndef NDEBUG
-    int snapshot_ts = rdb_dbug_set_ttl_snapshot_ts();
+    int snapshot_ts = sysvars::debug_set_ttl_snapshot_ts();
     if (snapshot_ts) {
       m_expiration_timestamp =
           static_cast<uint64_t>(std::time(nullptr)) + snapshot_ts;
@@ -133,7 +134,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
       If TTL is disabled set ttl_duration to 0.  This prevents the compaction
       filter from dropping expired records.
     */
-    if (!rdb_is_ttl_enabled()) {
+    if (!sysvars::is_ttl_enabled()) {
       *ttl_duration = 0;
       return;
     }
@@ -158,7 +159,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     }
 
 #ifndef NDEBUG
-    if (rdb_dbug_set_ttl_ignore_pk() &&
+    if (sysvars::debug_set_ttl_ignore_pk() &&
         index_info.m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY) {
       *ttl_duration = 0;
       return;
@@ -178,7 +179,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
                              const rocksdb::Slice &existing_value) const {
     // Case: TTL filtering is paused or expiration ts is 0 (happens on server
     // restart until the next compaction ts is calculated)
-    if (rdb_is_ttl_compaction_filter_paused() || m_expiration_timestamp == 0) {
+    if (sysvars::is_ttl_compaction_filter_paused() ||
+        m_expiration_timestamp == 0) {
       return false;
     }
 
