@@ -252,44 +252,6 @@ enum Item_func::Functype Item_func_fb_vector_json_to_blob::functype() const {
   return FB_VECTOR_JSON_TO_BLOB;
 }
 
-#ifdef WITH_FB_VECTORDB
-float Item_func_fb_vector_l2::compute_distance(const float *v1, const float *v2,
-                                               size_t dimension) {
-  return faiss::fvec_L2sqr(v1, v2, dimension);
-}
-
-float Item_func_fb_vector_ip::compute_distance(const float *v1, const float *v2,
-                                               size_t dimension) {
-  return faiss::fvec_inner_product(v1, v2, dimension);
-}
-
-bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
-  if (args[0]->null_value) {
-    return error_json();
-  }
-  try {
-    Fb_vector vector1;
-    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
-      return error_json();
-    }
-    float *data = vector1.get_data();
-    faiss::fvec_renorm_L2(vector1.get_dimension(), 1, data);
-    Json_array_ptr array(new (std::nothrow) Json_array());
-    for (size_t i = 0; i < vector1.get_dimension(); ++i) {
-      Json_double d(data[i]);
-      if (array->append_clone(&d)) {
-        return error_json();
-      }
-    }
-    Json_wrapper docw(array.release());
-    *wr = std::move(docw);
-  } catch (...) {
-    handle_std_exception(func_name());
-    return error_json();
-  }
-  return false;
-}
-
 String *Item_func_fb_vector_json_to_blob::val_str(String *) {
   assert(fixed);
   if (args[0]->null_value) {
@@ -332,6 +294,44 @@ bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
   return false;
 }
 
+#ifdef WITH_FB_VECTORDB
+float Item_func_fb_vector_l2::compute_distance(const float *v1, const float *v2,
+                                               size_t dimension) {
+  return faiss::fvec_L2sqr(v1, v2, dimension);
+}
+
+float Item_func_fb_vector_ip::compute_distance(const float *v1, const float *v2,
+                                               size_t dimension) {
+  return faiss::fvec_inner_product(v1, v2, dimension);
+}
+
+bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
+  if (args[0]->null_value) {
+    return error_json();
+  }
+  try {
+    Fb_vector vector1;
+    if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
+      return error_json();
+    }
+    float *data = vector1.get_data();
+    faiss::fvec_renorm_L2(vector1.get_dimension(), 1, data);
+    Json_array_ptr array(new (std::nothrow) Json_array());
+    for (size_t i = 0; i < vector1.get_dimension(); ++i) {
+      Json_double d(data[i]);
+      if (array->append_clone(&d)) {
+        return error_json();
+      }
+    }
+    Json_wrapper docw(array.release());
+    *wr = std::move(docw);
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_json();
+  }
+  return false;
+}
+
 #else
 
 // dummy implementation when not compiled with fb_vector
@@ -356,17 +356,6 @@ bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr
                                                 [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
   return error_bool();
-}
-
-bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr
-                                                [[maybe_unused]]) {
-  FB_VECTORDB_DISABLED_ERR;
-  return error_json();
-}
-
-String *Item_func_fb_vector_json_to_blob::val_str(String *) {
-  FB_VECTORDB_DISABLED_ERR;
-  return error_str();
 }
 
 #endif
