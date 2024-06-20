@@ -5803,7 +5803,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
 
       if (snapshot_hlc_col != -1) strcpy(snapshot_hlc, row[snapshot_hlc_col]);
 
-      if (row[applied_opid_set_col][0] != '\0') {
+      if (applied_opid_set_col != -1 && row[applied_opid_set_col][0] != '\0') {
         *applied_opid_set_pointer = (char *)my_malloc(
             PSI_NOT_INSTRUMENTED, strlen(row[applied_opid_set_col]) + 1,
             MYF(MY_WME));
