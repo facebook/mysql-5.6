@@ -6,39 +6,14 @@ CREATE TABLE t1 (
   FB_VECTOR_INDEX_TYPE 'flat'
 );
 
-let $i=1;
-
---disable_query_log
---let $one = 1.1
---let $two = 1.2
-
-while ($i <= 10) {
-
---let  $red1 = $i
---expr $red2 = $i + $one
---expr $red3 = $i + $two
-
-eval insert into t1 (color, vector1) values
-    ('red', '[$red1, $red2, $red3]');
-
---expr $green1 = $red1 * $one
---expr $green2 = $red2 * $one
---expr $green3 = $red3 * $one
-
-eval insert into t1 (color, vector1) values
-    ('green', '[$green1, $green2, $green3]');
-
---expr $blue1 = $red1 * $two
---expr $blue2 = $red2 * $two
---expr $blue3 = $red3 * $two
-
-eval insert into t1 (color, vector1) values
-    ('blue', '[$blue1, $blue2, $blue3]');
-
-inc $i;
-
-}
---enable_query_log
+disable_query_log;
+# insert id 1, 4, 7 ... 31
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 1 union all select i+1 from a where i < 10) SELECT 3*i-2, 'red', json_array(i, i+1.1, i+1.2) from a);
+# insert id 2, 5, 8 ... 32
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 1 union all select i+1 from a where i < 10) SELECT 3*i-1, 'green', json_array(i*1.1, (i+1.1)*1.1, (i+1.2)*1.1) from a);
+# insert id 3, 6, 9 ... 33
+insert into t1 (WITH RECURSIVE a(i) AS (SELECT 1 union all select i+1 from a where i < 10) SELECT 3*i, 'blue', json_array(i*1.2, (i+1.1)*1.2, (i+1.2)*1.2) from a);
+enable_query_log;
 
 --disable_warnings
 
