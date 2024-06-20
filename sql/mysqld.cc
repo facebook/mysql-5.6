@@ -126,7 +126,6 @@
 #include <poll.h>
 #endif
 
-#include <xmmintrin.h>
 #include "mpsc.h"
 
 #ifdef HAVE_FESETROUND
@@ -3523,14 +3522,37 @@ void destroy_thd(THD *thd)
 
 #ifndef EMBEDDED_LIBRARY
 
-static void mysql_pause() {
 // this is not defined for other OS's/platforms.
 // please implement this, if you want to use MPSC queue backoff for
 // those platforms. _mm_pause is only defined on GCC.
-#if defined(__GNUC__)
-  _mm_pause();
+
+#if defined _WIN32
+// the YieldProcessor macro defined in WinNT.h
+# define mysql_pause() YieldProcessor()
+#elif defined(__powerpc__)
+# include <sys/platform/ppc.h>
+# define mysql_pause() __ppc_get_timebase()
+# define LOW_PRIORITY_CPU() __ppc_set_ppr_low()
+# define RESUME_PRIORITY_CPU() __ppc_set_ppr_med()
+#elif defined(__GNUC__) && defined(__x86_64__)
+# include <xmmintrin.h>
+# define mysql_pause() _mm_pause()
+#else
+# define mysql_pause() __asm__ __volatile__ ("rep; nop")
 #endif
-}
+
+#if !defined(LOW_PRIORITY_CPU)
+# define LOW_PRIORITY_CPU() ((void)0)
+# define RESUME_PRIORITY_CPU() ((void)0)
+#endif
+
+#if defined (__GNUC__)
+# define COMPILER_BARRIER() __asm__ __volatile__ ("":::"memory")
+#elif defined (_MSC_VER)
+# define COMPILER_BARRIER() _ReadWriteBarrier()
+#else
+# define COMPILER_BARRIER() ((void)0)
+#endif
 
 // lockless mpsc backoff
 static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
@@ -3538,8 +3560,15 @@ static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
   if (*num_backoffs < 10)
     mysql_pause();
   else if (*num_backoffs < 20)
+  {
+    LOW_PRIORITY_CPU();
     for (int i = 0; i != 50; i++)
+    {
+      COMPILER_BARRIER();
       mysql_pause();
+    }
+    RESUME_PRIORITY_CPU();
+  }
   else if (*num_backoffs < 22)
     pthread_yield();
   else if (*num_backoffs < 24)
@@ -3552,7 +3581,7 @@ static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
     my_sleep(10000);
   (*num_backoffs)++;
 }
-#endif
+#endif /* EMBEDDED_LIBRARY */
 
 /**
   Block the current pthread for reuse by new connections.
