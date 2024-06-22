@@ -970,6 +970,7 @@ rocksdb_delete_cf
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disable_file_deletions	OFF
 rocksdb_disable_instant_ddl	OFF
+rocksdb_enable_autoinc_compat_mode	OFF
 rocksdb_enable_bulk_load_api	ON
 rocksdb_enable_delete_range_for_drop_index	OFF
 rocksdb_enable_insert_with_update_caching	ON
@@ -2844,6 +2845,50 @@ a
 10
 11
 DROP TABLE t1;
+SET rocksdb_enable_autoinc_compat_mode = 1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 VALUES(0),(-1),(0);
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	1000	0	0	0	0	0	4	#	#	NULL	latin1_swedish_ci	NULL		
+SELECT * FROM t1;
+a
+-1
+1
+2
+DROP TABLE t1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 VALUES(0),(10),(0);
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	1000	0	0	0	0	0	13	#	#	NULL	latin1_swedish_ci	NULL		
+SELECT * FROM t1;
+a
+1
+10
+11
+INSERT INTO t1 VALUES (NULL), (NULL), (10), (NULL), (20), (NULL);
+ERROR 23000: Duplicate entry '10' for key 't1.PRIMARY'
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	1000	0	0	0	0	0	19	#	#	NULL	latin1_swedish_ci	NULL		
+INSERT INTO t1 VALUES (NULL), (NULL), (40), (NULL), (30), (NULL);
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	1000	0	0	0	0	0	43	#	#	NULL	latin1_swedish_ci	NULL		
+SELECT * FROM t1;
+a
+1
+10
+11
+19
+20
+30
+40
+41
+42
+DROP TABLE t1;
+SET rocksdb_enable_autoinc_compat_mode = 0;
 #
 # Issue #411: Setting rocksdb_commit_in_the_middle commits transaction
 # without releasing iterator

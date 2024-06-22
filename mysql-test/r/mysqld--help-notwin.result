@@ -2219,6 +2219,10 @@ The following options may be given as the first argument:
  --rocksdb-disable-instant-ddl 
  Disable instant ddl during alter table, This variable is
  deprecated
+ --rocksdb-enable-autoinc-compat-mode 
+ if enabled, allow simple inserts generate consecutive
+ autoinc values, similar to behavior as
+ innodb_autoinc_lock_mode = 2
  --rocksdb-enable-bulk-load-api 
  Enables using SstFileWriter for bulk loading
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
@@ -3924,6 +3928,7 @@ rocksdb-delete-cf
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disable-file-deletions FALSE
 rocksdb-disable-instant-ddl FALSE
+rocksdb-enable-autoinc-compat-mode FALSE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-delete-range-for-drop-index FALSE
 rocksdb-enable-insert-with-update-caching TRUE

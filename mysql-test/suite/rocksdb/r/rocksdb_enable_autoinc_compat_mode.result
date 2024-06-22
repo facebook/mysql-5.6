@@ -1,0 +1,194 @@
+#
+# simple inserts: auto increment PK
+# 
+SET rocksdb_enable_autoinc_compat_mode = 1;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+SET rocksdb_enable_autoinc_compat_mode = 1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 values (),(),();
+SET rocksdb_enable_autoinc_compat_mode = 1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 values (),(),();
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+SET debug_sync='now SIGNAL go';
+INSERT INTO t2 values (LAST_INSERT_ID());
+INSERT INTO t2 values (LAST_INSERT_ID());
+SET debug_sync='RESET';
+SELECT * FROM t1;
+pk
+1
+2
+3
+4
+5
+6
+SELECT * FROM t2;
+pk
+1
+4
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# simple inserts: auto increment SK
+# 
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT AUTO_INCREMENT, KEY(a)) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 (pk) VALUES (2), (1);
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 (pk) values (3),(4);
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+SET debug_sync='now SIGNAL go';
+INSERT INTO t2 values (LAST_INSERT_ID());
+INSERT INTO t2 values (LAST_INSERT_ID());
+SET debug_sync='RESET';
+SELECT * FROM t2;
+pk
+1
+3
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# mixed inserts
+# 
+CREATE TABLE t1 (
+c1 INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+c2 CHAR(1));
+INSERT INTO t1 VALUES(100, '0');
+INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (5,'c'), (NULL,'d');
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+101
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	23	#	0	0	0	105	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+SELECT c1, c2 FROM t1 ORDER BY c2;
+c1	c2
+100	0
+1	a
+101	b
+5	c
+102	d
+INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (101,'c'), (NULL,'d');
+Got one of the listed errors
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	23	#	0	0	0	105	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+#
+# insert on duplicate
+#
+CREATE TABLE t1 (a INT, b CHAR(8), c INT DEFAULT 0, pk INT AUTO_INCREMENT PRIMARY KEY, UNIQUE INDEX(a,b)) ENGINE=rocksdb;
+INSERT INTO t1 (a,b) VALUES (1,'a');
+INSERT INTO t1 (a,b) VALUES (1,'a'), (1,'a'), (1,'a'), (1,'a') ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT a,b,c,pk FROM t1;
+a	b	c	pk
+1	a	4	1
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	80	#	0	0	0	6	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+#
+# bulk insert 
+#
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1(b) VALUES(1),(2),(3),(4),(5),(6),(7),(8),(9);
+INSERT INTO t1(b) SELECT b FROM t1;
+SELECT a, b FROM t1;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	1
+11	2
+12	3
+13	4
+14	5
+15	6
+16	7
+17	8
+18	9
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	23	#	0	0	0	25	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT into t1(b) select b from t1;
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	0	#	0	0	0	1	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+#
+# auto vars
+#
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+SET auto_increment_increment = 100;
+SET auto_increment_offset = 6;
+SET auto_increment_increment = 100;
+SET auto_increment_offset = 8;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 values (),(),();
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+INSERT INTO t1 values (),(),();
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+SET debug_sync='now SIGNAL go';
+INSERT INTO t2 values (LAST_INSERT_ID());
+INSERT INTO t2 values (LAST_INSERT_ID());
+SET debug_sync='RESET';
+SELECT count(*) FROM t2 where pk = 208 or pk = 306;
+count(*)
+1
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# auto vars(max)
+#
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 values(2147483640);
+SET auto_increment_increment = 2;
+INSERT INTO t1 values (),(),(),(),();
+ERROR HY000: Failed to read auto-increment value from storage engine
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	18	#	0	0	0	2147483647	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+CREATE TABLE t1 (pk BIGINT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 values(9223372036854775800);
+SET auto_increment_increment = 2;
+INSERT INTO t1 values (),(),(),(),();
+ERROR HY000: Failed to read auto-increment value from storage engine
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	22	#	0	0	0	9223372036854775807	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+SET auto_increment_increment = default;
+SET auto_increment_offset = default;
+#
+# Issue 263: MyRocks auto_increment skips values if you insert a negative value
+#
+create table t1(a int auto_increment key);
+INSERT INTO t1 VALUES(0),(-1),(0);
+select a from t1;
+a
+-1
+1
+2
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Dynamic	#	18	#	0	0	0	4	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
+DROP TABLE t1;
+SET rocksdb_enable_autoinc_compat_mode = default;

@@ -1914,6 +1914,38 @@ SHOW TABLE STATUS LIKE 't1';
 SELECT * FROM t1;
 DROP TABLE t1;
 
+# With rocksdb_enable_autoinc_compact_mode == 1, Rocksdb should behavior 
+# similar to InnoDB -  will reserve 3 values but only use 2 of them (because
+# the user hard-coded a -1 as the second value). SHOW TABLE STATUS will also 
+# indicate that the next auto-increment value is 4 as INNODB.
+
+SET rocksdb_enable_autoinc_compat_mode = 1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 VALUES(0),(-1),(0);
+--replace_column 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+SELECT * FROM t1;
+DROP TABLE t1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
+INSERT INTO t1 VALUES(0),(10),(0);
+--replace_column 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+SELECT * FROM t1;
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (NULL), (NULL), (10), (NULL), (20), (NULL);
+--replace_column 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+
+INSERT INTO t1 VALUES (NULL), (NULL), (40), (NULL), (30), (NULL);
+--replace_column 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+SELECT * FROM t1;
+
+
+DROP TABLE t1;
+SET rocksdb_enable_autoinc_compat_mode = 0;
+
 --echo #
 --echo # Issue #411: Setting rocksdb_commit_in_the_middle commits transaction
 --echo # without releasing iterator

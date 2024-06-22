@@ -1,0 +1,249 @@
+--source include/have_rocksdb.inc
+--source include/have_debug.inc
+--source include/count_sessions.inc
+
+# Set up connections
+connect (con1, localhost, root,,);
+connect (con2, localhost, root,,);
+
+--echo #
+--echo # simple inserts: auto increment PK
+--echo # 
+connection default;
+SET rocksdb_enable_autoinc_compat_mode = 1;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+
+connection con1;
+SET rocksdb_enable_autoinc_compat_mode = 1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 values (),(),();
+
+connection con2;
+SET rocksdb_enable_autoinc_compat_mode = 1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 values (),(),();
+
+# Wait for both threads to be at debug_sync point
+connection default;
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+
+# Signal both threads to continue
+SET debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+# either 1 or 4
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection con2;
+reap;
+# either 1 or 4
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection default;
+SET debug_sync='RESET';
+SELECT * FROM t1;
+SELECT * FROM t2;
+DROP TABLE t1;
+DROP TABLE t2;
+
+--echo #
+--echo # simple inserts: auto increment SK
+--echo # 
+connection default;
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT AUTO_INCREMENT, KEY(a)) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+
+connection con1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 (pk) VALUES (2), (1);
+
+connection con2;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 (pk) values (3),(4);
+
+# Wait for both threads to be at debug_sync point
+connection default;
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+
+# Signal both threads to continue
+SET debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+# either 1 or 3
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection con2;
+reap;
+# either 1 or 3
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection default;
+SET debug_sync='RESET';
+SELECT * FROM t2;
+DROP TABLE t1;
+DROP TABLE t2;
+
+
+--echo #
+--echo # mixed inserts
+--echo # 
+CREATE TABLE t1 (
+c1 INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+c2 CHAR(1));
+
+# set auto val
+INSERT INTO t1 VALUES(100, '0');
+# when rocksdb_enable_autoinc_compat_mode is true,
+# it always allocate "number of rows" autoinc value
+# auto val will be 101 + 4 = 105 
+INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (5,'c'), (NULL,'d');
+SELECT LAST_INSERT_ID();
+
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+
+SELECT c1, c2 FROM t1 ORDER BY c2;
+
+--error ER_DUP_ENTRY, 23000
+INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (101,'c'), (NULL,'d');
+
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+
+DROP TABLE t1;
+
+--echo #
+--echo # insert on duplicate
+--echo #
+CREATE TABLE t1 (a INT, b CHAR(8), c INT DEFAULT 0, pk INT AUTO_INCREMENT PRIMARY KEY, UNIQUE INDEX(a,b)) ENGINE=rocksdb;
+INSERT INTO t1 (a,b) VALUES (1,'a');
+# when rocksdb_enable_autoinc_compat_mode is true, 
+# it always "allocate number" of rows autoinc values
+# after insert, auto val will be 2 + 4 = 6
+INSERT INTO t1 (a,b) VALUES (1,'a'), (1,'a'), (1,'a'), (1,'a') ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+SELECT a,b,c,pk FROM t1;
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+--echo #
+--echo # bulk insert 
+--echo #
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT INTO t1(b) VALUES(1),(2),(3),(4),(5),(6),(7),(8),(9);
+# when rocksdb_enable_autoinc_compat_mode is true, SQL layer will try to 
+# allocate 1,2,4,8,...after insert, auto val will be 10 + 1 + 2 + 4 + 8 = 25
+# since (1 + 2 + 4 + 8) > 9 rows
+INSERT INTO t1(b) SELECT b FROM t1;
+
+SELECT a, b FROM t1;
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+
+CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
+INSERT into t1(b) select b from t1;
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+--echo #
+--echo # auto vars
+--echo #
+connection default;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=rocksdb;
+
+connection con1;
+SET auto_increment_increment = 100;
+SET auto_increment_offset = 6;
+
+connection con2;
+SET auto_increment_increment = 100;
+SET auto_increment_offset = 8;
+
+connection con1;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked1 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 values (),(),();
+
+connection con2;
+SET debug_sync='rocksdb.autoinc_vars SIGNAL parked2 WAIT_FOR go NO_CLEAR_EVENT';
+SEND INSERT INTO t1 values (),(),();
+
+# Wait for both threads to be at debug_sync point
+connection default;
+SET debug_sync='now WAIT_FOR parked1';
+SET debug_sync='now WAIT_FOR parked2';
+
+# Signal both threads to continue
+SET debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+# either 6 or 306 
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection con2;
+reap;
+# either 8 or 208
+INSERT INTO t2 values (LAST_INSERT_ID());
+
+connection default;
+SET debug_sync='RESET';
+SELECT count(*) FROM t2 where pk = 208 or pk = 306;
+DROP TABLE t1;
+DROP TABLE t2;
+
+--echo #
+--echo # auto vars(max)
+--echo #
+connection default;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 values(2147483640);
+SET auto_increment_increment = 2;
+--error ER_AUTOINC_READ_FAILED
+INSERT INTO t1 values (),(),(),(),();
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+CREATE TABLE t1 (pk BIGINT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 values(9223372036854775800);
+SET auto_increment_increment = 2;
+--error ER_AUTOINC_READ_FAILED
+INSERT INTO t1 values (),(),(),(),();
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+SET auto_increment_increment = default;
+SET auto_increment_offset = default;
+
+--echo #
+--echo # Issue 263: MyRocks auto_increment skips values if you insert a negative value
+--echo #
+create table t1(a int auto_increment key);
+INSERT INTO t1 VALUES(0),(-1),(0);
+select a from t1;
+# original issue auto_increment will be 6 instead of 3/4
+# when rocksdb_enable_autoinc_compat_mode is ture, auto_increment will be 4, 
+#      since it always allocate "number of rows" auto values
+# when rocksdb_enable_autoinc_compat_mode is false, auto_increment will be 3
+--replace_column 5 # 7 # 12 # 13 #
+SHOW TABLE STATUS LIKE 't1';
+DROP TABLE t1;
+
+# cleanup
+disconnect con1;
+disconnect con2;
+connection default;
+SET rocksdb_enable_autoinc_compat_mode = default;
+
+--source include/wait_until_count_sessions.inc

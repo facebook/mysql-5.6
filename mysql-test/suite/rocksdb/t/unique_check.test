@@ -258,6 +258,50 @@ drop table t1;
 set debug_sync='RESET';
 
 --echo #
+--echo # Issue#1026, testcase #2 (with READ-COMMITTED) with compat mode.
+--echo #
+SET rocksdb_enable_autoinc_compat_mode = 1;
+
+CREATE table t1 (
+  pk0 int primary key auto_increment,
+  sk int,
+  val int default 0,
+  unique(sk)
+) engine=rocksdb;
+
+insert into t1 (sk) values (20), (30);
+
+connect (con1, localhost, root,,);
+
+connection con1;
+set transaction_isolation='READ-COMMITTED';
+begin;
+set debug_sync='rocksdb.after_unique_sk_check SIGNAL here WAIT_FOR go';
+send 
+insert into t1 (sk) values (1), (2) on duplicate key update val = val + 1;
+
+connection default;
+set debug_sync='now WAIT_FOR here';
+begin;
+insert into t1 (sk) values (2);
+commit;
+set debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+commit;
+
+connection default;
+disconnect con1;
+
+select * from t1;
+
+drop table t1;
+
+set debug_sync='RESET';
+SET rocksdb_enable_autoinc_compat_mode = 0;
+
+--echo #
 --echo # Issue#1026, testcase #3 (with READ-COMMITTED and PK).
 --echo #
 
