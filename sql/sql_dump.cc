@@ -247,6 +247,10 @@ static void set_pk_fields(TABLE *table) {
   THD_STAGE_INFO(thd, stage_dumping_chunk);
 
   lex_start(thd);
+
+  // Copy over relevant session vars from the main thread.
+  thd->variables.select_into_buffer_size = args->select_into_buffer_size;
+
   thd_inited = true;
   DBUG_PRINT("dump", ("Dump worker started"));
 
@@ -422,6 +426,7 @@ bool Sql_cmd_dump_table::start_threads(THD *thd, TABLE_SHARE *share,
     arg->share = share;
     arg->queue = &m_work_queue;
     arg->snapshot_id = snapshot_id;
+    arg->select_into_buffer_size = thd->variables.select_into_buffer_size;
 
     int error = mysql_thread_create_seq(key_thread_dump_worker, i, handles + i,
                                         &thr_attr, dump_worker, arg);

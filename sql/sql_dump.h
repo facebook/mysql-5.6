@@ -138,6 +138,14 @@ class Sql_cmd_dump_table final : public Sql_cmd {
       [in] Work queue of chunks to process.
     */
     Work_queue<Dump_work_item> *queue;
+
+    /**
+      [in] Size of IO_CACHE to use when writing results. Can have a significant
+      impact on performance when writing to slow devices (e.g. remote storage.)
+
+      Copied from the main thread.
+    */
+    ulong select_into_buffer_size{0};
   };
 
   static void *dump_worker(void *arg);
