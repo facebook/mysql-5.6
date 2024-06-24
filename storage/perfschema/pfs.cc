@@ -8325,9 +8325,21 @@ PSI_memory_key pfs_memory_alloc_vc(PSI_memory_key key, size_t size,
       *owner_thread = nullptr;
       return PSI_NOT_INSTRUMENTED;
     }
+
     if (!pfs_thread->m_enabled) {
       *owner_thread = nullptr;
       return PSI_NOT_INSTRUMENTED;
+    }
+
+    if (pfs_thread->m_cnt_thd != nullptr) {
+      PFS_thread *potential_owner_pfs_thread =
+          reinterpret_cast<PFS_thread *>(pfs_thread->m_cnt_thd->get_psi());
+
+      if (likely(potential_owner_pfs_thread != nullptr)) {
+        if (potential_owner_pfs_thread->m_enabled) {
+          pfs_thread = potential_owner_pfs_thread;
+        }
+      }
     }
 
     if (klass->has_enforced_memory_cnt()) {
