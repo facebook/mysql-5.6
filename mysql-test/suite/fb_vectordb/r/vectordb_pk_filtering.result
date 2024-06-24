@@ -120,8 +120,7 @@ EXPLAIN FORMAT=TREE
 SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
 EXPLAIN
 -> Limit: 10 row(s)  (rows=1)
-    -> Filter: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
-        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
 
 
 Test EXPLAIN FORMAT=JSON
@@ -160,8 +159,7 @@ EXPLAIN
         "used_columns": [
           "pk",
           "vector1"
-        ],
-        "attached_condition": "((`test`.`t1`.`pk` in (1,5)) or (`test`.`t1`.`pk` like '1%'))"
+        ]
       }
     }
   }
@@ -369,8 +367,7 @@ EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 EXPLAIN
 -> Limit: 10 row(s)  (rows=1)
-    -> Filter: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
-        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
 
 
 Test EXPLAIN FORMAT=JSON
@@ -410,8 +407,7 @@ EXPLAIN
           "pk_keypart_1",
           "pk_keypart_2",
           "vector1"
-        ],
-        "attached_condition": "((`test`.`t1`.`pk_keypart_2` > 20) and (`test`.`t1`.`pk_keypart_1` like '1%'))"
+        ]
       }
     }
   }
@@ -656,19 +652,24 @@ drop table t1;
 
 ---------------------------------------------------
 Test PK filtering with PK keys parts (CHAR, BIGINT) 
+and non key parts (CHAR) and (INT)
 ---------------------------------------------------
 
 CREATE TABLE t1 (   
 pk_char_keypart_1 CHAR (16) NOT NULL,
 pk_bigint_keypart_2 BIGINT NOT NULL,
 vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+non_key_char CHAR (16) NOT NULL,
+non_key_int INT NOT NULL,
 PRIMARY KEY (pk_char_keypart_1, pk_bigint_keypart_2),
 INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
 );
-insert into t1 values ('one', 1, '[1, 1, 1]'), ('two', 2, '[2, 2, 2]'), ('three', 3, '[3, 3, 3]'), 
-('four', 4, '[4, 4, 4]'), ('five', 5, '[5, 5, 5]'), ('six', 6, '[6, 6, 6]');
-insert into t1 values ('seven', 7, '[11, 1, 1]'), ('eight', 8, '[21, 2, 2]'), ('nine', 9, '[31, 3, 3]'), 
-('ten', 10, '[41, 4, 4]'), ('eleven', 11, '[51, 5, 5]'), ('twelve', 12, '[61, 6, 6]');
+insert into t1 values ('one', 1, '[1, 1, 1]', 'FIRST', 6), ('two', 2, '[2, 2, 2]', 'FIRST', 5), 
+('three', 3, '[3, 3, 3]', 'FIRST', 4), ('four', 4, '[4, 4, 4]', 'FIRST', 3), 
+('five', 5, '[5, 5, 5]', 'FIRST', 2), ('six', 6, '[6, 6, 6]', 'FIRST', 1);
+insert into t1 values ('seven', 7, '[11, 1, 1]', 'SECOND', 12), ('eight', 8, '[21, 2, 2]', 'SECOND', 11), 
+('nine', 9, '[31, 3, 3]', 'SECOND', 10), ('ten', 10, '[41, 4, 4]', 'SECOND', 9), 
+('eleven', 11, '[51, 5, 5]', 'SECOND', 8), ('twelve', 12, '[61, 6, 6]', 'SECOND', 7);
 
 Vector distance ordering for reference:
 explain
@@ -676,21 +677,21 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis 
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_bigint_keypart_2` AS `pk_bigint_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_bigint_keypart_2` AS `pk_bigint_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`non_key_char` AS `non_key_char`,`test`.`t1`.`non_key_int` AS `non_key_int`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-seven	7	[11, 1, 1]	10.75
-six	6	[6, 6, 6]	60.75
-five	5	[5, 5, 5]	64.75
-eight	8	[21, 2, 2]	74.75
-four	4	[4, 4, 4]	74.75
-three	3	[3, 3, 3]	90.75
-two	2	[2, 2, 2]	112.75
-one	1	[1, 1, 1]	140.75
-nine	9	[31, 3, 3]	342.75
-ten	10	[41, 4, 4]	814.75
-eleven	11	[51, 5, 5]	1490.75
-twelve	12	[61, 6, 6]	2370.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+eight	8	[21, 2, 2]	SECOND	11	74.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -699,17 +700,17 @@ test	t1	vector_key_1	flat	12	12
 
 open ended range 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-seven	7	[11, 1, 1]	10.75
-six	6	[6, 6, 6]	60.75
-five	5	[5, 5, 5]	64.75
-four	4	[4, 4, 4]	74.75
-three	3	[3, 3, 3]	90.75
-two	2	[2, 2, 2]	112.75
-one	1	[1, 1, 1]	140.75
-nine	9	[31, 3, 3]	342.75
-ten	10	[41, 4, 4]	814.75
-twelve	12	[61, 6, 6]	2370.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -718,17 +719,17 @@ test	t1	vector_key_1	flat	10	10
 
 bounded range
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-seven	7	[11, 1, 1]	10.75
-six	6	[6, 6, 6]	60.75
-five	5	[5, 5, 5]	64.75
-four	4	[4, 4, 4]	74.75
-three	3	[3, 3, 3]	90.75
-one	1	[1, 1, 1]	140.75
-nine	9	[31, 3, 3]	342.75
-ten	10	[41, 4, 4]	814.75
-eleven	11	[51, 5, 5]	1490.75
-twelve	12	[61, 6, 6]	2370.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -737,10 +738,10 @@ test	t1	vector_key_1	flat	10	10
 
 IN list
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-five	5	[5, 5, 5]	64.75
-three	3	[3, 3, 3]	90.75
-one	1	[1, 1, 1]	140.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+five	5	[5, 5, 5]	FIRST	2	64.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -749,11 +750,11 @@ test	t1	vector_key_1	flat	3	3
 
 IN list with EQ condition
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-seven	7	[11, 1, 1]	10.75
-five	5	[5, 5, 5]	64.75
-three	3	[3, 3, 3]	90.75
-one	1	[1, 1, 1]	140.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -762,29 +763,248 @@ test	t1	vector_key_1	flat	4	4
 
 IN list with LIKE clause
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
-pk_char_keypart_1	pk_bigint_keypart_2	vector1	dis
-six	6	[6, 6, 6]	60.75
-five	5	[5, 5, 5]	64.75
-two	2	[2, 2, 2]	112.75
-one	1	[1, 1, 1]	140.75
-ten	10	[41, 4, 4]	814.75
-eleven	11	[51, 5, 5]	1490.75
-twelve	12	[61, 6, 6]	2370.75
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	7	7
 
-Test EXPLAIN FORMAT=TREE
+Test EXPLAIN FORMAT=TREE with PK condition
+The entire PK condition will be pushed down to the vector index
+
+1.   Ordered vector index scan (KNN_FIRST) will be chosen by default
 
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 EXPLAIN
 -> Limit: 10 row(s)  (rows=1)
-    -> Filter: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
-        -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
 
+
+2.   Override access method via session var 
+
+set session fb_vector_search_type = ITERATOR;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
+set session fb_vector_search_type = AUTO;
+
+3.   Override access method via query hint
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Test EXPLAIN FORMAT=TREE with non PK condition
+The entire non-PK condition will be implemented as a filter operator
+and nothing should get pushed down to the vector index
+
+1.   Vector index scan (with filesort) will be chosen by default
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+2.   Override access method via session var 
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+set session fb_vector_search_type = AUTO;
+
+3.   Override access method via query hint
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
+PK and non PK conditions will both be implemented as a filter operator on 
+top of "vector index scan" or "ordered vector index scan" (in case of override)
+
+1.   Vector index scan (with filesort) will be chosen by default
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+2.   Override access method via session var 
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+set session fb_vector_search_type = AUTO;
+
+3.   Override access method via query hint
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
+non PK conditions should be implemented as a filter operator.
+PK condition should be extracted and pushed down to "vector index scan" operator,
+or "ordered vector index scan" operator if the default is overriden
+
+1.   Vector index scan (with filesort) will be chosen by default
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+2.   Override access method via session var 
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
+set session fb_vector_search_type = AUTO;
+
+3.   Override access method via query hint
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
 drop table t1;
 
 ----------------------------------------------------

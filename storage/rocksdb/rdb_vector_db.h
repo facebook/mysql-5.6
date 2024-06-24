@@ -142,7 +142,7 @@ class Rdb_vector_db_handler {
   Rdb_vector_db_handler();
 
   bool has_more_results() {
-    if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+    if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
       return !m_search_result.empty() &&
              m_vector_db_result_iter != m_search_result.cend();
     } else {
@@ -154,7 +154,7 @@ class Rdb_vector_db_handler {
   void next_result() {
     if (!has_more_results()) return;
 
-    if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+    if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
       ++m_vector_db_result_iter;
     } else {
       m_index_scan_result_iter->next();
@@ -196,7 +196,7 @@ class Rdb_vector_db_handler {
   }
 
   void vector_index_orderby_end() {
-    m_search_type = FB_VECTOR_SEARCH_KNN;
+    m_search_type = FB_VECTOR_SEARCH_KNN_FIRST;
     m_metric = FB_VECTOR_INDEX_METRIC::NONE;
     // reset ORDER BY related
     m_limit = 0;
@@ -211,7 +211,7 @@ class Rdb_vector_db_handler {
  private:
   // input vector from the USER query,
   std::vector<float> m_buffer;
-  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN;
+  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN_FIRST;
   std::vector<std::pair<std::string, float>> m_search_result;
   decltype(m_search_result.cbegin()) m_vector_db_result_iter;
   std::unique_ptr<Rdb_vector_db_iterator> m_index_scan_result_iter = nullptr;

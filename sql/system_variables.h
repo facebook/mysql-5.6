@@ -143,8 +143,9 @@ enum enum_enable_jemalloc {
 
 /** Values for fb_vector_search_type */
 enum enum_fb_vector_search_type {
-  FB_VECTOR_SEARCH_KNN = 0,
-  FB_VECTOR_SEARCH_INDEX_SCAN = 1,
+  FB_VECTOR_SEARCH_NO_PREF = 0,
+  FB_VECTOR_SEARCH_KNN_FIRST = 1,
+  FB_VECTOR_SEARCH_INDEX_SCAN = 2,
 };
 
 /* Bits for different SQL modes modes (including ANSI mode) */

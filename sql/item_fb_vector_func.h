@@ -38,7 +38,7 @@ class Item_func_fb_vector_distance : public Item_real_func {
 
   // hints passed to storage engine
   ha_rows m_limit = 0;
-  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN;
+  enum_fb_vector_search_type m_search_type = FB_VECTOR_SEARCH_KNN_FIRST;
   uint m_nprobe = 0;
 
  protected:

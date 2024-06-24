@@ -3241,11 +3241,54 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
             (table->key_info[keynr].is_fb_vector_index() &&
              (join->thd->variables.fb_vector_index_cond_pushdown) &&
              qep_tab->condition())) {
+          assert(join->order.order->item);
+          Item *row_cond = qep_tab->condition();
           Item *pk_idx_cond = make_cond_for_index(qep_tab->condition(), table,
                                                   table->s->primary_key,
                                                   false /*other_tbls_ok */);
-          if (pk_idx_cond)
-            table->file->idx_cond_push(qep_tab->index(), pk_idx_cond);
+          if (pk_idx_cond) {
+            Item *idx_remainder_cond =
+                table->file->idx_cond_push(qep_tab->index(), pk_idx_cond);
+
+            row_cond = make_cond_remainder(qep_tab->condition(), true);
+
+            if (row_cond) {
+              and_conditions(&row_cond, idx_remainder_cond);
+              idx_remainder_cond = row_cond;
+            }
+            qep_tab->set_condition(idx_remainder_cond);
+          }
+
+          if (row_cond) {
+            Item_func_fb_vector_distance *item_func =
+                down_cast<Item_func_fb_vector_distance *>(
+                    *(join->order.order->item));
+
+            /* At this stage, the search type should be one of these two */
+            assert((item_func->m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) ||
+                   (item_func->m_search_type == FB_VECTOR_SEARCH_KNN_FIRST));
+
+            /*
+              4. If the query conditions prevent using KNN_FIRST (for the sake
+                 of query correctness), then again we will switch to ITERATOR,
+                 unless the user has provided preference for KNN_FIRST
+
+              The previous 3 points related to changing the vector index access
+              access method are implemented in test_if_order_by_key()
+            */
+            if (join->thd->variables.fb_vector_search_type !=
+                FB_VECTOR_SEARCH_KNN_FIRST) {
+              /*
+                 We have a condition that cannot be pushed to the storage
+                 engine. This will cause wrong results if we rely on the
+                 KNN first approach for vector search. Therefore, switch the
+                 access method to FB_VECTOR_SEARCH_INDEX_SCAN (which uses the
+                 vector iterator method, unless there is a config override
+                 preventing this.
+              */
+              item_func->m_search_type = FB_VECTOR_SEARCH_INDEX_SCAN;
+            }
+          }
         }
 
         if (tab->position()->filter_effect != COND_FILTER_STALE_NO_CONST &&

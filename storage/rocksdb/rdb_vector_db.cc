@@ -921,7 +921,10 @@ uint Rdb_vector_db_handler::search(THD *thd, const TABLE *const tbl,
                                    Rdb_vector_index *index,
                                    const Rdb_key_def *sk_descr,
                                    Item *pk_index_cond) {
-  if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+  assert((m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) ||
+         (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST));
+
+  if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
     return knn_search(thd, tbl, index, sk_descr, pk_index_cond);
   } else {
     return index_scan(thd, tbl, index, sk_descr, pk_index_cond);
@@ -977,7 +980,7 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
 }
 
 uint Rdb_vector_db_handler::current_key(std::string &key) const {
-  if (m_search_type == FB_VECTOR_SEARCH_KNN) {
+  if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
     key = m_vector_db_result_iter->first;
     return HA_EXIT_SUCCESS;
   } else {

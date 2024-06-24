@@ -10496,17 +10496,22 @@ static Sys_var_bool Sys_fb_vector_index_cond_pushdown(
     HINT_UPDATEABLE SESSION_VAR(fb_vector_index_cond_pushdown),
     CMD_LINE(OPT_ARG), DEFAULT(true));
 
-static const char *fb_vector_search_type_names[] = {"KNN", "ITERATOR", nullptr};
+static const char *fb_vector_search_type_names[] = {"AUTO", "KNN", "ITERATOR",
+                                                    nullptr};
 static Sys_var_enum Sys_fb_vector_search_type(
     "fb_vector_search_type",
     "This parameter controls the algorithm that is used to search through the "
-    "vector db ivf index. When it is set to KNN, KNN search will be used to "
+    "vector db ivf index. When it is set to KNN, KNN search will be done first "
+    "to "
     "return the k nearest neighbor points around the closest centroids. "
     "When it is set to ITERATOR, index scan will be used to iterate through "
-    "all entries around the nearest centroids.",
-    SESSION_VAR(fb_vector_search_type), CMD_LINE(OPT_ARG),
-    fb_vector_search_type_names, DEFAULT(FB_VECTOR_SEARCH_KNN), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+    "all entries around the nearest centroids. KNN search will be done in SQL "
+    "layer. "
+    "When set to AUTO, the best vector access method will be used depending on "
+    "query conditions. Default: AUTO. ",
+    HINT_UPDATEABLE SESSION_VAR(fb_vector_search_type), CMD_LINE(OPT_ARG),
+    fb_vector_search_type_names, DEFAULT(FB_VECTOR_SEARCH_NO_PREF),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 std::string applied_opid_set;
 static Sys_var_applied_opid_set Sys_applied_opid_set(

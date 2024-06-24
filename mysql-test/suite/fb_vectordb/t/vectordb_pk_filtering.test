@@ -406,6 +406,7 @@ drop table t1;
 --echo
 --echo ---------------------------------------------------
 --echo Test PK filtering with PK keys parts (CHAR, BIGINT) 
+--echo      and non key parts (CHAR) and (INT)
 --echo ---------------------------------------------------
 --echo
 
@@ -413,15 +414,19 @@ CREATE TABLE t1 (
   pk_char_keypart_1 CHAR (16) NOT NULL,
   pk_bigint_keypart_2 BIGINT NOT NULL,
   vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  non_key_char CHAR (16) NOT NULL,
+  non_key_int INT NOT NULL,
   PRIMARY KEY (pk_char_keypart_1, pk_bigint_keypart_2),
   INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
 );
 
-insert into t1 values ('one', 1, '[1, 1, 1]'), ('two', 2, '[2, 2, 2]'), ('three', 3, '[3, 3, 3]'), 
-                      ('four', 4, '[4, 4, 4]'), ('five', 5, '[5, 5, 5]'), ('six', 6, '[6, 6, 6]');
+insert into t1 values ('one', 1, '[1, 1, 1]', 'FIRST', 6), ('two', 2, '[2, 2, 2]', 'FIRST', 5), 
+                      ('three', 3, '[3, 3, 3]', 'FIRST', 4), ('four', 4, '[4, 4, 4]', 'FIRST', 3), 
+                      ('five', 5, '[5, 5, 5]', 'FIRST', 2), ('six', 6, '[6, 6, 6]', 'FIRST', 1);
 
-insert into t1 values ('seven', 7, '[11, 1, 1]'), ('eight', 8, '[21, 2, 2]'), ('nine', 9, '[31, 3, 3]'), 
-                      ('ten', 10, '[41, 4, 4]'), ('eleven', 11, '[51, 5, 5]'), ('twelve', 12, '[61, 6, 6]');
+insert into t1 values ('seven', 7, '[11, 1, 1]', 'SECOND', 12), ('eight', 8, '[21, 2, 2]', 'SECOND', 11), 
+                      ('nine', 9, '[31, 3, 3]', 'SECOND', 10), ('ten', 10, '[41, 4, 4]', 'SECOND', 9), 
+                      ('eleven', 11, '[51, 5, 5]', 'SECOND', 8), ('twelve', 12, '[61, 6, 6]', 'SECOND', 7);
 
 --echo
 --echo Vector distance ordering for reference:
@@ -480,13 +485,155 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
 --echo
---echo Test EXPLAIN FORMAT=TREE
+--echo Test EXPLAIN FORMAT=TREE with PK condition
+--echo      The entire PK condition will be pushed down to the vector index
+--echo
+--echo 1.   Ordered vector index scan (KNN_FIRST) will be chosen by default
 --echo
 
 
 --replace_regex /\(cost=[0-9. ]*/(/
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo 2.   Override access method via session var 
+--echo
+
+set session fb_vector_search_type = ITERATOR;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 3.   Override access method via query hint
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=TREE with non PK condition
+--echo      The entire non-PK condition will be implemented as a filter operator
+--echo      and nothing should get pushed down to the vector index
+--echo
+--echo 1.   Vector index scan (with filesort) will be chosen by default
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+--echo
+--echo 2.   Override access method via session var 
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 3.   Override access method via query hint
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
+--echo      PK and non PK conditions will both be implemented as a filter operator on 
+--echo      top of "vector index scan" or "ordered vector index scan" (in case of override)
+--echo
+--echo 1.   Vector index scan (with filesort) will be chosen by default
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo 2.   Override access method via session var 
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 3.   Override access method via query hint
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
+--echo      non PK conditions should be implemented as a filter operator.
+--echo      PK condition should be extracted and pushed down to "vector index scan" operator,
+--echo      or "ordered vector index scan" operator if the default is overriden
+--echo
+--echo 1.   Vector index scan (with filesort) will be chosen by default
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo 2.   Override access method via session var 
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 3.   Override access method via query hint
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
 
 drop table t1;
 

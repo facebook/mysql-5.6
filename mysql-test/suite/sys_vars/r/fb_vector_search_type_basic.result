@@ -1,0 +1,103 @@
+Default value of fb_vector_search_type is AUTO or 0
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+show session variables like 'fb_vector_search_type';
+Variable_name	Value
+fb_vector_search_type	AUTO
+select * from performance_schema.session_variables
+where variable_name='fb_vector_search_type';
+VARIABLE_NAME	VARIABLE_VALUE
+fb_vector_search_type	AUTO
+fb_vector_search_type is a dynamic variable (change to 1)
+set @@session.fb_vector_search_type = 1;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+restore the default value
+SET @@session.fb_vector_search_type = auto;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+Verify other accepted values
+SET @@session.fb_vector_search_type = AUTO;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+SET @@session.fb_vector_search_type = KNN;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+SET @@session.fb_vector_search_type = ITERATOR;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+ITERATOR
+SET @@session.fb_vector_search_type = iterator;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+ITERATOR
+SET @@session.fb_vector_search_type = knn;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+SET @@session.fb_vector_search_type = auto;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+SET @@session.fb_vector_search_type = "auto";
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+SET @@session.fb_vector_search_type = "knn";
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+SET @@session.fb_vector_search_type = 2;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+ITERATOR
+SET @@session.fb_vector_search_type = True;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+SET @@session.fb_vector_search_type = False;
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO
+Attempt setting invalid values
+SET @@session.fb_vector_search_type = -1;
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of '-1'
+SET @@session.fb_vector_search_type = 3;
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of '3'
+SET @@session.fb_vector_search_type = "true";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of 'true'
+SET @@session.fb_vector_search_type = "false";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of 'false'
+SET @@session.fb_vector_search_type = "off";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of 'off'
+SET @@session.fb_vector_search_type = "on";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of 'on'
+SET @@session.fb_vector_search_type = " ";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of ' '
+SET @@session.fb_vector_search_type = "";
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of ''
+SET @@session.fb_vector_search_type = '';
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of ''
+SET @@session.fb_vector_search_type = ' ';
+ERROR 42000: Variable 'fb_vector_search_type' can't be set to the value of ' '
+SET local.fb_vector_search_type = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.fb_vector_search_type = 1' at line 1
+SELECT local.fb_vector_search_type;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT session.fb_vector_search_type;
+ERROR 42S02: Unknown table 'session' in field list
+restart the server with non default value (1)
+# restart: --fb_vector_search_type=1
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+KNN
+restart the server with the default value (0)
+# restart
+SELECT @@session.fb_vector_search_type;
+@@session.fb_vector_search_type
+AUTO

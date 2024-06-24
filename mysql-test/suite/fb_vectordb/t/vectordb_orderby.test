@@ -177,4 +177,31 @@ select vector1, FB_VECTOR_L2(vector1, '[1, 2, 3]') as dis from t1 order by dis l
 select id from t1 order by FB_VECTOR_L2(vector1, '[1, 2, 3]') limit 6;
 select id, FB_VECTOR_L2(vector1, '[1, 2, 3]') as dis from t1 order by dis limit 6;
 
+--echo
+--echo
+--echo 3. Verify that the optimizer chooses the vector index without the LIMIT
+--echo    clause for the following 3 cases, using (Vector Iterator + filesort) 
+--echo    access method, and this cannot be overriden by the fb_vector_search_type 
+--echo    session var
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--echo Case A. SELECT *  
+
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+
+--echo
+--echo Case B. SELECT <vector index field>
+
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+
+--echo
+--echo Case C. SELECT <primary key field>
+
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+
 drop table t1;

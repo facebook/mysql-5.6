@@ -985,6 +985,11 @@ static std::unique_ptr<Json_object> SetObjectMembers(
         Item_func_fb_vector_distance *item_func =
             down_cast<Item_func_fb_vector_distance *>(
                 *(join->order.order->item));
+
+        /* At this stage, the search type should be one of these two */
+        assert((item_func->m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) ||
+               (item_func->m_search_type == FB_VECTOR_SEARCH_KNN_FIRST));
+
         prefix += item_func->m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN
                       ? "Vector"
                       : "Ordered vector";

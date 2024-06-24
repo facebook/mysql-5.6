@@ -47,6 +47,7 @@ id	color	vector1	dis
 select @@local.fb_vector_search_limit_multiplier;
 @@local.fb_vector_search_limit_multiplier
 10
+set session fb_vector_search_type = KNN;
 
 Executing queries with fb_vector_search_limit_multiplier = 1 as a SESSION VAR
 set fb_vector_search_limit_multiplier = 1;

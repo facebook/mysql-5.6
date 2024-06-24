@@ -25,6 +25,8 @@ select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis l
 --echo
 
 select @@local.fb_vector_search_limit_multiplier;
+# for the following tests, KNN vector index access type is needed
+set session fb_vector_search_type = KNN;
 
 let $i = 1;
 

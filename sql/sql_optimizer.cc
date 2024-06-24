@@ -1877,15 +1877,35 @@ int test_if_order_by_key(THD *thd, ORDER_with_src *order_src, TABLE *table,
       if (using_limit && thd->variables.fb_vector_search_limit_multiplier > 0) {
         limit *= thd->variables.fb_vector_search_limit_multiplier;
       }
-      auto search_type = FB_VECTOR_SEARCH_KNN;
-      // always use FB_VECTOR_SEARCH_INDEX_SCAN when there is no
-      // limit
+
+      /*
+        The logic for access type selection is as follows:
+
+        1. We always default to KNN_FIRST, unless there are query conditions
+           that can override it.
+        2. If there is no LIMIT in the query, then KNN_FIRST is not a good
+           choice, as a large K case may not be handled well in FAISS and
+           can lead in the direction of OOM, so we switch to INDEX_SCAN.
+           This overrides the user's explicit preference to use KNN_FIRST
+        3. ELSE: If the user has provided preference for ITERATOR, then we
+           switch to ITERATOR
+
+        Above 3 points are implemented below. 4 is implemented in
+        make_join_readinfo() during ICP related decision-making
+
+        4. If the query conditions prevent using KNN_FIRST (for the sake of
+           query correctness), then again we will switch to ITERATOR, unless
+           the user has provided preference for KNN_FIRST
+      */
+
+      auto search_type = FB_VECTOR_SEARCH_KNN_FIRST;
+
       if (!using_limit ||
           thd->variables.fb_vector_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) {
         search_type = FB_VECTOR_SEARCH_INDEX_SCAN;
       }
       // always pass a limit value for knn search
-      assert(search_type != FB_VECTOR_SEARCH_KNN || using_limit);
+      assert(search_type != FB_VECTOR_SEARCH_KNN_FIRST || using_limit);
       item_func->m_limit = limit;
       item_func->m_search_type = search_type;
       item_func->m_nprobe = thd->variables.fb_vector_search_nprobe;

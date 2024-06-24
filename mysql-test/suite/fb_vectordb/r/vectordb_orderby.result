@@ -194,4 +194,32 @@ id	dis
 9	1154
 2	1185
 4	1301
+
+
+3. Verify that the optimizer chooses the vector index without the LIMIT
+clause for the following 3 cases, using (Vector Iterator + filesort) 
+access method, and this cannot be overriden by the fb_vector_search_type 
+session var
+
+set session fb_vector_search_type = KNN;
+Case A. SELECT *  
+explain format=tree select * from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+EXPLAIN
+-> Sort: fb_vector_l2(t1.vector1,'[2, 1, 1]')  (rows=1)
+    -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+
+Case B. SELECT <vector index field>
+explain format=tree select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+EXPLAIN
+-> Sort: fb_vector_l2(t1.vector1,'[2, 1, 1]')  (rows=1)
+    -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+
+Case C. SELECT <primary key field>
+explain format=tree select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
+EXPLAIN
+-> Sort: fb_vector_l2(t1.vector1,'[2, 1, 1]')  (rows=1)
+    -> Vector index scan on t1 using vector_key_1  (rows=1)
+
 drop table t1;

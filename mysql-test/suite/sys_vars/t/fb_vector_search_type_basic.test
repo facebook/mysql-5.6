@@ -1,0 +1,105 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 16
+####
+--echo Default value of fb_vector_search_type is AUTO or 0
+SELECT @@session.fb_vector_search_type;
+
+show session variables like 'fb_vector_search_type';
+
+select * from performance_schema.session_variables
+   where variable_name='fb_vector_search_type';
+
+####
+## Verify that the variable is dynamic
+####
+--echo fb_vector_search_type is a dynamic variable (change to 1)
+set @@session.fb_vector_search_type = 1;
+SELECT @@session.fb_vector_search_type;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@session.fb_vector_search_type = auto;
+SELECT @@session.fb_vector_search_type;
+
+####
+## Verify other accepted values 
+####
+--echo Verify other accepted values
+SET @@session.fb_vector_search_type = AUTO;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = KNN;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = ITERATOR;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = iterator;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = knn;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = auto;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = "auto";
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = "knn";
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = 2;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = True;
+SELECT @@session.fb_vector_search_type;
+SET @@session.fb_vector_search_type = False;
+SELECT @@session.fb_vector_search_type;
+
+####
+## Try changing the value to invalid values
+####
+--echo Attempt setting invalid values
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = 3;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = "true";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = "false";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = "off";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = "on";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = "";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = '';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_search_type = ' ';
+
+
+####
+## Other negative test cases 
+####
+--Error ER_PARSE_ERROR
+SET local.fb_vector_search_type = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.fb_vector_search_type;
+--Error ER_UNKNOWN_TABLE
+SELECT session.fb_vector_search_type;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let $restart_parameters = restart: --fb_vector_search_type=1
+--source include/restart_mysqld.inc
+
+SELECT @@session.fb_vector_search_type;
+
+--echo restart the server with the default value (0)
+--let $restart_parameters =
+--source include/restart_mysqld.inc
+
+# check value is default (0)
+SELECT @@session.fb_vector_search_type;

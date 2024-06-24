@@ -60,8 +60,6 @@ fb_vector_max_dimension
 fb_vector_max_dimension
 fb_vector_min_dimension
 fb_vector_min_dimension
-fb_vector_search_type
-fb_vector_search_type
 force_pk_for_equality_preds_on_pk
 force_pk_for_equality_preds_on_pk
 generated_random_password_length
