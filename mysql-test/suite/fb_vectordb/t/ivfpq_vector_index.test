@@ -26,6 +26,7 @@ insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a whe
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 49) SELECT i+1000, json_array(9.52+i*0.0001, 7.79-i*0.0001, 0, 0), concat('val', i+1000) from a);
 
 echo;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
@@ -33,17 +34,20 @@ echo;
 echo test update, move id 0 to centroid 3, id 1 to centroid 2;
 update t1 set vector1='[1.249, 1.022, 0, 0]' where id=0;
 update t1 set vector1='[3.7, 3.05, 0, 0]' where id=1;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 echo;
 echo test delete, delete id 64;
 delete from t1 where id=64;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 echo;
 echo test ip;
+--replace_numeric_round 4
 select *, fb_vector_ip(vector1, '[3, 2]')  as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
@@ -72,6 +76,7 @@ insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a whe
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 49) SELECT i+1000, FB_VECTOR_JSON_TO_BLOB(json_array(9.52+i*0.0001, 7.79-i*0.0001, 0, 0)), concat('val', i+1000) from a);
 
 echo;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), name, fb_vector_l2(blob1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
@@ -79,17 +84,20 @@ echo;
 echo test update, move id 0 to centroid 3, id 1 to centroid 2;
 update t1 set blob1=FB_VECTOR_JSON_TO_BLOB('[1.249, 1.022, 0, 0]') where id=0;
 update t1 set blob1=FB_VECTOR_JSON_TO_BLOB('[3.7, 3.05, 0, 0]') where id=1;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), name, fb_vector_l2(blob1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 echo;
 echo test delete, delete id 64;
 delete from t1 where id=64;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), name, fb_vector_l2(blob1, '[3, 2]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 echo;
 echo test ip;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), name, fb_vector_ip(blob1, '[3, 2]')  as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 

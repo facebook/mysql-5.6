@@ -15,6 +15,7 @@ insert into t1 values (1, '[1,2,3]', 'val1'), (2, '[2,22,31]', 'val2'), (3, '[10
 
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10) from a);
 
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -22,38 +23,47 @@ SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME
 # the rank of 16 should go up in the next query
 update t1 set vector1 = '[9, 5, 2]' where id = 16;
 
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 # pk change
 update t1 set id = 1024 where id = 16;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 # pk and value change
 update t1 set id = 1025, vector1 = '[9, 5, 3]' where id = 1024;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 # update via none indexed column
 update t1 set vector1='[7, 8, 1.5]' where name = 'val15';
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 # 12 should disappear from the result
 delete from t1 where id = 12;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 # delete via none indexed column
 delete from t1 where name = 'val14';
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 # IP metric
+--replace_numeric_round 4
 select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
 
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
 echo;
 echo order by wrong direction should work, but it will not use vector index;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis desc limit 2;
+--replace_numeric_round 4
 select *, fb_vector_ip(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 2;
 SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
@@ -62,6 +72,7 @@ echo;
 delete from t1 where id > 4;
 echo;
 echo without limit should work;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis;
 SELECT HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
@@ -84,6 +95,7 @@ insert into t1 values (1, '[1,2,3]', 'val1', 'uid1'), (2, '[2,22,31]', 'val2', '
 
 insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a where i < 100) SELECT i+10, json_array(i+2, i+3, 1.4), concat('val', i+10), concat('uid', i+10) from a);
 
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
 
 SELECT NTOTAL, HIT FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
@@ -99,8 +111,11 @@ CREATE TABLE t1 (
 );
 insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1,2,3]')), (2, FB_VECTOR_JSON_TO_BLOB('[2,22,31]')), (3, FB_VECTOR_JSON_TO_BLOB('[10,6,5]')), (4, FB_VECTOR_JSON_TO_BLOB('[3,9,4]'));
 update t1 set blob1 = FB_VECTOR_JSON_TO_BLOB('[9, 5, 2]') where id = 3;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(blob1, '[10, 6, 5]') as dis from t1 order by dis limit 10;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_ip(blob1, '[10, 6, 5]') as dis from t1 order by dis desc limit 10;
+--replace_numeric_round 4
 select id, FB_VECTOR_BLOB_TO_JSON(blob1), fb_vector_l2(FB_VECTOR_NORMALIZE_L2(blob1), '[10, 6, 5]') as dis from t1 order by dis limit 10;
 echo FB_VECTOR_NORMALIZE_L2 does not change the value of blob buffer;
 select FB_VECTOR_BLOB_TO_JSON(blob1) from t1;

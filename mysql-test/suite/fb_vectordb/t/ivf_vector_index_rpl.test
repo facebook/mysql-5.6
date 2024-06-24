@@ -32,6 +32,7 @@ source include/sync_slave_sql_with_master.inc;
 echo;
 echo verify data replication;
 connection slave;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 
 connection master;
@@ -40,6 +41,7 @@ update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 
 echo;
@@ -67,6 +69,7 @@ source include/sync_slave_sql_with_master.inc;
 echo;
 echo verify the events written when replica was down are replicated;
 connection slave;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 
 echo;

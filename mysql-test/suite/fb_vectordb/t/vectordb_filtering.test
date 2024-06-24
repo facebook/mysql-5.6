@@ -21,6 +21,7 @@ enable_query_log;
 --echo Vector distance ordering for reference:
 explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
 --echo
 
@@ -40,6 +41,7 @@ eval set fb_vector_search_limit_multiplier = $i;
 
 explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
 
 inc $i;
@@ -50,11 +52,13 @@ inc $i;
 --echo with having clause
 explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis < 50 order by dis limit 6;
 
 --echo
 explain
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color IN ('red') having dis > 10 and dis < 100 order by dis limit 6;
 
 --enable_warnings
@@ -69,6 +73,7 @@ while ($i < 5) {
 --echo Executing queries with fb_vector_search_limit_multiplier = $i as a HINT
 --echo
 
+--replace_numeric_round 4
 eval select /*+ SET_VAR(fb_vector_search_limit_multiplier = $i) */ *, fb_vector_l2(vector1, '[2.5, 3.5, 2.5]') as dis from t1 where color = 'green' order by dis limit 5;
 
 inc $i;

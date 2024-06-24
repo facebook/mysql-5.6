@@ -26,10 +26,12 @@ insert into t1 (WITH RECURSIVE a(i) AS (SELECT 0 union all select i+1 from a whe
 
 # test order by vector distance when the flag fb_vector_use_index_scan is off versus on
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -64,10 +66,12 @@ select * from t1 where id in (97, 98, 99, 1097, 1098, 1099);
 
 # filter by name and order by distance using knn search
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -75,18 +79,22 @@ SET SESSION fb_vector_search_type = KNN;
 # the rank of 98 should go down in next query
 update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
 
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
 
 # query by name and order by distance using knn search
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -94,24 +102,30 @@ SET SESSION fb_vector_search_type = KNN;
 
 # update pk
 update t1 set id = 2000 where id = 98;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SET SESSION fb_vector_search_type = KNN;
 
 # update both pk and value
 update t1 set vector1 = '[0.0098, 0.0099, 0, 0]', id = 2001 where id = 2000;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SET SESSION fb_vector_search_type = KNN;
 
 # 92 should be assigned to centroid 1 and disappear from query result
 update t1 set vector1 = '[1.0001, 1, 0, 0]' where id = 92;
 
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -121,18 +135,22 @@ echo delete vector from centroid 0;
 delete from t1 where id = 99;
 
 echo 99 should disappear from query result;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
 
 echo;
 echo results from centroid 1;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -142,9 +160,11 @@ echo delete vector from centroid 1;
 delete from t1 where id = 1001;
 
 echo 1001 should disappear from query result;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
+--replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.6, 0.6]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
@@ -153,12 +173,14 @@ SET SESSION fb_vector_search_type = KNN;
 --replace_regex /\(cost=[0-9. ]*/(/
 EXPLAIN FORMAT=TREE
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+--replace_numeric_round 4
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = ITERATOR;
 --replace_regex /\(cost=[0-9. ]*/(/
 EXPLAIN FORMAT=TREE
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
+--replace_numeric_round 4
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
