@@ -871,7 +871,6 @@ static ulong rocksdb_invalid_create_option_action =
 enum class io_error_action : ulong { ABORT_SERVER = 0, IGNORE_ERROR };
 static ulong rocksdb_io_error_action =
     static_cast<ulong>(io_error_action::ABORT_SERVER);
-static bool rocksdb_error_on_suboptimal_collation = 1;
 static uint32_t rocksdb_stats_recalc_rate = 0;
 static uint32_t rocksdb_debug_manual_compaction_delay = 0;
 static uint32_t rocksdb_max_manual_compactions = 0;
@@ -2705,13 +2704,6 @@ static MYSQL_SYSVAR_BOOL(
     "detected.",
     nullptr, nullptr, false);
 
-static MYSQL_SYSVAR_BOOL(error_on_suboptimal_collation,
-                         rocksdb_error_on_suboptimal_collation,
-                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
-                         "Raise an error instead of warning if a sub-optimal "
-                         "collation is used",
-                         nullptr, nullptr, true);
-
 static MYSQL_SYSVAR_BOOL(
     enable_insert_with_update_caching,
     rocksdb_enable_insert_with_update_caching, PLUGIN_VAR_OPCMDARG,
@@ -3161,7 +3153,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(table_stats_background_thread_nice_value),
 
     MYSQL_SYSVAR(allow_to_start_after_corruption),
-    MYSQL_SYSVAR(error_on_suboptimal_collation),
     MYSQL_SYSVAR(stats_recalc_rate),
     MYSQL_SYSVAR(debug_manual_compaction_delay),
     MYSQL_SYSVAR(max_manual_compactions),

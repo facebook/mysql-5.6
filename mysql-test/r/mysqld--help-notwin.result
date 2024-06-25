@@ -2267,10 +2267,6 @@ The following options may be given as the first argument:
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
- --rocksdb-error-on-suboptimal-collation 
- Raise an error instead of warning if a sub-optimal
- collation is used
- (Defaults to on; use --skip-rocksdb-error-on-suboptimal-collation to disable.)
  --rocksdb-fault-injection-options=name 
  Fault injection options for running rocksdb tests
  --rocksdb-file-checksums[=name] 
@@ -3934,7 +3930,6 @@ rocksdb-enable-ttl-read-filtering TRUE
 rocksdb-enable-udt-in-mem FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
-rocksdb-error-on-suboptimal-collation TRUE
 rocksdb-fault-injection-options (No default value)
 rocksdb-file-checksums CHECKSUMS_OFF
 rocksdb-flush-log-at-trx-commit 1
