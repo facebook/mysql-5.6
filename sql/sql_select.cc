@@ -5152,9 +5152,9 @@ bool test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER_with_src *order,
         temporary table + filesort could be cheaper for grouping
         queries too.
       */
-      bool is_vector_index = false;
-      if (is_covering || select_limit != HA_POS_ERROR ||
-          (is_vector_index = table->key_info[nr].is_fb_vector_index()) ||
+      const bool is_vector_index = table->key_info[nr].is_fb_vector_index();
+
+      if (is_covering || select_limit != HA_POS_ERROR || is_vector_index ||
           (ref_key < 0 && (group || table->force_index_order))) {
         rec_per_key_t rec_per_key;
         KEY *keyinfo = table->key_info + nr;
