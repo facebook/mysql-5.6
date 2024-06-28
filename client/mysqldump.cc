@@ -131,7 +131,8 @@ static bool verbose = false, opt_no_create_info = false, opt_no_data = false,
             opt_notspcs = false, opt_drop_trigger = false,
             opt_network_timeout = false, stats_tables_included = false,
             column_statistics = false, opt_print_ordering_key = false,
-            opt_show_create_table_skip_secondary_engine = false;
+            opt_show_create_table_skip_secondary_engine = false,
+            opt_dump_evermeta_stats = false;
 static bool opt_ignore_views = false, opt_rocksdb = false,
             opt_rocksdb_bulk_load_allow_sk = false,
             opt_order_by_primary_desc = false, opt_rocksdb_bulk_load = false,
@@ -265,6 +266,7 @@ typedef enum {
   ASSOC = 1,
   HASHOUT = 2,
   FBID = 3,
+  EVERMETA = 4
 } field_type_t;
 
 struct TYPE_STAT {
@@ -274,6 +276,7 @@ struct TYPE_STAT {
 };
 
 std::unordered_map<std::string, TYPE_STAT> fbobj_assoc_stats;
+const std::string EVERMETA_MARKER = "evermeta";
 
 static struct my_option my_long_options[] = {
     {"all-databases", 'A',
@@ -411,6 +414,12 @@ static struct my_option my_long_options[] = {
      "Use dump-replica instead.",
      &opt_slave_data, &opt_slave_data, nullptr, GET_UINT, OPT_ARG, 0, 0,
      MYSQL_OPT_SLAVE_DATA_COMMENTED_SQL, nullptr, 0, nullptr},
+    {"dump-evermeta-stats", OPT_DUMP_EVERMETA_STATS,
+     "Calculate and output the number of rows and total size of the evermeta "
+     "table in the output file indicated by --dump-fbobj-assoc-stats option. "
+     "Does not produce stats if --dump-fbobj-assoc-stats is not specified.",
+     &opt_dump_evermeta_stats, &opt_dump_evermeta_stats, 0, GET_BOOL, NO_ARG, 0,
+     0, 0, nullptr, 0, nullptr},
     {"dump-fbobj-assoc-stats", OPT_DUMP_FBOBJ_STATS,
      "Calculate and output total size per type for fbobjects, assocs, fbids "
      "and hashouts to the given filename. The format in the file is tab "
@@ -1337,6 +1346,10 @@ static int get_options(int *argc, char ***argv) {
   if (opt_dump_fbobj_assoc_stats) {
     fbobj_assoc_stats.clear();
     fbobj_assoc_stats_file = open_stat_file(opt_dump_fbobj_assoc_stats);
+  } else if (opt_dump_evermeta_stats) {
+    fprintf(stderr,
+      "Warning: --dump-evermeta-stats specified without "
+      "--dump-fbobj-assoc-stats, not producing EVERMETA stats.\n");
   }
   if (0 != strcmp(default_charset, charset_info->csname) &&
       !(charset_info =
@@ -4101,6 +4114,10 @@ static void dump_table(char *table, char *db) {
       gather_stats = true;
       stat_field_offset = HASHOUT_APP_ID_FIELD;
       stat_field_type = HASHOUT;
+    } else if (opt_dump_evermeta_stats && strcmp(table, "evermeta") == 0) {
+      gather_stats = true;
+      // stat_field_offset is irrelevant, stat breakdown is not required
+      stat_field_type = EVERMETA;
     }
     /* Protect against new tables that may not have the right schema. */
     if (num_fields < stat_field_offset) {
@@ -4362,6 +4379,19 @@ static void dump_table(char *table, char *db) {
               bucket.count++;
               bucket.space += row_length;
             }
+          }
+        } else if (stat_field_type == EVERMETA) {
+          auto it = fbobj_assoc_stats.find(EVERMETA_MARKER);
+          if (it == fbobj_assoc_stats.end()) {
+            TYPE_STAT bucket;
+            bucket.count = 1;
+            bucket.space = row_length;
+            bucket.field_type = stat_field_type;
+            fbobj_assoc_stats[EVERMETA_MARKER] = bucket;
+          } else {
+            TYPE_STAT &bucket = it->second;
+            bucket.count++;
+            bucket.space += row_length;
           }
         } else {
           if (num_columns <= stat_field_offset) {
