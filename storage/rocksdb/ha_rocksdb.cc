@@ -66,7 +66,6 @@
 #include "sql/strfunc.h"
 
 /* RocksDB includes */
-#include "env/composite_env_wrapper.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/convenience.h"
@@ -85,10 +84,8 @@
 #include "rocksdb/utilities/sim_cache.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "util/stop_watch.h"
-#include "utilities/fault_injection_fs.h"
 
 /* MyRocks includes */
-#include <rapidjson/document.h>
 #include "./clone/client.h"
 #include "./clone/common.h"
 #include "./clone/donor.h"
@@ -112,10 +109,6 @@
 #include "./rdb_threads.h"
 #include "./sql_dd.h"
 #include "my_rapidjson_size_t.h"
-
-#ifdef FB_HAVE_WSENV
-#include "./ObjectFactory.h"
-#endif
 
 using namespace std::string_view_literals;
 
@@ -482,10 +475,6 @@ static void rocksdb_disable_file_deletions_update(
 static void rocksdb_max_compaction_history_update(
     my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
     void *const var_ptr, const void *const save);
-
-static bool parse_fault_injection_params(bool *retryable,
-                                         uint32_t *failure_ratio,
-                                         std::vector<rocksdb::FileType> *types);
 
 static void rocksdb_select_bypass_rejected_query_history_size_update(
     my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
@@ -857,7 +846,6 @@ static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
 static unsigned long long rocksdb_table_stats_recalc_threshold_count = 100ul;
 static bool rocksdb_table_stats_use_table_scan = 0;
 static bool rocksdb_table_stats_skip_system_cf = false;
-static char *opt_rocksdb_fault_injection_options = nullptr;
 static int32_t rocksdb_table_stats_background_thread_nice_value =
     THREAD_PRIO_MAX;
 static unsigned long long rocksdb_table_stats_max_num_rows_scanned = 0ul;
@@ -1923,12 +1911,6 @@ static MYSQL_SYSVAR_STR(wsenv_tenant, rocksdb_wsenv_tenant,
 static MYSQL_SYSVAR_STR(wsenv_oncall, rocksdb_wsenv_oncall,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                         "Oncall for RocksDB WSEnv", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(fault_injection_options,
-                        opt_rocksdb_fault_injection_options,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                        "Fault injection options for running rocksdb tests",
-                        nullptr, nullptr, nullptr);
 
 static MYSQL_SYSVAR_UINT64_T(
     delete_obsolete_files_period_micros,
@@ -3051,7 +3033,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(wal_dir),
     MYSQL_SYSVAR(persistent_cache_path),
     MYSQL_SYSVAR(persistent_cache_size_mb),
-    MYSQL_SYSVAR(fault_injection_options),
     MYSQL_SYSVAR(wsenv_path),
     MYSQL_SYSVAR(wsenv_tenant),
     MYSQL_SYSVAR(wsenv_oncall),
@@ -7752,38 +7733,6 @@ static int rocksdb_init_internal(void *const p) {
 
   DBUG_EXECUTE_IF("rocksdb_init_failure_files_corruption",
                   { DBUG_RETURN(HA_EXIT_FAILURE); });
-
-  if (opt_rocksdb_fault_injection_options != nullptr &&
-      *opt_rocksdb_fault_injection_options != '\0') {
-    bool retryable = false;
-    uint32_t failure_ratio = 0;
-    std::vector<rocksdb::FileType> types;
-    if (parse_fault_injection_params(&retryable, &failure_ratio, &types)) {
-      DBUG_RETURN(HA_EXIT_FAILURE);
-    }
-
-    auto fs = std::make_shared<rocksdb::FaultInjectionTestFS>(
-        rocksdb_db_options->env->GetFileSystem());
-
-    rocksdb::IOStatus error_msg = rocksdb::IOStatus::IOError("IO Error");
-    error_msg.SetRetryable(retryable);
-
-    uint32_t seed = rand();
-    // NO_LINT_DEBUG
-    LogPluginErrMsg(
-        INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
-        "RocksDB: Initializing fault injection with params (retry=%d, "
-        "failure_ratio=%d, seed=%d)",
-        retryable, failure_ratio, seed);
-    fs->SetRandomWriteError(seed, failure_ratio, error_msg,
-                            /* inject_for_all_file_types */ false, types);
-    fs->EnableWriteErrorInjection();
-
-    static auto fault_env_guard =
-        std::make_shared<rocksdb::CompositeEnvWrapper>(rocksdb_db_options->env,
-                                                       fs);
-    rocksdb_db_options->env = fault_env_guard.get();
-  }
 
   // Validate the assumption about the size of ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN.
   static_assert(sizeof(longlong) == 8, "Assuming that longlong is 8 bytes.");
@@ -19928,82 +19877,6 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
   }
   table->m_status = rc ? STATUS_NOT_FOUND : 0;
   return rc;
-}
-
-static bool parse_fault_injection_file_type(const std::string &type_str,
-                                            rocksdb::FileType *type) {
-  if (type_str == "kWalFile") {
-    *type = rocksdb::FileType::kWalFile;
-    return false;
-  } else if (type_str == "kTableFile") {
-    *type = rocksdb::FileType::kTableFile;
-    return false;
-  } else if (type_str == "kDescriptorFile") {
-    *type = rocksdb::FileType::kDescriptorFile;
-    return false;
-  }
-  return true;
-}
-
-static bool parse_fault_injection_params(
-    bool *retryable, uint32_t *failure_ratio,
-    std::vector<rocksdb::FileType> *types) {
-  rapidjson::Document doc;
-  rapidjson::ParseResult ok = doc.Parse(opt_rocksdb_fault_injection_options);
-  if (!ok) {
-    // NO_LINT_DEBUG
-    LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                    "RocksDB: Parse error (errcode=%d offset=%zu)  "
-                    "rocksdb_fault_injection_options=%s",
-                    ok.Code(), ok.Offset(),
-                    opt_rocksdb_fault_injection_options);
-    return true;
-  }
-
-  auto retry_it = doc.FindMember("retry");
-  auto fr_it = doc.FindMember("failure_ratio");
-  auto ft_it = doc.FindMember("filetypes");
-
-  if (retry_it == doc.MemberEnd() || fr_it == doc.MemberEnd() ||
-      ft_it == doc.MemberEnd()) {
-    // NO_LINT_DEBUG
-    LogPluginErrMsg(
-        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-        "RocksDB: rocksdb_fault_injection_options=%s schema not valid",
-        opt_rocksdb_fault_injection_options);
-    return true;
-  }
-
-  if (!retry_it->value.IsBool() || !fr_it->value.IsInt() ||
-      !ft_it->value.IsArray()) {
-    // NO_LINT_DEBUG
-    LogPluginErrMsg(
-        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-        "RocksDB: rocksdb_fault_injection_options=%s schema not valid (wrong "
-        "types)",
-        opt_rocksdb_fault_injection_options);
-    return true;
-  }
-
-  *retryable = retry_it->value.GetBool();
-  *failure_ratio = fr_it->value.GetInt();
-  for (rapidjson::SizeType i = 0; i < ft_it->value.Size(); i++) {
-    rocksdb::FileType type;
-    if (!ft_it->value[i].IsString() ||
-        parse_fault_injection_file_type(ft_it->value[i].GetString(), &type)) {
-      // NO_LINT_DEBUG
-      LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                      "RocksDB: Wrong filetype = %s to  "
-                      "rocksdb_fault_injection_options=%s",
-                      ft_it->value[i].IsString() ? ft_it->value[i].GetString()
-                                                 : "(wrong type)",
-                      opt_rocksdb_fault_injection_options);
-      return true;
-    }
-    types->push_back(type);
-  }
-
-  return false;
 }
 
 bool ha_rocksdb::get_se_private_data(dd::Table *dd_table, bool reset) {
