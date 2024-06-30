@@ -1103,6 +1103,7 @@ memory_summary_by_thread_by_event_name	CREATE TABLE `memory_summary_by_thread_by
   `LOW_NUMBER_OF_BYTES_USED` bigint NOT NULL,
   `CURRENT_NUMBER_OF_BYTES_USED` bigint NOT NULL,
   `HIGH_NUMBER_OF_BYTES_USED` bigint NOT NULL,
+  `DB_NAME` varchar(128) NOT NULL,
   PRIMARY KEY (`THREAD_ID`,`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table memory_summary_by_user_by_event_name;

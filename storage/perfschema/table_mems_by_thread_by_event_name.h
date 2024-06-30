@@ -70,6 +70,8 @@ struct row_mems_by_thread_by_event_name {
   ulonglong m_thread_internal_id;
   /** Column EVENT_NAME. */
   PFS_event_name_row m_event_name;
+  /** Column DB_NAME. */
+  PFS_schema_name m_db_name;
   /** Columns COUNT_ALLOC, ... */
   PFS_memory_stat_row m_stat;
 };

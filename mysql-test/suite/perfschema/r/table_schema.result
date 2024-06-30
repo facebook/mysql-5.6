@@ -1121,6 +1121,7 @@ def	performance_schema	memory_summary_by_thread_by_event_name	HIGH_COUNT_USED	9	
 def	performance_schema	memory_summary_by_thread_by_event_name	LOW_NUMBER_OF_BYTES_USED	10	NULL	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint			select,insert,update,references			NULL	NULL
 def	performance_schema	memory_summary_by_thread_by_event_name	CURRENT_NUMBER_OF_BYTES_USED	11	NULL	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint			select,insert,update,references			NULL	NULL
 def	performance_schema	memory_summary_by_thread_by_event_name	HIGH_NUMBER_OF_BYTES_USED	12	NULL	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint			select,insert,update,references			NULL	NULL
+def	performance_schema	memory_summary_by_thread_by_event_name	DB_NAME	13	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL	NULL
 def	performance_schema	memory_summary_by_user_by_event_name	USER	1	NULL	YES	char	80	320	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	char(80)	MUL		select,insert,update,references			NULL	NULL
 def	performance_schema	memory_summary_by_user_by_event_name	EVENT_NAME	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL	NULL
 def	performance_schema	memory_summary_by_user_by_event_name	COUNT_ALLOC	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL	NULL

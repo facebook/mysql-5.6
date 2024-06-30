@@ -62,6 +62,7 @@ Plugin_table table_mems_by_thread_by_event_name::m_table_def(
     "  LOW_NUMBER_OF_BYTES_USED BIGINT not null,\n"
     "  CURRENT_NUMBER_OF_BYTES_USED BIGINT not null,\n"
     "  HIGH_NUMBER_OF_BYTES_USED BIGINT not null,\n"
+    "  DB_NAME VARCHAR(128) not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_NAME) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -213,6 +214,7 @@ int table_mems_by_thread_by_event_name::make_row(PFS_thread *thread,
 
   m_row.m_thread_internal_id = thread->m_thread_internal_id;
 
+  m_row.m_db_name = thread->m_db_name;
   m_row.m_event_name.make_row(klass);
 
   PFS_connection_memory_visitor visitor(klass);
@@ -245,6 +247,14 @@ int table_mems_by_thread_by_event_name::read_row_values(TABLE *table,
           break;
         case 1: /* EVENT_NAME */
           m_row.m_event_name.set_field(f);
+          break;
+        case 12: /* DB_NAME */
+          if (m_row.m_db_name.length() > 0) {
+            set_field_varchar_utf8mb4(f, m_row.m_db_name.ptr(),
+                                      m_row.m_db_name.length());
+          } else {
+            f->set_null();
+          }
           break;
         default: /* 2, ... HIGH_NUMBER_OF_BYTES_USED */
           m_row.m_stat.set_field(f->field_index() - 2, f);
