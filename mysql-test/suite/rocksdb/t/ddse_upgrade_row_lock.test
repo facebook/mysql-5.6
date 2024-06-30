@@ -1,0 +1,41 @@
+--source include/have_rocksdb.inc
+--source include/have_innodb_ddse.inc
+
+--let $MYSQLD_DATADIR= `select @@datadir`
+
+# shutdown for backup
+--source include/shutdown_mysqld.inc
+
+# backup data
+let $tmp_dir = $MYSQLTEST_VARDIR/tmp;
+let $saved_datadir = $tmp_dir/saved_datadir;
+force-cpdir $MYSQLD_DATADIR $saved_datadir;
+
+# There are 3 places during DD upgrade that may involve a lot row locks:
+# - Insert select statement: This involves copy data from one storage engine to
+#       another storage engine. This only happens for DD SE upgrade, and with
+#       this change, no row locks are hold.
+# - Drop DD tables: when dropping old DD tables, the SQL layer reads one rows
+#       and deletes it. This happens for both DD SE upgrade and DD version
+#       upgrade. The required max number of row lock is the max number of rows
+#       among these DD tables.
+# - SYSTEM table update: there are many SQL scripts involving insertion of data
+#       into system tables. This happens for both DD SE upgrade and DD version
+#       upgrade. Currently, some tables involve 15-20K rows locks during
+#       insertion. Consider to use bulk load in future if more row lock required
+--echo upgrade from INNODB->ROCKSDB DDSE
+let restart_parameters = restart: --default_dd_system_storage_engine=rocksdb;
+let $restart_parameters = $restart_parameters --datadir=$saved_datadir;
+let $restart_parameters = $restart_parameters --rocksdb_max_row_locks=20000;
+--replace_result $saved_datadir DATADIR
+--source include/start_mysqld.inc
+
+select @@rocksdb_max_row_locks, @@default_dd_system_storage_engine;
+
+# restart
+let $restart_parameters = "restart";
+--replace_result $MYSQLD_DATADIR DATADIR
+--source include/restart_mysqld.inc
+
+# cleanup
+--force-rmdir $saved_datadir
