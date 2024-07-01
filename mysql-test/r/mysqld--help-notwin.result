@@ -2267,8 +2267,6 @@ The following options may be given as the first argument:
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
- --rocksdb-fault-injection-options=name 
- Fault injection options for running rocksdb tests
  --rocksdb-file-checksums[=name] 
  Whether to write and check RocksDB file-level checksums.
  CHECKSUMS_OFF: nothing, CHECKSUMS_WRITE_ONLY: write
@@ -3930,7 +3928,6 @@ rocksdb-enable-ttl-read-filtering TRUE
 rocksdb-enable-udt-in-mem FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
-rocksdb-fault-injection-options (No default value)
 rocksdb-file-checksums CHECKSUMS_OFF
 rocksdb-flush-log-at-trx-commit 1
 rocksdb-force-compute-memtable-stats TRUE
