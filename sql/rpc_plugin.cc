@@ -206,6 +206,80 @@ class RPC_Query_formatter : public THD::Query_formatter {
   mysql_mutex_t LOCK_rpc_query;
 };
 
+// this class records state that needs to be released in
+// the end of bypass_select function.
+class Bypass_select_context {
+ public:
+  Bypass_select_context() {}
+  ~Bypass_select_context() {
+    if (m_thd) {
+      if (m_table_opened) {
+        trans_commit_stmt(m_thd);  // need to call this because we locked table
+        close_thread_tables(m_thd);
+        m_thd->mdl_context.release_transactional_locks();
+      }
+      m_thd->lex->unit->cleanup(true);
+      lex_end(m_thd->lex);
+      m_thd->free_items();
+      m_thd->reset_query();  // This is needed after call to general_log_write()
+      m_thd->reset_query_for_display();
+      m_thd->reset_query_attrs();
+      m_thd->clean_main_memory();
+    }
+
+    if (m_formatter) {
+      m_formatter->set_rpc_query(nullptr);
+    }
+  }
+
+  // return true if opening a table fails, otherwise return false
+  bool open_table(THD *thd, const myrocks_select_from_rpc *param) {
+    if (lex_start(thd)) {
+      return true;
+    }
+    m_thd = thd;
+
+    LEX_CSTRING db_name_lex_cstr, table_name_lex_cstr;
+    if (lex_string_strmake(thd->mem_root, &db_name_lex_cstr,
+                           param->db_name.c_str(), param->db_name.length()) ||
+        lex_string_strmake(thd->mem_root, &table_name_lex_cstr,
+                           param->table_name.c_str(),
+                           param->table_name.length())) {
+      return true;
+    }
+
+    if (make_table_list(thd, thd->lex->query_block, db_name_lex_cstr,
+                        table_name_lex_cstr)) {
+      return true;
+    }
+
+    Table_ref *table_list = thd->lex->query_block->m_table_list.first;
+    thd->lex->sql_command = SQLCOM_SELECT;
+
+    if (open_tables_for_query(thd, table_list, 0)) {
+      return true;
+    }
+    m_table_opened = true;
+    return false;
+  }
+
+  void set_rpc_query_formatter_param(const myrocks_select_from_rpc *param) {
+    assert(m_thd);
+    RPC_Query_formatter *formatter =
+        dynamic_cast<RPC_Query_formatter *>(m_thd->get_query_formatter());
+    if (formatter) {
+      // for populating rpc query in SHOW PROCESSLIST
+      formatter->set_rpc_query(param);
+      m_formatter = formatter;
+    }
+  }
+
+ private:
+  THD *m_thd = nullptr;
+  bool m_table_opened = false;
+  RPC_Query_formatter *m_formatter = nullptr;
+};
+
 void initialize_thd() {
   if (!current_thd) {
     // first call from this rpc thread
@@ -264,42 +338,6 @@ bool check_bypass_rpc_needs_formatting() {
     return true;
   }
   return false;
-}
-
-// return true if opening a table fails, otherwise return false
-bool rpc_open_table(THD *thd, const myrocks_select_from_rpc *param) {
-  lex_start(thd);
-  LEX_CSTRING db_name_lex_cstr, table_name_lex_cstr;
-  Table_ref *table_list;
-
-  if (lex_string_strmake(thd->mem_root, &db_name_lex_cstr,
-                         param->db_name.c_str(), param->db_name.length()) ||
-      lex_string_strmake(thd->mem_root, &table_name_lex_cstr,
-                         param->table_name.c_str(),
-                         param->table_name.length())) {
-    goto thd_err;
-  }
-
-  if (make_table_list(thd, thd->lex->query_block, db_name_lex_cstr,
-                      table_name_lex_cstr)) {
-    goto thd_err;
-  }
-
-  table_list = thd->lex->query_block->m_table_list.first;
-  thd->lex->sql_command = SQLCOM_SELECT;
-
-  if (open_tables_for_query(thd, table_list, 0)) {
-    goto thd_err;
-  }
-  return false;
-
-thd_err:
-  thd->lex->unit->cleanup(true);
-  lex_end(thd->lex);
-  thd->free_items();
-  thd->reset_query_attrs();
-  thd->mem_root->ClearForReuse();
-  return true;
 }
 
 // returns the requested database name iff the query is in the form of
@@ -447,21 +485,19 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     return ret;
   }
 
-  if (rpc_open_table(current_thd, param)) {
+  THD *thd = current_thd;
+  // context destructor will clean up resources
+  // before returning back to the rpc plugin
+  Bypass_select_context context;
+  if (context.open_table(thd, param)) {
     bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
                              "Error in opening a table", applied_hlc};
     return ret;
   }
-  current_thd->status_var.com_stat[SQLCOM_SELECT]++;
-  current_thd->status_var.questions++;
+  thd->status_var.com_stat[SQLCOM_SELECT]++;
+  thd->status_var.questions++;
   myrocks_columns columns;
-  THD *thd = current_thd;
-  RPC_Query_formatter *formatter =
-      dynamic_cast<RPC_Query_formatter *>(thd->get_query_formatter());
-  if (formatter) {
-    // for populating rpc query in SHOW PROCESSLIST
-    formatter->set_rpc_query(param);
-  }
+  context.set_rpc_query_formatter_param(param);
 
   DBUG_EXECUTE_IF("bypass_rpc_processlist_test", {
     const char act[] = "now signal ready_to_run_processlist wait_for continue";
@@ -480,7 +516,7 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
 
   String buf;
   if (check_bypass_rpc_needs_formatting()) {
-    formatter->format_query(buf);
+    thd->get_query_formatter()->format_query(buf);
   }
 
   thd->set_query(buf.c_ptr(), buf.length());
@@ -509,26 +545,12 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;
 
-  // clean up before returning back to the rpc plugin
-  trans_commit_stmt(thd);  // need to call this because we locked table
-  close_thread_tables(thd);
-  thd->lex->unit->cleanup(true);
-  lex_end(thd->lex);
-  thd->free_items();
-  thd->reset_query();  // This is needed after call to general_log_write()
-  thd->reset_query_for_display();
-  thd->reset_query_attrs();
-  thd->mdl_context.release_transactional_locks();
-  thd->clean_main_memory();
-  if (formatter) {
-    formatter->set_rpc_query(nullptr);
-  }
   return ret;
 }
 
 /**
   Get applied HLC of a database by name
 */
-uint64_t get_hlc(const std::string& dbname) {
+uint64_t get_hlc(const std::string &dbname) {
   return mysql_bin_log.get_selected_database_hlc(dbname);
 }
