@@ -1047,7 +1047,7 @@ void make_database_privilege_statement(THD *thd, ACL_USER *role,
       }
       std::sort(restrictions_array.begin(), restrictions_array.end(),
                 [](const auto &p1, const auto &p2) -> bool {
-                  return (p1.first.compare(p2.first) <= 0);
+                  return (p1.first.compare(p2.first) < 0);
                 });
       for (const auto &rl_itr : restrictions_array) {
         String db;

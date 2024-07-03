@@ -135,7 +135,7 @@ void Abstract_program::aggregate_options() {
 
 bool Abstract_program::options_by_name_comparer(const my_option &a,
                                                 const my_option &b) {
-  if (strcmp(a.name, "help") == 0) return true;
   if (strcmp(b.name, "help") == 0) return false;
+  if (strcmp(a.name, "help") == 0) return true;
   return strcmp(a.name, b.name) < 0;
 }
