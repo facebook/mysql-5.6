@@ -1,5 +1,9 @@
 source ../include/raft_3_node.inc;
 source include/have_mts_dependency_replication_stmt.inc;
+if (`SELECT @@GLOBAL.replica_parallel_workers < 2`)
+{
+     skip Test needs to run with multiple replica workers;
+}
 
 connection server_1;
 let $leader_uuid = `select @@global.server_uuid`;

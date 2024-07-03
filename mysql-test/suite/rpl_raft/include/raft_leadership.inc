@@ -23,11 +23,23 @@ while ($master_raft_role != 'LEADER')
       if ($num_times == 0)
       {
         --disable_query_log
+        --disable_result_log
         --disable_abort_on_error
         eval SET @@global.rpl_raft_new_leader_uuid= '$master_raft_uuid';
         --enable_abort_on_error
+        let $instance_leader_uuid= `SELECT @@global.rpl_raft_new_leader_uuid`;
+        # set rpl_raft_new_leader_uuid might fail, we want
+        # to retry in this case
+        if ($instance_leader_uuid == $master_raft_uuid)
+        {
+          inc $num_times;
+        }
+        if ($instance_leader_uuid != $master_raft_uuid)
+        {
+          sleep 1;
+        }
+        --enable_result_log
         --enable_query_log
-        inc $num_times;
       }
     }
     dec $_rpl_server;

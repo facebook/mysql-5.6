@@ -1,6 +1,10 @@
 source ../include/raft_3_node.inc;
 source include/have_binlog_format_row.inc;
 source include/only_mts_replica_parallel_type_dependency.inc;
+if (`SELECT @@GLOBAL.replica_parallel_workers < 2`)
+{
+     skip Test needs to run with multiple replica workers;
+}
 
 # create tables in two different databases
 connection server_1;
