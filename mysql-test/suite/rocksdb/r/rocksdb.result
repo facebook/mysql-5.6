@@ -1024,6 +1024,7 @@ rocksdb_max_manual_compactions	10
 rocksdb_max_row_locks	1048576
 rocksdb_max_subcompactions	1
 rocksdb_max_total_wal_size	0
+rocksdb_max_trash_db_ratio_pct	100000000000
 rocksdb_merge_buf_size	67108864
 rocksdb_merge_combine_read_size	1073741824
 rocksdb_merge_tmp_file_removal_delay_ms	0

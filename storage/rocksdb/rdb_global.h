@@ -243,6 +243,11 @@ const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
 #define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC 0
 
 /*
+  Default value for rocksdb_max_trash_db_ratio_pct (multiplied by 1GB).
+*/
+#define DEFAULT_MAX_TRASH_DB_RATIO_PCT 100000000000
+
+/*
   SELECT BYPASS related policy:
   0x1 = ON/OFF MASK - whether bypass is on or off
   0x2 = FORCED/DEFAULT MASK, whether the ON/OFF bit is being FORCED (0x0)

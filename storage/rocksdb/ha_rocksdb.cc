@@ -714,6 +714,9 @@ static void rocksdb_set_sst_mgr_rate_bytes_per_sec(THD *thd,
                                                    void *var_ptr,
                                                    const void *save);
 
+static void rocksdb_set_max_trash_db_ratio_pct(THD *thd, struct SYS_VAR *var,
+                                               void *var_ptr, const void *save);
+
 static void rocksdb_set_delayed_write_rate(THD *thd, struct SYS_VAR *var,
                                            void *var_ptr, const void *save);
 
@@ -782,6 +785,7 @@ static bool rocksdb_use_hyper_clock_cache;
 static bool rocksdb_charge_memory;
 static bool rocksdb_use_write_buffer_manager;
 static double rocksdb_cache_high_pri_pool_ratio;
+static unsigned long long rocksdb_max_trash_db_ratio_pct;
 static bool rocksdb_cache_dump;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
@@ -1275,10 +1279,12 @@ int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw) {
                   "deleting temporary checkpoint in directory : %s\n",
                   checkpoint_dir.c_str());
 
+  rocksdb::Status s;
   auto op = rocksdb::Options();
   op.sst_file_manager.reset(NewSstFileManager(
       rocksdb_db_options->env, rocksdb_db_options->info_log, "",
-      rocksdb_sst_mgr_rate_bytes_per_sec, false /* delete_existing_trash */));
+      rocksdb_sst_mgr_rate_bytes_per_sec, false /* delete_existing_trash */, &s,
+      (double)rocksdb_max_trash_db_ratio_pct / 100));
   const auto status = rocksdb::DestroyDB(checkpoint_dir.c_str(), op);
 
   if (status.ok()) {
@@ -1773,6 +1779,14 @@ static MYSQL_SYSVAR_ULONGLONG(
     rocksdb_set_sst_mgr_rate_bytes_per_sec,
     /* default */ DEFAULT_SST_MGR_RATE_BYTES_PER_SEC,
     /* min */ 0L, /* max */ UINT64_MAX, 0);
+
+static MYSQL_SYSVAR_ULONGLONG(
+    max_trash_db_ratio_pct, rocksdb_max_trash_db_ratio_pct, PLUGIN_VAR_RQCMDARG,
+    "Specify max_trash_db_ratio of the SstFileManager in percent", nullptr,
+    rocksdb_set_max_trash_db_ratio_pct,
+    /* default */ DEFAULT_MAX_TRASH_DB_RATIO_PCT,
+    /* min */ 0L,
+    /* max */ UINT64_MAX, 0);
 
 static MYSQL_SYSVAR_UINT64_T(delayed_write_rate,
                              rocksdb_db_options->delayed_write_rate,
@@ -3015,6 +3029,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(paranoid_checks),
     MYSQL_SYSVAR(rate_limiter_bytes_per_sec),
     MYSQL_SYSVAR(sst_mgr_rate_bytes_per_sec),
+    MYSQL_SYSVAR(max_trash_db_ratio_pct),
     MYSQL_SYSVAR(delayed_write_rate),
     MYSQL_SYSVAR(max_latest_deadlocks),
     MYSQL_SYSVAR(info_log_level),
@@ -7930,10 +7945,12 @@ static int rocksdb_init_internal(void *const p) {
 
   // sst_file_manager will move deleted rocksdb sst files to trash_dir
   // to be deleted in a background thread.
+  rocksdb::Status status;
   std::string trash_dir = std::string(rocksdb_datadir) + "/trash";
   rocksdb_db_options->sst_file_manager.reset(NewSstFileManager(
       rocksdb_db_options->env, myrocks_logger, trash_dir,
-      rocksdb_sst_mgr_rate_bytes_per_sec, true /* delete_existing_trash */));
+      rocksdb_sst_mgr_rate_bytes_per_sec, true /* delete_existing_trash */,
+      &status, (double)rocksdb_max_trash_db_ratio_pct / 100));
 
   if (rocksdb_file_checksums >= file_checksums_type::CHECKSUMS_WRITE_ONLY) {
     rocksdb_db_options->file_checksum_gen_factory =
@@ -7941,7 +7958,6 @@ static int rocksdb_init_internal(void *const p) {
   }
 
   std::vector<std::string> cf_names;
-  rocksdb::Status status;
   status = rocksdb::DB::ListColumnFamilies(*rocksdb_db_options, rocksdb_datadir,
                                            &cf_names);
   DBUG_EXECUTE_IF("rocksdb_init_failure_list_cf", {
@@ -18509,6 +18525,20 @@ static void rocksdb_set_sst_mgr_rate_bytes_per_sec(
 
     rocksdb_db_options->sst_file_manager->SetDeleteRateBytesPerSecond(
         rocksdb_sst_mgr_rate_bytes_per_sec);
+  }
+}
+
+static void rocksdb_set_max_trash_db_ratio_pct(
+    my_core::THD *const thd MY_ATTRIBUTE((unused)),
+    my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  const uint64_t new_val = *static_cast<const uint64_t *>(save);
+
+  if (new_val != rocksdb_max_trash_db_ratio_pct) {
+    rocksdb_max_trash_db_ratio_pct = new_val;
+
+    rocksdb_db_options->sst_file_manager->SetMaxTrashDBRatio(
+        (double)rocksdb_max_trash_db_ratio_pct / 100);
   }
 }
 

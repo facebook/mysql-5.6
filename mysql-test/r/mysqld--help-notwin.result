@@ -2411,6 +2411,9 @@ The following options may be given as the first argument:
  DBOptions::max_subcompactions for RocksDB
  --rocksdb-max-total-wal-size=# 
  DBOptions::max_total_wal_size for RocksDB
+ --rocksdb-max-trash-db-ratio-pct=# 
+ Specify max_trash_db_ratio of the SstFileManager in
+ percent
  --rocksdb-merge-buf-size=# 
  Size to allocate for merge sort buffers written out to
  disk during inplace index creation.
@@ -3981,6 +3984,7 @@ rocksdb-max-open-files -2
 rocksdb-max-row-locks 1048576
 rocksdb-max-subcompactions 1
 rocksdb-max-total-wal-size 0
+rocksdb-max-trash-db-ratio-pct 100000000000
 rocksdb-merge-buf-size 67108864
 rocksdb-merge-combine-read-size 1073741824
 rocksdb-merge-tmp-file-removal-delay-ms 0
