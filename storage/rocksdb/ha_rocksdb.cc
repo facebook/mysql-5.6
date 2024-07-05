@@ -13287,10 +13287,11 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
   }
 
   // Case: We skip both unique checks and rows locks only when bulk load is
-  // enabled or if rocksdb_skip_locks_if_skip_unique_check is ON
+  // enabled or if rocksdb_skip_locks_if_skip_unique_check is ON or DDSE upgrade
   if (!THDVAR(table->in_use, bulk_load) &&
       (!rocksdb_skip_locks_if_skip_unique_check ||
-       !row_info.skip_unique_check)) {
+       !row_info.skip_unique_check) &&
+      !dd::is_dd_engine_change_in_progress()) {
     /*
       Check to see if we are going to have failures because of unique
       keys.  Also lock the appropriate key values.
@@ -18203,12 +18204,13 @@ bool ha_rocksdb::should_recreate_snapshot(const int rc,
 /**
  * If calling put/delete/singledelete without locking the row,
  * it is necessary to pass assume_tracked=false to RocksDB TX API.
- * Read Free Replication, Blind Deletes and intrinsic tmp tables
+ * Read Free Replication, Blind Deletes, intrinsic tmp tables and DDSE change
  * are the cases when using TX API and skipping row locking.
  */
 bool ha_rocksdb::can_assume_tracked(THD *thd) {
   if (use_read_free_rpl() || (THDVAR(thd, blind_delete_primary_key)) ||
-      m_tbl_def->is_intrinsic_tmp_table()) {
+      m_tbl_def->is_intrinsic_tmp_table() ||
+      dd::is_dd_engine_change_in_progress()) {
     return false;
   }
   return true;

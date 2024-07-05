@@ -1,0 +1,6 @@
+upgrade from INNODB->ROCKSDB DDSE
+# restart: --default_dd_system_storage_engine=rocksdb --datadir=DATADIR --rocksdb_max_row_locks=20000
+select @@rocksdb_max_row_locks, @@default_dd_system_storage_engine;
+@@rocksdb_max_row_locks	@@default_dd_system_storage_engine
+20000	RocksDB
+# restart
