@@ -1,3 +1,8 @@
 --performance_schema=ON
 --performance-schema-instrument='%/mysqlx/%=COUNTED'
 --performance_schema_events_waits_history_long_size=600000
+# we do not want to change the default value because of
+# instruments added by x plugin, bump the value here 
+# instead. rocksdb.performance_schema test verifies 
+# there is no lost instruments for us.
+--performance_schema_max_rwlock_classes=100

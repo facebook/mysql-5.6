@@ -1,0 +1,3 @@
+echo # Check if any classes are not lost, this may happen if they are already;
+echo # just on the limit;
+SELECT * FROM performance_schema.global_status WHERE variable_name LIKE '%_LOST' AND variable_value > 0;
