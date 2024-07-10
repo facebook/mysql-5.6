@@ -538,6 +538,8 @@ extern long replica_sql_thread_os_priority;
 /* Whether to lock global binlog index during reset rli */
 extern bool opt_reset_rli_lock_index;
 
+extern bool enable_dbtids;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */

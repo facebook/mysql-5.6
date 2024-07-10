@@ -450,7 +450,9 @@ Metadata_event::Metadata_event(const char *buf,
 void Metadata_event::set_exist(Metadata_event_types type) {
   std::size_t index = static_cast<std::size_t>(type);
   assert(index < existing_types_.size());
-  assert(!existing_types_[index]);
+  assert(type == Metadata_event_types::DBTIDS_TYPE ||
+         type == Metadata_event_types::PREV_DBTIDS_TYPE ||
+         !existing_types_[index]);
   existing_types_[index] = true;
 }
 
@@ -613,6 +615,30 @@ uint64_t Metadata_event::get_raft_ingestion_prev_upper_bound() const {
   return raft_ingestion_prev_upper_bound_;
 }
 
+void Metadata_event::set_dbtid(const std::string &db, const uint64_t &id) {
+  dbtids_[db] = id;
+  set_exist(Metadata_event_types::DBTIDS_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+      (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + sizeof(id) + db.size() + 1);
+}
+
+std::unordered_map<std::string, uint64_t> Metadata_event::get_dbtids() const {
+  return dbtids_;
+}
+
+void Metadata_event::set_prev_dbtid(const std::string &db, const uint64_t &id) {
+  prev_dbtids_[db] = id;
+  set_exist(Metadata_event_types::PREV_DBTIDS_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+      (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + sizeof(id) + db.size() + 1);
+}
+
+std::unordered_map<std::string, uint64_t> Metadata_event::get_prev_dbtids()
+    const {
+  return prev_dbtids_;
+}
 
 std::string Metadata_event::get_rotate_tag_string() const {
   switch (raft_rotate_tag_) {
@@ -646,6 +672,9 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
   std::pair<int64_t, int64_t> raft_ingestion_prev_checkpoint = {-1, -1};
   uint64_t raft_ingestion_upper_bound = 0;
+  const char *ptr_db_name = nullptr;
+  uint64_t dbid = 0;
+
   READER_TRY_SET(value_length, read<uint16_t>);
 
   switch (type) {
@@ -713,6 +742,18 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       assert(value_length == 8);
       READER_TRY_SET(raft_ingestion_upper_bound, read<uint64_t>);
       set_raft_ingestion_upper_bound(raft_ingestion_upper_bound);
+      break;
+    case MET::DBTIDS_TYPE:
+      // DB trx ID
+      READER_TRY_SET(dbid, read<uint64_t>);
+      ptr_db_name = READER_TRY_CALL(ptr, value_length - sizeof(uint64_t));
+      set_dbtid(ptr_db_name, dbid);
+      break;
+    case MET::PREV_DBTIDS_TYPE:
+      // Prev DB trx ID
+      READER_TRY_SET(dbid, read<uint64_t>);
+      ptr_db_name = READER_TRY_CALL(ptr, value_length - sizeof(uint64_t));
+      set_prev_dbtid(ptr_db_name, dbid);
       break;
 
     default:

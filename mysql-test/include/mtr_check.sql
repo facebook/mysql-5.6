@@ -118,7 +118,7 @@ BEGIN
                                 'group_replication_group_name',
                                 'keyring_file_data',
                                 'innodb_thread_sleep_delay',
-                                'prev_gtid_and_opid')
+                                'prev_gtid_and_opid', 'dbtids')
   ORDER BY VARIABLE_NAME;
 
   -- Dump all persisted variables, those that may change.

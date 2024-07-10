@@ -97,8 +97,9 @@
 #include "sql/binlog_reader.h"
 #include "sql/create_field.h"
 #include "sql/current_thd.h"
-#include "sql/debug_sync.h"  // DEBUG_SYNC
-#include "sql/derror.h"      // ER_THD
+#include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
+#include "sql/debug_sync.h"                  // DEBUG_SYNC
+#include "sql/derror.h"                      // ER_THD
 #include "sql/discrete_interval.h"
 #include "sql/field.h"
 #include "sql/handler.h"
@@ -1777,6 +1778,27 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
     if (raft_term != -1 && raft_index != -1) {
       metadata_ev.set_raft_term_and_index(raft_term, raft_index);
       write_event = true;
+    }
+  }
+
+  if (enable_dbtids) {
+    if (!thd->rli_slave && !thd->rli_fake) {
+      assert(thd->dbtids.empty());
+      for (const auto &db : thd->databases) {
+        metadata_ev.set_dbtid(db, get_next_dbtid(db));
+        write_event = true;
+      }
+      thd->dbtids = metadata_ev.get_dbtids();
+    } else {
+      assert(!thd->dbtids.empty());
+      if (!update_dbtids(thd->dbtids)) {
+        assert(false);
+        return true;
+      }
+      for (const auto &elem : thd->dbtids) {
+        metadata_ev.set_dbtid(elem.first, elem.second);
+        write_event = true;
+      }
     }
   }
 
@@ -5808,9 +5830,13 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
         break;
       }
       case binary_log::METADATA_EVENT: {
+        auto mdle = static_cast<Metadata_log_event *>(ev);
         if (unlikely(max_prev_hlc)) {
-          prev_hlc = std::max(
-              prev_hlc, extract_hlc(static_cast<Metadata_log_event *>(ev)));
+          prev_hlc = std::max(prev_hlc, extract_hlc(mdle));
+        }
+        if (enable_dbtids) {
+          update_dbtids(mdle->get_dbtids());
+          update_dbtids(mdle->get_prev_dbtids());
         }
         break;
       }
@@ -6758,6 +6784,13 @@ bool MYSQL_BIN_LOG::open_binlog(
         if (raft_rotate_info->ingestion_upper_bound) {
           metadata_ev.set_raft_ingestion_prev_upper_bound(
               raft_rotate_info->ingestion_upper_bound);
+        }
+        should_write_metadata_event = true;
+      }
+
+      if (enable_dbtids) {
+        for (const auto &elem : dbtids) {
+          metadata_ev.set_prev_dbtid(elem.first, elem.second);
         }
         should_write_metadata_event = true;
       }
@@ -9791,6 +9824,8 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
   if (!get_applied_opid_set(&ss_info->applied_opid_set)) {
     ss_info->applied_opid_set = "-1:-1";
   }
+
+  ss_info->dbtids = get_dbtids_str();
 }
 
 void MYSQL_BIN_LOG::unlock_commits(snapshot_info_st *ss_info
@@ -11478,6 +11513,7 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
        * but there is nothing much we can do */
       trx_coordinator::rollback_in_engines(thd, all);
       gtid_state->update_on_rollback(thd);
+      rollback_dbtids(thd);
 
       thd->commit_error = THD::CE_COMMIT_ERROR;
       thd->get_transaction()->m_flags.commit_low = false;
@@ -11485,6 +11521,7 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
       // Clear hlc_time since we did not commit this trx
       thd->hlc_time_ns_next = 0;
       thd->clear_raft_info();
+      thd->dbtids.clear();
 
       thd->clear_error();  // Clear previous errors first
       char errbuf[MYSQL_ERRMSG_SIZE];
@@ -11655,6 +11692,10 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
       gtid_state->update_on_rollback(thd);
   }
 
+  if (thd->commit_error != THD::CE_NONE) {
+    rollback_dbtids(thd);
+  }
+
   // If not yet done, mark transaction as prepared in TC, if applicable and
   // unfence the rotation of the binary log
   if (thd->get_transaction()->m_flags.xid_written) {
@@ -11711,6 +11752,8 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   // Clear the raft info that is stashed, so that if the thread
   // is reused, it does not have stale info
   thd->clear_raft_info();
+
+  thd->dbtids.clear();
 
   DBUG_EXECUTE_IF("leaving_finish_commit", {
     const char act[] = "now SIGNAL signal_leaving_finish_commit";
@@ -15851,6 +15894,33 @@ void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all,
     if (trx_coordinator::rollback_in_engines(thd, all))
       thd->commit_error = THD::CE_COMMIT_ERROR;
   }
+}
+
+bool MYSQL_BIN_LOG::validate_dbtids(THD *thd, const std::string &tids_str) {
+  auto dc = thd->dd_client();
+  dd::cache::Dictionary_client::Auto_releaser releaser(dc);
+
+  std::vector<const dd::Schema *> schemas;
+  if (dc->fetch_global_components(&schemas)) {
+    return false;
+  }
+
+  std::unordered_set<std::string> all_dbs;
+  for (const dd::Schema *schema : schemas) {
+    all_dbs.insert(schema->name().c_str());
+  }
+
+  std::unordered_map<std::string, uint64_t> tids;
+  if (!MYSQL_BIN_LOG::dbtids_from_str(tids_str, &tids)) {
+    return false;
+  }
+  for (const auto &elem : tids) {
+    if (all_dbs.find(elem.first) == all_dbs.end()) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids) {

@@ -1,0 +1,15 @@
+SELECT @@global.dbtids;
+
+error ER_INCORRECT_GLOBAL_LOCAL_VAR;
+SELECT @@session.dbtids;
+
+SET @dbtids_save = @@global.dbtids;
+
+SET @@global.dbtids = 'test:4';
+
+SET @@global.dbtids = '';
+
+error 1231;
+SET @@global.dbtids = 'blah:10';
+
+SET @@global.dbtids = @dbtids_save;

@@ -1,0 +1,11 @@
+!include ../my.cnf
+[mysqld.1]
+enable_dbtids=1
+gtid_mode=ON
+enforce_gtid_consistency=ON
+trim-binlog-to-recover=ON
+[mysqld.2]
+enable_dbtids=1
+gtid_mode=ON
+enforce_gtid_consistency=ON
+trim-binlog-to-recover=ON

@@ -1,0 +1,95 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Taking backup from");
+include/sync_slave_sql_with_master.inc
+set @@global.dbtids = "";
+set @@global.dbtids = "";
+Case 1: Check if DDL and DML commits increment dbtids
+create database db1;
+create database db2;
+create table db1.t (a int auto_increment primary key) engine = innodb;
+create table db2.t (a int auto_increment primary key) engine = innodb;
+insert into db1.t values();
+insert into db2.t values();
+begin;
+insert into db1.t values();
+insert into db2.t values();
+commit;
+select @@global.dbtids;
+@@global.dbtids
+db2:4,
+db1:4
+include/sync_slave_sql_with_master.inc
+select @@global.dbtids;
+@@global.dbtids
+db2:4,
+db1:4
+Case 2: Check dbtids are bootstrapped correctly on restart
+flush binary logs;
+include/rpl_restart_server.inc [server_number=1]
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+flush binary logs;
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+Case 3: Check if mysqldump prints dbtids
+SET @@GLOBAL.DBTIDS='db1:4';
+SET @@GLOBAL.DBTIDS='db2:4';
+SET @@GLOBAL.DBTIDS='db1:4';
+SET @@GLOBAL.DBTIDS='db2:4';
+SET @@GLOBAL.DBTIDS='db1:4';
+SET @@GLOBAL.DBTIDS='db2:4';
+SET @@GLOBAL.DBTIDS='db1:4';
+SET @@GLOBAL.DBTIDS='db2:4';
+set @@session.sql_log_bin = 0;
+drop database db1;
+set @@session.sql_log_bin = 1;
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+Case 4: Test rollback
+include/stop_slave.inc
+set @@global.commit_consensus_error_action=ROLLBACK_TRXS_IN_GROUP;
+set @@global.debug = '+d,simulate_commit_consensus_error';
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+insert into db1.t values();
+ERROR HY000: Got error 1 - 'Operation not permitted' during COMMIT
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+include/rpl_restart_server.inc [server_number=1]
+include/start_slave.inc
+select @@global.dbtids;
+@@global.dbtids
+db2:4,
+db1:4
+select @@global.dbtids;
+@@global.dbtids
+db1:4,
+db2:4
+Cleanup
+drop database db1;
+drop database db2;
+select @@global.dbtids;
+@@global.dbtids
+
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

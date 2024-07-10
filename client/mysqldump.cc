@@ -35,7 +35,10 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 #include "client/client_priv.h"
 #include "compression.h"
@@ -215,6 +218,7 @@ static char *shared_memory_base_name = 0;
 static uint opt_protocol = 0;
 static char *opt_plugin_dir = nullptr, *opt_default_auth = nullptr;
 static bool opt_skip_gipk = false;
+static bool opt_set_dbtids = false;
 
 Prealloced_array<uint, 12> ignore_error(PSI_NOT_INSTRUMENTED);
 static int parse_ignore_error();
@@ -246,6 +250,8 @@ const char *default_dbug_option = "d:t:o,/tmp/mysqldump.trace";
 bool seen_views = false;
 
 collation_unordered_set<string> *ignore_table;
+
+static std::unordered_map<std::string, uint64_t> dbtids;
 
 #define FBOBJ_FBTYPE_FIELD 1
 #define ASSOC_TYPE_FIELD 4
@@ -827,6 +833,8 @@ static struct my_option my_long_options[] = {
      " with SELECT INTO OUTFILE, (default server setting, if 0)",
      &opt_select_into_file_fsync_timeout, &opt_select_into_file_fsync_timeout,
      0, GET_UINT, OPT_ARG, 0, 0, UINT_MAX, nullptr, 1, nullptr},
+    {"set-dbtids", OPT_SET_DBTIDS, "Print DBTID in the dump", &opt_set_dbtids,
+     &opt_set_dbtids, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -864,6 +872,8 @@ static void verbose_msg(const char *fmt, ...)
     MY_ATTRIBUTE((format(printf, 1, 2)));
 static char const *fix_identifier_with_newline(char const *object_name,
                                                bool *freemem);
+static bool process_dbtids(const char *dbtids_str);
+static void print_dbtids(const char *db);
 
 /*
   Print the supplied message if in verbose mode
@@ -5261,6 +5271,7 @@ static int dump_all_tables_in_db(char *database) {
     fprintf(md_result_file, "\n--\n-- Flush Grant Tables \n--\n");
     fprintf(md_result_file, "\n/*! FLUSH PRIVILEGES */;\n");
   }
+  print_dbtids(database);
   return 0;
 } /* dump_all_tables_in_db */
 
@@ -5720,7 +5731,7 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char *log_name) {
 static int start_transaction(MYSQL *mysql_con, char *filename_out,
                              char *pos_out, char **gtid_executed_set_pointer,
                              char *snapshot_hlc,
-                             char **applied_opid_set_pointer) {
+                             char **applied_opid_set_pointer, char **dbtids_pointer) {
   verbose_msg("-- Starting transaction...\n");
   /*
     We use BEGIN for old servers. --single-transaction --source-data will fail
@@ -5769,7 +5780,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
     // get the column indexes for all necessary columns
     MYSQL_FIELD *field = NULL;
     int snapshot_hlc_col = -1, gtid_executed_col = -1;
-    int file_col = -1, position_col = -1, applied_opid_set_col = -1;
+    int file_col = -1, position_col = -1, applied_opid_set_col = -1, dbtids_col = -1;
     for (int i = 0; (field = mysql_fetch_field(res)); i++) {
       if (strcmp("Snapshot_HLC", field->name) == 0)
         snapshot_hlc_col = i;
@@ -5781,6 +5792,8 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
         position_col = i;
       else if (strcmp("Applied_opid_set", field->name) == 0)
         applied_opid_set_col = i;
+      else if (strcmp("DBTID", field->name) == 0)
+        dbtids_col = i;
     }
 
     {
@@ -5808,6 +5821,11 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
             PSI_NOT_INSTRUMENTED, strlen(row[applied_opid_set_col]) + 1,
             MYF(MY_WME));
         strcpy(*applied_opid_set_pointer, row[applied_opid_set_col]);
+      }
+      if (dbtids_col != -1 && row[dbtids_col][0] != '\0') {
+        *dbtids_pointer = (char *)my_malloc(
+            PSI_NOT_INSTRUMENTED, strlen(row[dbtids_col]) + 1, MYF(MY_WME));
+        strcpy(*dbtids_pointer, row[dbtids_col]);
       }
     }
 
@@ -6301,6 +6319,34 @@ static bool process_set_gtid_purged(MYSQL *mysql_con,
   return false;
 }
 
+static bool process_dbtids(const char *dbtids_str) {
+  if (!dbtids_str) {
+    return false;
+  }
+  std::vector<std::string> kvs;
+  boost::split(kvs, dbtids_str, boost::is_any_of(","));
+  for (const auto &kv : kvs) {
+    std::vector<std::string> parts;
+    boost::split(parts, kv, boost::is_any_of(":"));
+    if (parts.size() != 2) {
+      return true;
+    }
+    boost::trim(parts[0]);
+    boost::trim(parts[1]);
+    const std::string &key = parts[0];
+    const uint64_t &value = std::stoull(parts[1]);
+    dbtids[key] = value;
+  }
+  return false;
+}
+
+static void print_dbtids(const char *db) {
+  auto itr = dbtids.find(db);
+  if (!opt_set_dbtids || itr == dbtids.end()) return;
+  fprintf(md_result_file, "SET @@GLOBAL.DBTIDS='%s:%lu';\n", itr->first.c_str(),
+          itr->second);
+}
+
 /*
   Getting VIEW structure
 
@@ -6532,6 +6578,7 @@ int main(int argc, char **argv) {
   char snapshot_hlc[21] = "";  // 20 digits plus trailing null byte
   char *gtid_executed_set = NULL;
   char *applied_opid_set = NULL;
+  char *dbtids_str = NULL;
   int exit_code, md_result_fd = 0;
   MY_INIT("mysqldump");
 
@@ -6604,7 +6651,7 @@ int main(int argc, char **argv) {
 
   if (opt_single_transaction &&
       start_transaction(mysql, bin_log_name, bin_log_pos, &gtid_executed_set,
-                        snapshot_hlc, &applied_opid_set))
+                        snapshot_hlc, &applied_opid_set, &dbtids_str))
     goto err;
 
   /* Add 'STOP SLAVE to beginning of dump */
@@ -6627,6 +6674,8 @@ int main(int argc, char **argv) {
     fprintf(md_result_file, "SET @@GLOBAL.APPLIED_OPID_SET = '%s';\n",
             applied_opid_set);
   }
+
+  if (process_dbtids(dbtids_str)) goto err;
 
   if (opt_master_data) {
     if (bin_log_name[0] && bin_log_pos[0]) {
@@ -6718,6 +6767,7 @@ err:
   dbDisconnect(current_host);
   if (gtid_executed_set) my_free(gtid_executed_set);
   if (applied_opid_set) my_free(applied_opid_set);
+  if (dbtids_str) my_free(dbtids_str);
   if (!path) write_footer(md_result_file);
   free_resources();
 

@@ -1,0 +1,19 @@
+Default value is false
+SELECT @@global.enable_dbtids;
+@@global.enable_dbtids
+0
+SELECT @@session.enable_dbtids;
+ERROR HY000: Variable 'enable_dbtids' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.enable_dbtids = true;
+SELECT @@global.enable_dbtids;
+@@global.enable_dbtids
+1
+SET @@global.enable_dbtids = false;
+SELECT @@global.enable_dbtids;
+@@global.enable_dbtids
+0
+SET @@global.enable_dbtids = default;
+SELECT @@global.enable_dbtids;
+@@global.enable_dbtids
+0

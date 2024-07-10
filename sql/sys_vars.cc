@@ -10529,3 +10529,14 @@ static Sys_var_bool Sys_optimizer_icp_with_desc_ref_scans(
     "is an option and the storage engine supports it. Default: ON",
     HINT_UPDATEABLE SESSION_VAR(optimizer_icp_with_desc_ref_scans),
     CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_enable_dbtids("enable_dbtids",
+                                      "Enable DB transcation ID in binlogs",
+                                      GLOBAL_VAR(enable_dbtids),
+                                      CMD_LINE(OPT_ARG), DEFAULT(false));
+
+std::unordered_map<std::string, uint64_t> *dbtids;
+static Sys_var_dbtids Sys_dbtids("dbtids", "DB transaction IDs",
+                                 NON_PERSIST GLOBAL_VAR(dbtids), NO_CMD_LINE,
+                                 DEFAULT(nullptr), NO_MUTEX_GUARD,
+                                 NOT_IN_BINLOG, ON_CHECK(nullptr));

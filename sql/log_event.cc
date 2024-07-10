@@ -3811,7 +3811,7 @@ bool Query_log_event::write(Basic_ostream *ostream) {
           size_t db_name_len = strlen(db_name);
           strcpy((char *)start, db_name);
           start += db_name_len + 1;
-          if (enable_binlog_hlc && maintain_database_hlc)
+          if ((enable_binlog_hlc && maintain_database_hlc) || enable_dbtids)
             thd->databases.emplace(db_name, db_name_len);
         } while ((db_name = it++));
     } else {
@@ -11783,7 +11783,8 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
     m_data_size += m_metadata_buf.length();
   }
 
-  if (enable_binlog_hlc && maintain_database_hlc && !m_dbnam.empty())
+  if (!m_dbnam.empty() &&
+      ((enable_binlog_hlc && maintain_database_hlc) || enable_dbtids))
     thd->databases.insert(m_dbnam);
 }
 #endif /* defined(MYSQL_SERVER) */
@@ -15138,6 +15139,10 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_raft_ingestion_prev_upper_bound(ostream)) DBUG_RETURN(1);
 
+  if (write_dbtids(ostream)) DBUG_RETURN(1);
+
+  if (write_prev_dbtids(ostream)) DBUG_RETURN(1);
+
   DBUG_RETURN(0);
 }
 
@@ -15438,6 +15443,66 @@ bool Metadata_log_event::write_raft_ingestion_prev_upper_bound(
   DBUG_RETURN(ret);
 }
 
+bool Metadata_log_event::write_dbtids(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_dbtids");
+
+  if (!does_exist(Metadata_event_types::DBTIDS_TYPE)) {
+    DBUG_RETURN(false);
+  }
+
+  bool error = false;
+
+  for (const auto &elem : dbtids_) {
+    const uint64_t size = sizeof(uint64_t) + elem.first.size() + 1;
+    auto buffer = std::make_unique<uchar[]>(size);
+    uchar *ptr_buffer = buffer.get();
+
+    if (write_type_and_length(ostream, Metadata_event_types::DBTIDS_TYPE,
+                              size)) {
+      DBUG_RETURN(true);
+    }
+
+    int8store(ptr_buffer, elem.second);
+    ptr_buffer += sizeof(elem.second);
+    std::strcpy((char *)ptr_buffer, elem.first.c_str());
+    ptr_buffer += elem.first.size() + 1;
+    error = wrapper_my_b_safe_write(ostream, buffer.get(), size);
+    if (error) break;
+  }
+
+  DBUG_RETURN(error);
+}
+
+bool Metadata_log_event::write_prev_dbtids(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_prev_dbtids");
+
+  if (!does_exist(Metadata_event_types::PREV_DBTIDS_TYPE)) {
+    DBUG_RETURN(false);
+  }
+
+  bool error = false;
+
+  for (const auto &elem : prev_dbtids_) {
+    const uint64_t size = sizeof(uint64_t) + elem.first.size() + 1;
+    auto buffer = std::make_unique<uchar[]>(size);
+    uchar *ptr_buffer = buffer.get();
+
+    if (write_type_and_length(ostream, Metadata_event_types::PREV_DBTIDS_TYPE,
+                              size)) {
+      DBUG_RETURN(true);
+    }
+
+    int8store(ptr_buffer, elem.second);
+    ptr_buffer += sizeof(elem.second);
+    std::strcpy((char *)ptr_buffer, elem.first.c_str());
+    ptr_buffer += elem.first.size() + 1;
+    error = wrapper_my_b_safe_write(ostream, buffer.get(), size);
+    if (error) break;
+  }
+
+  DBUG_RETURN(error);
+}
+
 bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
                                                Metadata_event_types type,
                                                uint16_t length) {
@@ -15457,255 +15522,6 @@ bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
   bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
   DBUG_RETURN(ret);
 }
-
-uint32 Metadata_log_event::write_data_body(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_data_body");
-
-  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
-  assert(!(does_exist(Metadata_event_types::HLC_TYPE) &&
-           does_exist(Metadata_event_types::PREV_HLC_TYPE)));
-
-  uint32 length = 0;
-
-  length += write_hlc_time(obuffer + length);
-  length += write_prev_hlc_time(obuffer + length);
-  length += write_raft_term_and_index(obuffer + length);
-  length += write_raft_str(obuffer + length);
-  length += write_rotate_tag(obuffer + length);
-  length += write_ttl_read_filtering_timestamp(obuffer + length);
-  length += write_ttl_compaction_timestamp(obuffer + length);
-  length += write_raft_ingestion_checkpoint(obuffer + length);
-  length += write_raft_ingestion_upper_bound(obuffer + length);
-  length += write_raft_ingestion_prev_checkpoint(obuffer + length);
-  length += write_raft_ingestion_prev_upper_bound(obuffer + length);
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_hlc_time(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_hlc_time");
-
-  if (!does_exist(Metadata_event_types::HLC_TYPE))
-    DBUG_RETURN(0); /* No need to write HLC time */
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::HLC_TYPE, sizeof(hlc_time_ns_));
-
-  int8store(obuffer + length, hlc_time_ns_);
-  length += sizeof(hlc_time_ns_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_ttl_read_filtering_timestamp(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_ttl_read_filtering_timestamp");
-
-  if (!does_exist(Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE))
-    DBUG_RETURN(0); /* No need to write TTL timestamp */
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::TTL_READ_FILTERING_TIMESTAMP_TYPE,
-      sizeof(ttl_read_filtering_timestamp_));
-
-  int8store(obuffer + length, ttl_read_filtering_timestamp_);
-  length += sizeof(ttl_read_filtering_timestamp_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_ttl_compaction_timestamp(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_ttl_compaction_timestamp");
-
-  if (!does_exist(Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE))
-    DBUG_RETURN(0); /* No need to write TTL timestamp */
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::TTL_COMPACTION_TIMESTAMP_TYPE,
-      sizeof(ttl_compaction_timestamp_));
-
-  int8store(obuffer + length, ttl_compaction_timestamp_);
-  length += sizeof(ttl_compaction_timestamp_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_prev_hlc_time(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_prev_hlc_time");
-
-  if (!does_exist(Metadata_event_types::PREV_HLC_TYPE))
-    DBUG_RETURN(0); /* No need to write prev hlc time */
-
-  uint32 length = 0;
-
-  length += write_type_and_length(obuffer + length,
-                                  Metadata_event_types::PREV_HLC_TYPE,
-                                  sizeof(prev_hlc_time_ns_));
-
-  int8store(obuffer + length, prev_hlc_time_ns_);
-  length += sizeof(prev_hlc_time_ns_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_term_and_index(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_term_and_index");
-
-  if (!does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
-    DBUG_RETURN(0); /* No need to write term and index */
-  }
-
-  uint32 length = 0;
-
-  length += write_type_and_length(obuffer + length,
-                                  Metadata_event_types::RAFT_TERM_INDEX_TYPE,
-                                  sizeof(raft_term_) + sizeof(raft_index_));
-
-  int8store(obuffer + length, raft_term_);
-  length += sizeof(raft_term_);
-
-  int8store(obuffer + length, raft_index_);
-  length += sizeof(raft_index_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_str(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_raft_str");
-
-  if (!does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE)) {
-    DBUG_RETURN(0); /* No need to write raft string */
-  }
-
-  uint32 length = 0;
-
-  length += write_type_and_length(obuffer + length,
-                                  Metadata_event_types::RAFT_GENERIC_STR_TYPE,
-                                  raft_str_.size());
-
-  memcpy(obuffer + length, raft_str_.c_str(), raft_str_.size());
-  length += raft_str_.length();
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_rotate_tag(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_rotate_tag");
-  if (!does_exist(Metadata_event_types::RAFT_ROTATE_TAG_TYPE)) {
-    DBUG_RETURN(0); /* No need to write raft string */
-  }
-
-  uint32 length =
-      write_type_and_length(obuffer, Metadata_event_types::RAFT_ROTATE_TAG_TYPE,
-                            ENCODED_RAFT_ROTATE_TAG_SIZE);
-
-  int2store(obuffer + length, (uint16_t)raft_rotate_tag_);
-  length += sizeof(uint16_t);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_ingestion_checkpoint(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_checkpoint");
-
-  if (!does_exist(Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE))
-    DBUG_RETURN(0);
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::RAFT_INGESTION_CHECKPOINT_TYPE,
-      sizeof(raft_ingestion_checkpoint_.first) +
-          sizeof(raft_ingestion_checkpoint_.second));
-
-  int8store(obuffer + length, raft_ingestion_checkpoint_.first);
-  length += sizeof(raft_ingestion_checkpoint_.first);
-  int8store(obuffer + length, raft_ingestion_checkpoint_.second);
-  length += sizeof(raft_ingestion_checkpoint_.second);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_ingestion_upper_bound(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_upper_bound");
-
-  if (!does_exist(Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE)) {
-    DBUG_RETURN(0);
-  }
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::RAFT_INGESTION_UPPER_BOUND_TYPE,
-      sizeof(raft_ingestion_upper_bound_));
-
-  int8store(obuffer + length, raft_ingestion_upper_bound_);
-  length += sizeof(raft_ingestion_upper_bound_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_ingestion_prev_checkpoint(
-    uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_prev_checkpoint");
-
-  if (!does_exist(Metadata_event_types::RAFT_INGESTION_PREV_CHECKPOINT_TYPE))
-    DBUG_RETURN(0);
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length,
-      Metadata_event_types::RAFT_INGESTION_PREV_CHECKPOINT_TYPE,
-      sizeof(raft_ingestion_prev_checkpoint_.first) +
-          sizeof(raft_ingestion_prev_checkpoint_.second));
-
-  int8store(obuffer + length, raft_ingestion_prev_checkpoint_.first);
-  length += sizeof(raft_ingestion_prev_checkpoint_.first);
-  int8store(obuffer + length, raft_ingestion_prev_checkpoint_.second);
-  length += sizeof(raft_ingestion_prev_checkpoint_.second);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_raft_ingestion_prev_upper_bound(uchar *obuffer) {
-  DBUG_ENTER("Metadata_log_event::write_raft_ingestion_prev_upper_bound");
-
-  if (!does_exist(Metadata_event_types::RAFT_INGESTION_PREV_UPPER_BOUND_TYPE)) {
-    DBUG_RETURN(0);
-  }
-
-  uint32 length = 0;
-
-  length += write_type_and_length(
-      obuffer + length, Metadata_event_types::RAFT_INGESTION_PREV_UPPER_BOUND_TYPE,
-      sizeof(raft_ingestion_prev_upper_bound_));
-
-  int8store(obuffer + length, raft_ingestion_prev_upper_bound_);
-  length += sizeof(raft_ingestion_prev_upper_bound_);
-
-  DBUG_RETURN(length);
-}
-
-uint32 Metadata_log_event::write_type_and_length(uchar *obuffer,
-                                                 Metadata_event_types type,
-                                                 uint16_t length) {
-  DBUG_ENTER("Metadata_log_event::write_type_and_length");
-
-  uint32 len = 0;
-  *obuffer = static_cast<uchar>(type);
-  len += ENCODED_TYPE_SIZE;
-
-  int2store(obuffer + len, length);
-  len += ENCODED_LENGTH_SIZE;
-
-  DBUG_RETURN(len);
-}
-
 #endif  // MYSQL_SERVER
 
 // The size of the data section of the event
@@ -15797,6 +15613,22 @@ int Metadata_log_event::pack_info(Protocol *protocol) {
     field_added = true;
   }
 
+  if (does_exist(Metadata_event_types::DBTIDS_TYPE)) {
+    for (const auto &elem : dbtids_) {
+      buffer.append("\tDBTIDS: " + elem.first + ":" +
+                    std::to_string(elem.second));
+    }
+    field_added = true;
+  }
+
+  if (does_exist(Metadata_event_types::PREV_DBTIDS_TYPE)) {
+    for (const auto &elem : prev_dbtids_) {
+      buffer.append("\tPREV_DBTIDS: " + elem.first + ":" +
+                    std::to_string(elem.second));
+    }
+    field_added = true;
+  }
+
   if (buffer.length() > 0)
     protocol->store_string(buffer.c_str(), buffer.length(), &my_charset_bin);
 
@@ -15862,6 +15694,20 @@ void Metadata_log_event::print(FILE * /* file */,
       buffer.append("\tRaft ingestion prev upper bound: " +
                     std::to_string(raft_ingestion_prev_upper_bound_));
 
+    if (does_exist(Metadata_event_types::DBTIDS_TYPE)) {
+      for (const auto &elem : dbtids_) {
+        buffer.append("\tDBTIDS: " + elem.first + ":" +
+                      std::to_string(elem.second));
+      }
+    }
+
+    if (does_exist(Metadata_event_types::PREV_DBTIDS_TYPE)) {
+      for (const auto &elem : prev_dbtids_) {
+        buffer.append("\tPREV_DBTIDS: " + elem.first + ":" +
+                      std::to_string(elem.second));
+      }
+    }
+
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());
     print_base64(body, print_event_info, false);
@@ -15908,6 +15754,11 @@ int Metadata_log_event::do_apply_event(
     thd->raft_ingestion_upper_bound = raft_ingestion_upper_bound_;
   }
 
+  if (does_exist(Metadata_event_types::DBTIDS_TYPE)) {
+    // Stash dbtids
+    thd->dbtids = dbtids_;
+  }
+
   DBUG_RETURN(error);
 }
 
@@ -15922,7 +15773,8 @@ Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
   if (does_exist(Metadata_event_types::PREV_HLC_TYPE) ||
       does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE) ||
       does_exist(Metadata_event_types::RAFT_INGESTION_PREV_CHECKPOINT_TYPE) ||
-      does_exist(Metadata_event_types::RAFT_INGESTION_PREV_UPPER_BOUND_TYPE))
+      does_exist(Metadata_event_types::RAFT_INGESTION_PREV_UPPER_BOUND_TYPE) ||
+      does_exist(Metadata_event_types::PREV_DBTIDS_TYPE))
     return Log_event::EVENT_SKIP_IGNORE;
 
   return Log_event::EVENT_SKIP_NOT;

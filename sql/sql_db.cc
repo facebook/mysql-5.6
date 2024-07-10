@@ -1235,6 +1235,10 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     }
   }
 
+  if (enable_dbtids && mysql_bin_log.is_open()) {
+    mysql_bin_log.rm_db_from_dbtids(db.str);
+  }
+
   thd->server_status |= SERVER_STATUS_DB_DROPPED;
   my_ok(thd, deleted_tables);
   return false;

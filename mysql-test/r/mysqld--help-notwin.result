@@ -495,6 +495,7 @@ The following options may be given as the first argument:
  track the exact time. Else we track wallclock time
  elapsed which is less accurate but performant(avoids
  system calls).
+ --enable-dbtids     Enable DB transcation ID in binlogs
  --enable-deprecation-warning 
  If set to false, will not show deprecation warnings 
  (Defaults to on; use --skip-enable-deprecation-warning to disable.)
@@ -3466,6 +3467,7 @@ enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
 enable-cputime-with-wallclock FALSE
+enable-dbtids FALSE
 enable-deprecation-warning TRUE
 enable-failure-injection FALSE
 enable-hlc-bound FALSE

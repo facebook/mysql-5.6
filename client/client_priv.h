@@ -217,6 +217,7 @@ enum options_client {
   OPT_SELECT_INTO_FILE_FSYNC_SIZE,
   OPT_SELECT_INTO_FILE_FSYNC_TIMEOUT,
   OPT_SET_APPLIED_OPID_SET,
+  OPT_SET_DBTIDS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };

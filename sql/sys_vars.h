@@ -3075,4 +3075,83 @@ class Sys_var_applied_opid_set : public sys_var {
   }
 };
 
+/**
+  Class for @@global.dbtids.
+*/
+class Sys_var_dbtids : public sys_var {
+ public:
+  Sys_var_dbtids(
+      const char *name_arg, const char *comment, int flag_args, ptrdiff_t off,
+      size_t, CMD_LINE getopt, const char *def_val, PolyLock *lock = nullptr,
+      enum binlog_status_enum binlog_status_arg = VARIABLE_NOT_IN_BINLOG,
+      on_check_function on_check_func = nullptr,
+      on_update_function on_update_func = nullptr,
+      const char *substitute = nullptr, int parse_flag = PARSE_NORMAL)
+      : sys_var(&all_sys_vars, name_arg, comment, flag_args, off, getopt.id,
+                getopt.arg_type, SHOW_CHAR, (intptr)def_val, lock,
+                binlog_status_arg, on_check_func, on_update_func, substitute,
+                parse_flag) {}
+
+  bool session_update(THD *, set_var *) override {
+    assert(false);
+    return true;
+  }
+
+  void session_save_default(THD *, set_var *) override { assert(false); }
+
+  bool global_update(THD * /*thd*/, set_var *var) override {
+    std::unordered_map<std::string, uint64_t> tids;
+    if (!MYSQL_BIN_LOG::dbtids_from_str(var->save_result.string_value.str,
+                                        &tids)) {
+      return true;
+    }
+    return !mysql_bin_log.update_dbtids(tids, true);
+  }
+
+  void global_save_default(THD *, set_var *) override {
+    /* gtid_purged does not have default value */
+    my_error(ER_NO_DEFAULT, MYF(0), name.str);
+  }
+
+  void saved_value_to_string(THD *, set_var *, char *) override {
+    my_error(ER_NO_DEFAULT, MYF(0), name.str);
+  }
+
+  bool do_check(THD *thd, set_var *var) override {
+    DBUG_TRACE;
+    char buf[1024];
+    String str(buf, sizeof(buf), system_charset_info);
+    String *res = var->value->val_str(&str);
+    if (!res) return true;
+    var->save_result.string_value.str = thd->strmake(res->ptr(), res->length());
+    if (!var->save_result.string_value.str) {
+      my_error(ER_OUT_OF_RESOURCES, MYF(0));  // thd->strmake failed
+      return true;
+    }
+    var->save_result.string_value.length = res->length();
+    return !MYSQL_BIN_LOG::validate_dbtids(thd,
+                                           var->save_result.string_value.str);
+  }
+
+  bool check_update_type(Item_result type) override {
+    return type != STRING_RESULT;
+  }
+
+  const uchar *global_value_ptr(THD *thd, std::string_view) override {
+    const std::string &tids_str = mysql_bin_log.get_dbtids_str();
+    char *buf = (char *)thd->alloc(tids_str.size() + 1);
+    if (buf == nullptr) {
+      my_error(ER_OUT_OF_RESOURCES, MYF(0));
+      return nullptr;
+    }
+    std::strcpy(buf, tids_str.c_str());
+    return (uchar *)buf;
+  }
+
+  const uchar *session_value_ptr(THD *, THD *, std::string_view) override {
+    assert(false);
+    return nullptr;
+  }
+};
+
 #endif /* SYS_VARS_H_INCLUDED */

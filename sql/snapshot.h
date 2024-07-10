@@ -35,6 +35,7 @@ struct snapshot_info_st {
   snapshot_operation op = SNAPSHOT_NONE;
   ulonglong snapshot_hlc = 0;
   std::string applied_opid_set;
+  std::string dbtids;
 };
 
 class explicit_snapshot {

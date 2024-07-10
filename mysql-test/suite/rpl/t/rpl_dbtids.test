@@ -1,0 +1,122 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+
+connection master;
+call mtr.add_suppression("Taking backup from");
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+set @@global.dbtids = "";
+connection slave;
+set @@global.dbtids = "";
+
+
+echo Case 1: Check if DDL and DML commits increment dbtids;
+connection master;
+create database db1;
+create database db2;
+
+create table db1.t (a int auto_increment primary key) engine = innodb;
+create table db2.t (a int auto_increment primary key) engine = innodb;
+
+insert into db1.t values();
+insert into db2.t values();
+
+# Multi db transaction
+begin;
+insert into db1.t values();
+insert into db2.t values();
+commit;
+
+select @@global.dbtids;
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+select @@global.dbtids;
+
+
+echo Case 2: Check dbtids are bootstrapped correctly on restart;
+connection master;
+flush binary logs;
+
+let $rpl_server_number = 1;
+source include/rpl_restart_server.inc;
+
+connection master;
+select @@global.dbtids;
+
+connection slave;
+flush binary logs;
+
+let $rpl_server_number = 2;
+source include/rpl_restart_server.inc;
+
+connection slave;
+source include/start_slave.inc;
+select @@global.dbtids;
+
+
+echo Case 3: Check if mysqldump prints dbtids;
+exec $MYSQL_DUMP --set-gtid-purged=OFF --single-transaction --set-dbtids --databases db1 | grep "DBTIDS";
+exec $MYSQL_DUMP --set-gtid-purged=OFF --single-transaction --set-dbtids --databases db2 | grep "DBTIDS";
+exec $MYSQL_DUMP --set-gtid-purged=OFF --single-transaction --set-dbtids --all-databases | grep "DBTIDS";
+exec $MYSQL_DUMP_SLAVE --set-gtid-purged=OFF --single-transaction --set-dbtids --databases db1 | grep "DBTIDS";
+exec $MYSQL_DUMP_SLAVE --set-gtid-purged=OFF --single-transaction --set-dbtids --databases db2 | grep "DBTIDS";
+exec $MYSQL_DUMP_SLAVE --set-gtid-purged=OFF --single-transaction --set-dbtids --all-databases | grep "DBTIDS";
+
+connection master;
+exec echo "SET @@SESSION.SQL_LOG_BIN = 0;" > $MYSQL_TMP_DIR/db1.sql;
+exec $MYSQL_DUMP --set-gtid-purged=OFF --single-transaction --set-dbtids --databases db1 >> $MYSQL_TMP_DIR/db1.sql;
+exec echo "SET @@SESSION.SQL_LOG_BIN = 1;" >> $MYSQL_TMP_DIR/db1.sql;
+
+set @@session.sql_log_bin = 0;
+drop database db1;
+set @@session.sql_log_bin = 1;
+
+exec $MYSQL --user=root --host=127.0.0.1 --port=$MASTER_MYPORT < $MYSQL_TMP_DIR/db1.sql;
+
+remove_file $MYSQL_TMP_DIR/db1.sql;
+
+connection master;
+select @@global.dbtids;
+connection slave;
+select @@global.dbtids;
+
+
+echo Case 4: Test rollback;
+connection slave;
+source include/stop_slave.inc;
+
+connection master;
+set @@global.commit_consensus_error_action=ROLLBACK_TRXS_IN_GROUP;
+set @@global.debug = '+d,simulate_commit_consensus_error';
+
+select @@global.dbtids;
+error 1180;
+insert into db1.t values();
+select @@global.dbtids;
+
+let $rpl_server_number = 1;
+let $rpl_force_stop = 1;
+source include/rpl_restart_server.inc;
+
+connection slave;
+source include/start_slave.inc;
+
+connection master;
+select @@global.dbtids;
+connection slave;
+select @@global.dbtids;
+
+
+echo Cleanup;
+connection master;
+drop database db1;
+drop database db2;
+
+select @@global.dbtids;
+
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

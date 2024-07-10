@@ -4091,24 +4091,12 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
 
 #ifdef MYSQL_SERVER
   bool write_data_body(Basic_ostream *ostream) override;
-
-  uint32 write_to_memory(uchar *obuffer) {
-    common_header->data_written = LOG_EVENT_HEADER_LEN + get_data_size();
-    uint32 len = write_header_to_memory(obuffer);
-    len += write_data_body(obuffer + len);
-    return len;
-  }
   int pack_info(Protocol *) override;
-#endif
-
-#if defined(MYSQL_SERVER)
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *) override;
-#endif
 
  private:
-#ifdef MYSQL_SERVER
   /**
    * Write HLC timestamp to file
    *
@@ -4219,6 +4207,24 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_raft_ingestion_prev_upper_bound(Basic_ostream *ostream);
 
   /**
+   * Write DB trx id
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_dbtids(Basic_ostream *ostream);
+
+  /**
+   * Write previous DB trx id
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_prev_dbtids(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to
@@ -4229,127 +4235,6 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    */
   bool write_type_and_length(Basic_ostream *ostream, Metadata_event_types type,
                              uint16_t length);
-
-  /**
-   * Write data body section of this event to memory buffer
-   *
-   * @param obuffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_data_body(uchar *obuffer);
-
-  /**
-   * Write HLC timestamp to memory buffer
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_hlc_time(uchar *obuffer);
-
-  /**
-   * Write prev HLC timestamp to memory buffer
-   *
-   * @param obuffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_prev_hlc_time(uchar *obuffer);
-
-  /**
-   * Write raft term and index to memory buffer
-   *
-   * @param obuffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_term_and_index(uchar *obuffer);
-
-  /**
-   * Write raft provided generic string to memory buffer
-   *
-   * @param obuffer - buffer to write into
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_str(uchar *obuffer);
-
-  /**
-   * Write rotate event tag to metadata event previous to rotate event
-   * Central to raft correctness
-   *
-   * @param ostream - stream to write into
-   *
-   * @returns - 0 on success, 1 on false
-   */
-  uint32 write_rotate_tag(uchar *obuffer);
-
-  /**
-   * Write TTL read filtering timestamp to memory buffer
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_ttl_read_filtering_timestamp(uchar *obuffer);
-
-  /**
-   * Write TTL compaction timestamp to memory buffer
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_ttl_compaction_timestamp(uchar *obuffer);
-
-  /**
-   * Write raft ingestion checkpoint
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_ingestion_checkpoint(uchar *obuffer);
-
-  /**
-   * Write raft ingestion upper bound
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_ingestion_upper_bound(uchar *obuffer);
-
-  /**
-   * Write raft ingestion prev checkpoint
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_ingestion_prev_checkpoint(uchar *obuffer);
-
-  /**
-   * Write raft ingestion prev upper bound
-   *
-   * @param obffer - buffer to write to
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_raft_ingestion_prev_upper_bound(uchar *obuffer);
-
-  /**
-   * Write type and length to memory buffer
-   *
-   * @param obuffer - buffer to write to
-   * @param type    - type to write to buffer
-   * @param length  - length to write to buffer
-   *
-   * @returns - number of bytes written
-   */
-  uint32 write_type_and_length(uchar *obuffer, Metadata_event_types type,
-                               uint16_t length);
 #endif
 };
 

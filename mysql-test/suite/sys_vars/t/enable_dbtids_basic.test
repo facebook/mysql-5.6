@@ -1,0 +1,17 @@
+-- source include/load_sysvars.inc
+
+--echo Default value is false
+SELECT @@global.enable_dbtids;
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_dbtids;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SET @@global.enable_dbtids = true;
+SELECT @@global.enable_dbtids;
+
+SET @@global.enable_dbtids = false;
+SELECT @@global.enable_dbtids;
+
+SET @@global.enable_dbtids = default;
+SELECT @@global.enable_dbtids;

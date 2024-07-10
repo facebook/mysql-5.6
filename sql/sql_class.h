@@ -1991,6 +1991,8 @@ class THD : public MDL_context_owner,
   std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
   uint64_t raft_ingestion_upper_bound = 0;
 
+  std::unordered_map<std::string, uint64_t> dbtids;
+
   const NET *get_net() const { return &net; }
   bool has_net_vio() const noexcept { return net.vio != nullptr; }
   const Vio *get_net_vio() const noexcept { return net.vio; }

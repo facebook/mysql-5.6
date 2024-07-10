@@ -1,0 +1,11 @@
+SELECT @@global.dbtids;
+@@global.dbtids
+
+SELECT @@session.dbtids;
+ERROR HY000: Variable 'dbtids' is a GLOBAL variable
+SET @dbtids_save = @@global.dbtids;
+SET @@global.dbtids = 'test:4';
+SET @@global.dbtids = '';
+SET @@global.dbtids = 'blah:10';
+ERROR 42000: Variable 'dbtids' can't be set to the value of 'blah:10'
+SET @@global.dbtids = @dbtids_save;

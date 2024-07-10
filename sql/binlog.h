@@ -31,10 +31,13 @@
 #include <limits>
 #include <list>
 #include <mutex>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 #include "libbinlogevents/include/binlog_event.h"  // enum_binlog_checksum_alg
 #include "m_string.h"                              // llstr
@@ -1017,6 +1020,139 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   bool set_applied_opid_set(const std::string &opid_set);
 
+  /**
+   * Returns the current dbtid for a given database
+   */
+  uint64_t get_current_dbtid(const std::string &db, bool should_lock = true) {
+    std::unique_lock<std::mutex> lock(dbtids_lock, std::defer_lock);
+    if (should_lock) {
+      lock.lock();
+    }
+    const auto &itr = dbtids.find(db);
+    if (itr == dbtids.end()) {
+      return 0;
+    }
+    return itr->second;
+  }
+
+  /**
+   * Returns the next dbtid for a given database and updates the dbtids map with
+   * the new value
+   */
+  uint64_t get_next_dbtid(const std::string &db, bool should_lock = true) {
+    std::unique_lock<std::mutex> lock(dbtids_lock, std::defer_lock);
+    if (should_lock) {
+      lock.lock();
+    }
+    const auto &itr = dbtids.find(db);
+    if (itr == dbtids.end()) {
+      dbtids[db] = 1;
+      return 1;
+    }
+    ++itr->second;
+    return itr->second;
+  }
+
+  /**
+   * Updates the dbtids map. We only hold the max dbtid seen for every database.
+   * We don't track holes and expect them to be filled up eventually.
+   * If @force is set then we set dbtid forcefully to whatever value is provided
+   * in @tids (we don't touch dbs that are not present in @tids)
+   */
+  bool update_dbtids(const std::unordered_map<std::string, uint64_t> &tids,
+                     bool force = false) {
+    std::unique_lock<std::mutex> lock(dbtids_lock);
+    if (force && tids.empty()) {
+      dbtids.clear();
+      return true;
+    }
+    for (const auto &elem : tids) {
+      if (!force && elem.second <= get_current_dbtid(elem.first, false)) {
+        continue;
+      }
+      dbtids[elem.first] = elem.second;
+    }
+    return true;
+  }
+
+  void rm_db_from_dbtids(const std::string &db) {
+    std::unique_lock<std::mutex> lock(dbtids_lock);
+    dbtids.erase(db);
+  }
+
+  /**
+   * Rolls back the THD's dbtids (THD::dbtids). If the thd's dbtids are greater
+   * than one in the map this is a noop, otherwise it makes sure that for every
+   * db entry in thd dbtids the global dbtids is one less. Since we're not
+   * tracking holes in dbtids seq the implicit assumption here is that if a trx
+   * rolls back, all trxs after that trx in the group commit will also rollback.
+   */
+  void rollback_dbtids(THD *thd) {
+    std::unique_lock<std::mutex> lock(dbtids_lock);
+    for (const auto &elem : thd->dbtids) {
+      if (elem.second > get_current_dbtid(elem.first, false)) {
+        continue;
+      }
+      dbtids[elem.first] = elem.second - 1;
+    }
+  }
+
+  std::unordered_map<std::string, uint64_t> get_dbtids() const {
+    std::unique_lock<std::mutex> lock(dbtids_lock);
+    return dbtids;
+  }
+
+  std::string get_dbtids_str() const {
+    std::unique_lock<std::mutex> lock(dbtids_lock);
+    return dbtids_to_str(dbtids);
+  }
+
+  /**
+   * Check if all dbs present in @tids_str are valid databases
+   */
+  static bool validate_dbtids(THD *thd, const std::string &tids_str);
+
+  static std::string dbtids_to_str(
+      const std::unordered_map<std::string, uint64_t> &tids) {
+    std::stringstream ss;
+    for (const auto &elem : tids) {
+      ss << elem.first << ":" << elem.second << ",\n";
+    }
+    std::string ret = ss.str();
+    if (!ret.empty()) {
+      ret.pop_back();
+      ret.pop_back();
+    }
+    return ret;
+  }
+
+  static bool dbtids_from_str(
+      const std::string &tids_str,
+      std::unordered_map<std::string, uint64_t> *tids_ptr) {
+    if (!tids_ptr) {
+      return false;
+    }
+    if (tids_str.empty()) {
+      tids_ptr->clear();
+      return true;
+    }
+    std::vector<std::string> kvs;
+    boost::split(kvs, tids_str, boost::is_any_of(","));
+    for (const auto &kv : kvs) {
+      std::vector<std::string> parts;
+      boost::split(parts, kv, boost::is_any_of(":"));
+      if (parts.size() != 2) {
+        return false;
+      }
+      boost::trim(parts[0]);
+      boost::trim(parts[1]);
+      const std::string &key = parts[0];
+      const uint64_t &value = std::stoull(parts[1]);
+      (*tids_ptr)[key] = value;
+    }
+    return true;
+  }
+
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
 
@@ -1031,6 +1167,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   // Max HLC timestamp written to the binlog
   std::atomic<uint64_t> max_write_hlc_ts{0};
+
+  mutable std::mutex dbtids_lock;
+  std::unordered_map<std::string, uint64_t> dbtids;
 
   // Used by raft log only
   // Log file name: binary-logs-{port}.####

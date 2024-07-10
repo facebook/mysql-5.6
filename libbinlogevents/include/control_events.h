@@ -41,6 +41,7 @@
 #include <array>
 #include <list>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "binlog_event.h"
@@ -909,6 +910,35 @@ class Metadata_event : public Binary_log_event {
   uint64_t get_raft_ingestion_prev_upper_bound() const;
 
   /**
+   * Sets dbtid
+   *
+   * @param dbname
+   * @param id
+   */
+  void set_dbtid(const std::string &db, const uint64_t &id);
+
+  /**
+   * Get dbtids
+   *
+   * @return dbtids
+   */
+  std::unordered_map<std::string, uint64_t> get_dbtids() const;
+
+  /**
+   * Sets prev dbtids
+   *
+   * @param dbtids
+   */
+  void set_prev_dbtid(const std::string &db, const uint64_t &id);
+
+  /**
+   * Get prev dbtids
+   *
+   * @return dbtids
+   */
+  std::unordered_map<std::string, uint64_t> get_prev_dbtids() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -943,6 +973,10 @@ class Metadata_event : public Binary_log_event {
     RAFT_INGESTION_PREV_CHECKPOINT_TYPE = 11,
     /* Previous raft ingestion upper bound written on top of the log */
     RAFT_INGESTION_PREV_UPPER_BOUND_TYPE = 12,
+    /* DB trx id */
+    DBTIDS_TYPE = 13,
+    /* Prev DB trx id */
+    PREV_DBTIDS_TYPE = 14,
 
     METADATA_EVENT_TYPE_MAX,
   };
@@ -1038,6 +1072,10 @@ class Metadata_event : public Binary_log_event {
   uint64_t raft_ingestion_prev_upper_bound_ = 0;
   static const uint32_t ENCODED_RAFT_INGESTION_PREV_UPPER_BOUND_SIZE =
       sizeof(raft_ingestion_prev_upper_bound_);
+
+  std::unordered_map<std::string, uint64_t> dbtids_;
+
+  std::unordered_map<std::string, uint64_t> prev_dbtids_;
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
