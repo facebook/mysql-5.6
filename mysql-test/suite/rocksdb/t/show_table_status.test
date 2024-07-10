@@ -130,6 +130,7 @@ where table_schema=database() and table_name='t1';
 
 --echo # Check TRUNCATE TABLE
 insert into t1 values (10,10);
+set global update_table_create_timestamp_on_truncate=off;
 select create_time, update_time into @create_tm, @update_tm
 from information_schema.tables 
 where table_schema=database() and table_name='t1';
@@ -139,6 +140,22 @@ truncate table t1;
 
 select
   create_time=@create_tm /* should not change */,
+  update_time
+from information_schema.tables 
+where table_schema=database() and table_name='t1';
+
+insert into t1 values (10,10);
+set global update_table_create_timestamp_on_truncate=on;
+select create_time, update_time into @create_tm, @update_tm
+from information_schema.tables 
+where table_schema=database() and table_name='t1';
+
+select sleep(3);
+truncate table t1;
+set global update_table_create_timestamp_on_truncate=off;
+
+select
+  timestampdiff(second, @create_tm, create_time) > 2,
   update_time
 from information_schema.tables 
 where table_schema=database() and table_name='t1';

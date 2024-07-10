@@ -3218,6 +3218,9 @@ The following options may be given as the first argument:
  --update-binlog-pos-threshold=# 
  Storage engine updates its binlog positions when its
  current position falls behind by # bytes
+ --update-table-create-timestamp-on-truncate 
+ Update CREATE_TIME timestamp of the row associated with a
+ table in information_schema.TABLES once it is truncated.
  --upgrade=name      Set server upgrade mode. NONE to abort server if
  automatic upgrade of the server is needed; MINIMAL to
  start the server, but skip upgrade steps that are not
@@ -4227,6 +4230,7 @@ transaction-write-set-extraction XXHASH64
 trim-binlog-to-recover FALSE
 updatable-views-with-limit YES
 update-binlog-pos-threshold 5242880
+update-table-create-timestamp-on-truncate FALSE
 upgrade AUTO
 use-fb-json-functions 
 use-mdl-mutex TRUE

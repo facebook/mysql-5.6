@@ -41,6 +41,7 @@
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/dd/dd_schema.h"                // dd::Schema_MDL_locker
 #include "sql/dd/dd_table.h"                 // dd::table_storage_engine
+#include "sql/dd/impl/utils.h"               // dd::my_time_t_to_ull_datetime
 #include "sql/dd/properties.h"               // dd::Properties
 #include "sql/dd/types/abstract_table.h"     // dd::enum_table_type
 #include "sql/dd/types/table.h"              // dd::Table
@@ -226,6 +227,12 @@ static Truncate_result handler_truncate_base(THD *thd, Table_ref *table_ref,
     else
       return Truncate_result::FAILED_BUT_BINLOG;
   } else if ((table_ref->table->file->ht->flags & HTON_SUPPORTS_ATOMIC_DDL)) {
+    if (update_table_create_timestamp_on_truncate) {
+      ulonglong ull_curtime =
+          dd::my_time_t_to_ull_datetime(thd->query_start_in_secs());
+      table_def->set_created(ull_curtime);
+      table_def->set_last_altered(ull_curtime);
+    }
     if (thd->dd_client()->update(table_def)) {
       /* Statement rollback will revert effect of handler::truncate() as well.
        */
@@ -561,6 +568,16 @@ void Sql_cmd_truncate_table::truncate_base(THD *thd, Table_ref *table_ref) {
     if (ha_create_table(thd, path, table_ref->db, table_ref->table_name,
                         &create_info, true, false, table_def) != 0) {
       return;
+    }
+
+    if (update_table_create_timestamp_on_truncate) {
+      ulonglong ull_curtime =
+          dd::my_time_t_to_ull_datetime(thd->query_start_in_secs());
+      table_def->set_created(ull_curtime);
+      table_def->set_last_altered(ull_curtime);
+      if (thd->dd_client()->update(table_def)) {
+        return;
+      }
     }
 
     // Binlog only if truncate-by-recreate succeeds.

@@ -10546,3 +10546,10 @@ static Sys_var_bool Sys_include_applied_opid_in_snapshot_info(
     "Include applied opid in consistent snapshot info",
     GLOBAL_VAR(include_applied_opid_in_snapshot_info), CMD_LINE(OPT_ARG),
     DEFAULT(true));
+
+static Sys_var_bool Sys_update_table_create_timestamp_on_truncate(
+    "update_table_create_timestamp_on_truncate",
+    "Update CREATE_TIME timestamp of the row associated with a table in "
+    "information_schema.TABLES once it is truncated.",
+    GLOBAL_VAR(update_table_create_timestamp_on_truncate), CMD_LINE(OPT_ARG),
+    DEFAULT(false));

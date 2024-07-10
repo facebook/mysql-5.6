@@ -796,6 +796,8 @@ extern bool skip_sys_tables_engine_check;
 
 extern bool include_applied_opid_in_snapshot_info;
 
+extern bool update_table_create_timestamp_on_truncate;
+
 #ifdef HAVE_PSI_INTERFACE
 
 extern PSI_mutex_key key_LOCK_tc;
