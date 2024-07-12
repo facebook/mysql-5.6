@@ -378,6 +378,132 @@ Sql_plans_total_stmts_seen	20
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	20
+
+.*********************************.
+| Test sql_plans_control=OFF |
+`*********************************`
+
+set @@GLOBAL.sql_plans_control=OFF;
+SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+-> Testing that SELECTs issued after sql_plans_control=OFF
+don't add new entries to P_S.SQL_PLANS. Note that the entry for 
+"Table scan on sql_plans" would be up by 1, and that's due to the 
+previous execution of the following statement (before 
+sql_plans_control=OFF was issued). 
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+15f9aaefe251fc285b3c75edfd313396	1	-> Filter: ((t1.b > ?) and (t1.c < ?))
+    -> Index lookup on t1 using idx1 (a=?)
+
+00da2e027480a54ccf17c47256dd41d8	1	-> Filter: (t1.b > ?)
+    -> Index lookup on t1 using idx1 (a=?)
+
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+f0a5aee7587caba0868aeb9dd52c58b1	1	-> Filter: (((t1.a = ?) and (t1.b > ?) and ((t1.c < ?) or (t1.c > ?))) or (t1.b in (?,?,?)))
+    -> Table scan on t1
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+bfed04f82a856191142aec5e142ff6fb	1	-> Filter: (((t1.a = ?) and (t1.b > ?) and (t1.c < ?)) or (t1.c > ?))
+    -> Table scan on t1
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	4	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
+
+-> total_stmts* count will stay same as the previous time
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	20
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	20
+
+.*****************************************.
+| Test sql_plans_control=ON from OFF |
+`*****************************************`
+
+set @@GLOBAL.sql_plans_control=ON;
+SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+-> Testing that SELECTs issued after sql_plans_control=ON after being
+at OFF start adding new entries to P_S.SQL_PLANS again,
+carrying from before.
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+PLAN_ID	COUNT_OCCUR	PLAN_ROW
+15f9aaefe251fc285b3c75edfd313396	2	-> Filter: ((t1.b > ?) and (t1.c < ?))
+    -> Index lookup on t1 using idx1 (a=?)
+
+00da2e027480a54ccf17c47256dd41d8	2	-> Filter: (t1.b > ?)
+    -> Index lookup on t1 using idx1 (a=?)
+
+9e5d6f55dc5dc1e32e1c35dd60002411	2	-> Nested loop inner join
+    -> Filter: ((t1.pk >= ?) and (t1.pk <= ?) and (t1.a is not null))
+        -> Index range scan on t1 using PRIMARY over (pk = ?)
+    -> Filter: (t2.pk_col2 in (?,?,?,?,?))
+        -> Covering index lookup on t2 using PRIMARY (pk_col1=t1.a)
+
+f0a5aee7587caba0868aeb9dd52c58b1	2	-> Filter: (((t1.a = ?) and (t1.b > ?) and ((t1.c < ?) or (t1.c > ?))) or (t1.b in (?,?,?)))
+    -> Table scan on t1
+
+a3371a0d7d74569b3c34bc4cb1b3a6d1	2	-> Nested loop inner join
+    -> Filter: (t2.pk_col1 <= ?)
+        -> Covering index range scan on t2 using PRIMARY over (pk_col1 <= ?)
+    -> Index lookup on t1 using idx1 (a=t2.pk_col1), with index condition: (t1.pk > ?)
+
+bfed04f82a856191142aec5e142ff6fb	2	-> Filter: (((t1.a = ?) and (t1.b > ?) and (t1.c < ?)) or (t1.c > ?))
+    -> Table scan on t1
+
+39b61da68f021611d063c21377d95aa5	2	-> Nested loop inner join
+    -> Filter: (t1.c is not null)
+        -> Table scan on t1
+    -> Index lookup on t2 using PRIMARY (pk_col1=t1.c)
+
+a1c6b5714c67acd183ca6a76db38701c	4	-> Table scan on sql_plans
+
+bc85a4885b10aa0987188e1a7ce95b72	3	-> Covering index scan on t2 using c1_c2_idx
+
+0b3ac009b76c4f8aee63f56b3280a8b6	3	-> Table scan on t1
+
+-> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+Variable_name	Value
+Sql_plans_total_stmts_seen	25
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+Variable_name	Value
+Sql_plans_total_stmts_sampled	25
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;

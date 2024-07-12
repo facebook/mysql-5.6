@@ -353,8 +353,8 @@ The following options may be given as the first argument:
  tree. The data is exposed via the column_statistics
  table. Takes the following values: OFF_HARD: Default
  value. Stop collecting the statistics and flush all
- column statistics data from memory. OFF_SOFT: Stop
- collecting column statistics, but retain any data
+ column statistics data from memory. OFF and OFF_SOFT:
+ Stop collecting column statistics, but retain any data
  collected so far. ON: Collect the statistics.
  --commit-consensus-error-action[=name] 
  Defines the server action when a thread fails inside
@@ -794,9 +794,9 @@ The following options may be given as the first argument:
  exposed via the index_statistics table in performance
  schema. Takes the following values: OFF_HARD: Default
  value. Stop collecting the statistics and flush all index
- statistics data from memory. OFF_SOFT: Stop collecting
- index statistics, but retain any data collected so far.
- ON: Collect the statistics.
+ statistics data from memory. OFF and OFF_SOFT: Stop
+ collecting index statistics, but retain any data
+ collected so far. ON: Collect the statistics.
  --information-schema-engine[=name] 
  Specify information_schema engine
  --information-schema-stats-expiry=# 
@@ -3008,8 +3008,8 @@ The following options may be given as the first argument:
  through the SQL_FINDINGS table. It accepts the following
  values: OFF_HARD: Default value. Stop collecting the
  findings and flush all SQL findings related data from
- memory. OFF_SOFT: Stop collecting the findings, but
- retain any data collected so far. ON: Collect the SQL
+ memory. OFF and OFF_SOFT: Stop collecting the findings,
+ but retain any data collected so far. ON: Collect the SQL
  findings.
  --sql-generate-invisible-primary-key 
  When set, if a table is created without a primary key
@@ -3030,7 +3030,7 @@ The following options may be given as the first argument:
  optimizer/executing SQL statements. This data is exposed
  through the SQL_PLANS table. It accepts the following
  values: OFF_HARD: Default value. Stop capturing SQL plans
- and flush all SQL plans related data from memory.
+ and flush all SQL plans related data from memory. OFF and
  OFF_SOFT: Stop collecting the SQL plans, but retain any
  data collected so far. ON: Capture the SQL plans.
  --sql-plans-max-buffer[=#] 

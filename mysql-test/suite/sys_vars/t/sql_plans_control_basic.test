@@ -49,17 +49,19 @@ SET @@global.sql_plans_control = 1;
 SELECT @@global.sql_plans_control;
 SET @@global.sql_plans_control = 2;
 SELECT @@global.sql_plans_control;
+SET @@global.sql_plans_control = 3;
+SELECT @@global.sql_plans_control;
 SET @@global.sql_plans_control = True;
 SELECT @@global.sql_plans_control;
 SET @@global.sql_plans_control = False;
+SELECT @@global.sql_plans_control;
+SET @@global.sql_plans_control = "off";
 SELECT @@global.sql_plans_control;
 
 ####
 ## Try changing the value to invalid values
 ####
 --echo Attempt setting invalid values
---Error ER_WRONG_VALUE_FOR_VAR
-SET @@global.sql_plans_control = "off";
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.sql_plans_control = "on_soft";
 --Error ER_WRONG_VALUE_FOR_VAR
@@ -74,8 +76,6 @@ SET @@global.sql_plans_control = "";
 SET @@global.sql_plans_control = '';
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.sql_plans_control = ' ';
---Error ER_WRONG_VALUE_FOR_VAR
-SET @@global.sql_plans_control = 3;
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.sql_plans_control = -1;
 

@@ -273,6 +273,78 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
+# Next, test that with sql_plans_control=OFF, 5 new statements do not
+# add more entries to the P_S.SQL_PLANS table
+
+--echo
+--echo  .*********************************.
+--echo  | Test sql_plans_control=OFF |
+--echo  `*********************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=OFF;
+disable_result_log;
+
+--echo SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+--echo SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+--echo SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+--echo SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+enable_result_log;
+
+--echo
+--echo -> Testing that SELECTs issued after sql_plans_control=OFF
+--echo    don't add new entries to P_S.SQL_PLANS. Note that the entry for 
+--echo    "Table scan on sql_plans" would be up by 1, and that's due to the 
+--echo    previous execution of the following statement (before 
+--echo    sql_plans_control=OFF was issued). 
+--echo
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> total_stmts* count will stay same as the previous time
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+
+# Don't RESET state for this next test
+
+# Next, test that with sql_plans_control=ON again, 5 new statements do
+# add more entries to the P_S.SQL_PLANS table
+
+--echo
+--echo  .*****************************************.
+--echo  | Test sql_plans_control=ON from OFF |
+--echo  `*****************************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+disable_result_log;
+
+--echo SELECT #1
+SELECT * FROM t1 where a = 5 and b > 10;
+--echo SELECT #2
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4;
+--echo SELECT #3
+SELECT * FROM t1 where a = 5 and b > 10 and c < 4 or c > 10;
+--echo SELECT #4
+SELECT * FROM t1 where a = 5 and b > 10 and (c < 4 or c > 10) or b in (1, 8, 88);
+
+enable_result_log;
+
+--echo
+--echo -> Testing that SELECTs issued after sql_plans_control=ON after being
+--echo    at OFF start adding new entries to P_S.SQL_PLANS again,
+--echo    carrying from before.
+--echo
+
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo -> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
+SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
+SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;

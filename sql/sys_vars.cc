@@ -9785,7 +9785,7 @@ static Sys_var_enum Sys_raft_signal_async_dump_threads(
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static const char *sql_info_control_values[] = {
-    "OFF_HARD", "OFF_SOFT", "ON",
+    "OFF_HARD", "OFF_SOFT", "ON", "OFF",
     /* Add new control before the following line */
     0};
 
@@ -9804,7 +9804,7 @@ static Sys_var_enum Sys_sql_findings_control(
     "It accepts the following values: "
     "OFF_HARD: Default value. Stop collecting the findings and flush "
     "all SQL findings related data from memory. "
-    "OFF_SOFT: Stop collecting the findings, but retain any data "
+    "OFF and OFF_SOFT: Stop collecting the findings, but retain any data "
     "collected so far. "
     "ON: Collect the SQL findings.",
     GLOBAL_VAR(sql_findings_control), CMD_LINE(REQUIRED_ARG),
@@ -9840,7 +9840,7 @@ static Sys_var_enum Sys_column_stats_control(
     "Takes the following values: "
     "OFF_HARD: Default value. Stop collecting the statistics and flush "
     "all column statistics data from memory. "
-    "OFF_SOFT: Stop collecting column statistics, but retain any data "
+    "OFF and OFF_SOFT: Stop collecting column statistics, but retain any data "
     "collected so far. "
     "ON: Collect the statistics.",
     GLOBAL_VAR(column_stats_control), CMD_LINE(REQUIRED_ARG),
@@ -9862,7 +9862,7 @@ static Sys_var_enum Sys_index_stats_control(
     "schema. Takes the following values: "
     "OFF_HARD: Default value. Stop collecting the statistics and flush "
     "all index statistics data from memory. "
-    "OFF_SOFT: Stop collecting index statistics, but retain any data "
+    "OFF and OFF_SOFT: Stop collecting index statistics, but retain any data "
     "collected so far. "
     "ON: Collect the statistics.",
     GLOBAL_VAR(index_stats_control), CMD_LINE(REQUIRED_ARG),
@@ -10152,7 +10152,7 @@ static Sys_var_enum Sys_sql_plans_control(
     "It accepts the following values: "
     "OFF_HARD: Default value. Stop capturing SQL plans and flush "
     "all SQL plans related data from memory. "
-    "OFF_SOFT: Stop collecting the SQL plans, but retain any data "
+    "OFF and OFF_SOFT: Stop collecting the SQL plans, but retain any data "
     "collected so far. "
     "ON: Capture the SQL plans.",
     GLOBAL_VAR(sql_plans_control), CMD_LINE(REQUIRED_ARG),

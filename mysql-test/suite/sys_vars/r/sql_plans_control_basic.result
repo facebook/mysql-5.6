@@ -42,6 +42,10 @@ SET @@global.sql_plans_control = 2;
 SELECT @@global.sql_plans_control;
 @@global.sql_plans_control
 ON
+SET @@global.sql_plans_control = 3;
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF
 SET @@global.sql_plans_control = True;
 SELECT @@global.sql_plans_control;
 @@global.sql_plans_control
@@ -50,9 +54,11 @@ SET @@global.sql_plans_control = False;
 SELECT @@global.sql_plans_control;
 @@global.sql_plans_control
 OFF_HARD
-Attempt setting invalid values
 SET @@global.sql_plans_control = "off";
-ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'off'
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF
+Attempt setting invalid values
 SET @@global.sql_plans_control = "on_soft";
 ERROR 42000: Variable 'sql_plans_control' can't be set to the value of 'on_soft'
 SET @@global.sql_plans_control = "on_hard";
@@ -67,8 +73,6 @@ SET @@global.sql_plans_control = '';
 ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ''
 SET @@global.sql_plans_control = ' ';
 ERROR 42000: Variable 'sql_plans_control' can't be set to the value of ' '
-SET @@global.sql_plans_control = 3;
-ERROR 42000: Variable 'sql_plans_control' can't be set to the value of '3'
 SET @@global.sql_plans_control = -1;
 ERROR 42000: Variable 'sql_plans_control' can't be set to the value of '-1'
 SET sql_plans_control = ON;

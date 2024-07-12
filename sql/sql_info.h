@@ -50,11 +50,13 @@ enum enum_gap_lock_raise_values {
   - sql_findings_control,
   - sql_plans_control,
   - column_stats_control
+  - sql_plans_control
   Values
   - OFF_HARD: stop the collection and all data in the corresponding
               in-memory structures is evicted
   - OFF_SOFT: stop collecting the stats but keep the data collected so far
   - ON:       (re-)start the collection
+  - OFF:      Alias for OFF_SOFT
 
   Keep the enum in the sync with sql_info_control_values[] (sys_vars.cc)
 */
@@ -62,6 +64,7 @@ enum enum_sql_info_control {
   SQL_INFO_CONTROL_OFF_HARD = 0,
   SQL_INFO_CONTROL_OFF_SOFT = 1,
   SQL_INFO_CONTROL_ON = 2,
+  SQL_INFO_CONTROL_OFF = 3,
   /* Add new control before the following line */
   SQL_INFO_CONTROL_INVALID
 };
