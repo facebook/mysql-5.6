@@ -1821,6 +1821,9 @@ class THD : public MDL_context_owner,
      contents instead of generating from logging functions */
   bool m_skip_row_logging_functions = false;
 
+  /* Execution mode used to execute RBR events */
+  enum_rbr_exec_mode m_rbr_exec_mode = RBR_EXEC_MODE_STRICT;
+
   /**
     Determine if binlogging is currently disabled for this session.
     If the binary log is disabled for this thread (either by log_bin=0 or

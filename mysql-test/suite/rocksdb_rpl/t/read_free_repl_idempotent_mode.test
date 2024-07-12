@@ -1,0 +1,53 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+
+connection master;
+call mtr.add_suppression("[IDEMPOTENT RECOVERY]");
+
+connection slave;
+# all transactions will run in idempotent mode
+set @@global.debug = "+d,dbg_enable_idempotent_recovery";
+
+connection master;
+create table t1 (a int primary key, b int, c int, index sk(b, c)) engine = rocksdb;
+insert into t1 values(1, 1, 1);
+insert into t1 values(2, 2, 2);
+insert into t1 values(3, 3, 3);
+insert into t1 values(4, 4, 4);
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+select * from t1 force index(primary);
+select * from t1 force index(sk);
+
+# run some direct updates on replica to create divergence in data
+connection slave;
+set @@sql_log_bin = 0;
+update t1 set a = 10 where a = 1; # update PK
+update t1 set b = 20, c = 20 where a = 2; # update SK
+set @@sql_log_bin = 1;
+
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+
+connection master;
+update t1 set a = 100 where a = 1; # update PK
+update t1 set b = 200, c = 200 where a = 2; # update SK
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+select * from t1 force index(primary);
+select * from t1 force index(sk);
+
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+
+# Cleanup
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+set @@global.debug = "-d,dbg_enable_idempotent_recovery";
+
+source include/rpl_end.inc;

@@ -19065,7 +19065,9 @@ bool ha_rocksdb::is_read_free_rpl_table() const {
 bool ha_rocksdb::use_read_free_rpl() const {
   DBUG_ENTER_FUNC();
 
-  if (!ha_thd()->rli_slave || table->triggers || !is_read_free_rpl_table()) {
+  if (!ha_thd()->rli_slave || table->triggers ||
+      ha_thd()->m_rbr_exec_mode != RBR_EXEC_MODE_STRICT ||
+      !is_read_free_rpl_table()) {
     DBUG_RETURN(false);
   }
 

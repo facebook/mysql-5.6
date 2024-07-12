@@ -1,0 +1,3 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_slave_updates
+--update_binlog_pos_threshold=0 --rocksdb_read_free_rpl=PK_SK
+--slave_use_idempotent_for_recovery=YES

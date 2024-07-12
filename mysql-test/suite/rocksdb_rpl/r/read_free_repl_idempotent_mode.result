@@ -1,0 +1,52 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("[IDEMPOTENT RECOVERY]");
+set @@global.debug = "+d,dbg_enable_idempotent_recovery";
+create table t1 (a int primary key, b int, c int, index sk(b, c)) engine = rocksdb;
+insert into t1 values(1, 1, 1);
+insert into t1 values(2, 2, 2);
+insert into t1 values(3, 3, 3);
+insert into t1 values(4, 4, 4);
+include/sync_slave_sql_with_master.inc
+select * from t1 force index(primary);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+select * from t1 force index(sk);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+set @@sql_log_bin = 0;
+update t1 set a = 10 where a = 1;
+update t1 set b = 20, c = 20 where a = 2;
+set @@sql_log_bin = 1;
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+update t1 set a = 100 where a = 1;
+update t1 set b = 200, c = 200 where a = 2;
+include/sync_slave_sql_with_master.inc
+select * from t1 force index(primary);
+a	b	c
+2	200	200
+3	3	3
+4	4	4
+10	1	1
+select * from t1 force index(sk);
+a	b	c
+10	1	1
+3	3	3
+4	4	4
+2	200	200
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+read_free
+false
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@global.debug = "-d,dbg_enable_idempotent_recovery";
+include/rpl_end.inc

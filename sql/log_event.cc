@@ -8484,7 +8484,7 @@ void Rows_log_event::check_and_set_idempotent_recovery(Relay_log_info *rli) {
     if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
         current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
       sql_print_information("Enabling idempotent mode for %s", gtid);
-      rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
+      rbr_exec_mode = thd->m_rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
       m_force_binlog_idempotent = true;
       thd->m_skip_row_logging_functions = true;
     }
@@ -10497,6 +10497,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
   auto idempotent_recovery_grd = create_scope_guard([&]() {
     // Reset from THD level state when this method returns
     thd->m_skip_row_logging_functions = false;
+    thd->m_rbr_exec_mode = RBR_EXEC_MODE_STRICT;
     if (get_flags(STMT_END_F) && m_force_binlog_idempotent) {
       thd->clear_binlog_table_maps();
     }
