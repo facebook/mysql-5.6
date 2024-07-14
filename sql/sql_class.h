@@ -3429,6 +3429,7 @@ class THD : public MDL_context_owner,
   void restore_globals();
 
   void set_managed_by_cpu_scheduler(bool managed_by_cpu_scheduler = false);
+  bool is_managed_by_cpu_scheduler() { return m_managed_by_cpu_scheduler; }
 
   inline void set_active_vio(Vio *vio) {
     mysql_mutex_lock(&LOCK_thd_data);

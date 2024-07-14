@@ -3644,6 +3644,10 @@ bool Prepared_statement::execute(THD *thd, String *expanded_query,
   resource_group_switched = mgr_ptr->switch_resource_group_if_needed(
       thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
+  if (thd->is_managed_by_cpu_scheduler()) {
+    thd->admit_query();
+  }
+
   status = mysql_execute_command(thd, true, &last_time);
   if (status) return true;
 
