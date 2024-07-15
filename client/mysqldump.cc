@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <cinttypes>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -6343,8 +6344,8 @@ static bool process_dbtids(const char *dbtids_str) {
 static void print_dbtids(const char *db) {
   auto itr = dbtids.find(db);
   if (!opt_set_dbtids || itr == dbtids.end()) return;
-  fprintf(md_result_file, "SET @@GLOBAL.DBTIDS='%s:%lu';\n", itr->first.c_str(),
-          itr->second);
+  fprintf(md_result_file, "SET @@GLOBAL.DBTIDS='%s:%" PRIu64 "';\n",
+          itr->first.c_str(), itr->second);
 }
 
 /*
