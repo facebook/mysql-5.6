@@ -51,6 +51,7 @@
 #include <atomic>
 #include <limits>
 
+#include <boost/algorithm/string.hpp>
 #include "include/compression.h"
 
 #include "my_getopt.h"
@@ -9600,8 +9601,7 @@ static Sys_var_bool Sys_write_stats_eligible_only(
     "write_stats_eligible_only",
     "Collect write stats only for queries eligible for throttling if "
     "write_throttle_tag_only is enabled",
-    GLOBAL_VAR(write_stats_eligible_only), CMD_LINE(OPT_ARG),
-    DEFAULT(false));
+    GLOBAL_VAR(write_stats_eligible_only), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 /*
   Update global_write_throttling_rules data structure with the
@@ -10470,8 +10470,8 @@ static Sys_var_uint Sys_fb_vector_index_cost_factor(
     "making the optimizer prefer the vector index for vector search. "
     "Default: 1000",
     SESSION_VAR(fb_vector_index_cost_factor), CMD_LINE(OPT_ARG),
-    VALID_RANGE(1, 100000), DEFAULT(1000), BLOCK_SIZE(1),
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+    VALID_RANGE(1, 100000), DEFAULT(1000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static Sys_var_uint Sys_fb_vector_search_limit_multiplier(
     "fb_vector_search_limit_multiplier",
@@ -10482,8 +10482,8 @@ static Sys_var_uint Sys_fb_vector_search_limit_multiplier(
     "This session default can be superceded by a query level override: "
     "'SELECT /*+ SET_VAR(fb_vector_search_limit_multiplier = 3) */ ... '. "
     "Default: 10",
-    HINT_UPDATEABLE SESSION_VAR(fb_vector_search_limit_multiplier), CMD_LINE(OPT_ARG),
-    VALID_RANGE(1, 1000), DEFAULT(10), BLOCK_SIZE(1));
+    HINT_UPDATEABLE SESSION_VAR(fb_vector_search_limit_multiplier),
+    CMD_LINE(OPT_ARG), VALID_RANGE(1, 1000), DEFAULT(10), BLOCK_SIZE(1));
 
 static Sys_var_bool Sys_fb_vector_index_cond_pushdown(
     "fb_vector_index_cond_pushdown",
@@ -10553,3 +10553,83 @@ static Sys_var_bool Sys_update_table_create_timestamp_on_truncate(
     "information_schema.TABLES once it is truncated.",
     GLOBAL_VAR(update_table_create_timestamp_on_truncate), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static int parse_binlog_db_rewrite_map(
+    const std::string &value, std::map<std::string, std::string, std::less<>>
+                                  &binlog_db_rewrite_map_out) {
+  std::vector<std::string> kvs;
+  boost::split(kvs, value, boost::is_any_of(","));
+  for (const auto &kv : kvs) {
+    std::vector<std::string> parts;
+    boost::split(parts, kv, boost::is_any_of(":"));
+    if (parts.size() != 2) {
+      return 1;
+    }
+    boost::trim(parts[0]);
+    boost::trim(parts[1]);
+    // Don't allow empty entries
+    if (parts[0].empty() || parts[1].empty()) {
+      return 1;
+    }
+    // Don't allow duplicate keys
+    if (binlog_db_rewrite_map_out.find(parts[0]) !=
+        binlog_db_rewrite_map_out.end()) {
+      return 1;
+    }
+    binlog_db_rewrite_map_out[parts[0]] = parts[1];
+  }
+
+  return 0;
+}
+
+static bool validate_binlog_db_rewrite_map(sys_var * /* self */,
+                                           THD * /* thd */, set_var *var) {
+  if (!var->value || var->value->is_null()) {
+    return false;
+  }
+  std::string value{var->save_result.string_value.str,
+                    var->save_result.string_value.length};
+
+  // During the check, we parse but discard the map as we only need to validate
+  // here.
+  std::map<std::string, std::string, std::less<>> binlog_db_rewrite_map;
+  if (parse_binlog_db_rewrite_map(value, binlog_db_rewrite_map) != 0) {
+    return true;
+  }
+
+  // Ensure that we don't have any chains (eg. "db1:db2, db2:db3")
+  for (const auto &[_, dst_db] : binlog_db_rewrite_map) {
+    if (binlog_db_rewrite_map.find(dst_db) != binlog_db_rewrite_map.end()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool fix_binlog_db_rewrite_map(sys_var * /* self */, THD *thd,
+                                      enum_var_type type [[maybe_unused]]) {
+  assert(type == OPT_SESSION);
+  thd->binlog_db_rewrite_map.clear();
+
+  if (thd->variables.binlog_db_rewrite_map_str == nullptr) {
+    return false;
+  }
+
+  [[maybe_unused]] auto ret = parse_binlog_db_rewrite_map(
+      thd->variables.binlog_db_rewrite_map_str, thd->binlog_db_rewrite_map);
+
+  // Parse should never fail here as it should have already been caught in
+  // `validate_binlog_db_rewrite_map(...)`
+  assert(ret == 0);
+
+  return false;
+}
+
+static Sys_var_charptr Sys_binlog_db_rewrite_map(
+    "binlog_db_rewrite_map",
+    "Session variable to rewrite database for binlog statements",
+    SESSION_ONLY(binlog_db_rewrite_map_str), NO_CMD_LINE, IN_SYSTEM_CHARSET,
+    DEFAULT(NULL), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(validate_binlog_db_rewrite_map),
+    ON_UPDATE(fix_binlog_db_rewrite_map));

@@ -1,0 +1,102 @@
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@global.binlog_db_rewrite_map;
+
+select @@session.binlog_db_rewrite_map;
+
+--echo should be empty
+show global variables like 'binlog_db_rewrite_map';
+
+# Check that shows returns empty value by default
+show session variables like 'binlog_db_rewrite_map';
+
+# Global I_S variable is empty
+--echo should be empty
+--disable_warnings
+select * from performance_schema.global_variables where variable_name='binlog_db_rewrite_map';
+--enable_warnings
+
+# Check that I_S value is same as variable
+--disable_warnings
+select @@session.binlog_db_rewrite_map = variable_value from performance_schema.session_variables where variable_name='binlog_db_rewrite_map';
+--enable_warnings
+
+#
+# show that it's writable
+#
+set session binlog_db_rewrite_map="test:test2";
+select @@session.binlog_db_rewrite_map;
+--disable_warnings
+select * from performance_schema.global_variables where variable_name='binlog_db_rewrite_map';
+select variable_value from performance_schema.session_variables where variable_name='binlog_db_rewrite_map';
+--enable_warnings
+--error ER_LOCAL_VARIABLE
+set global binlog_db_rewrite_map="test2 : test3";
+
+select @@session.binlog_db_rewrite_map;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set session binlog_db_rewrite_map=1;
+--error ER_WRONG_TYPE_FOR_VAR
+set session binlog_db_rewrite_map=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set session binlog_db_rewrite_map=1e1;
+
+#
+# incorrect str values
+#
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="  ";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map=" : ";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map=" , ";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="foo";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="foo:test:abc";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="foo:efec,";
+
+#
+# detect chaining
+#
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="test:test2, test2:test4";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="test2:test4, test:test2";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="test : test2 , test2:test4";
+
+#
+# detect repeated keys
+#
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="test:test2, test:test4";
+--error ER_WRONG_VALUE_FOR_VAR
+set session binlog_db_rewrite_map="test:test2, test3: test5, test : test4";
+
+select @@session.binlog_db_rewrite_map;
+
+#
+# test some valid values
+#
+set session binlog_db_rewrite_map="test:test2";
+select @@session.binlog_db_rewrite_map;
+
+set session binlog_db_rewrite_map="test:test2, test3:test4";
+select @@session.binlog_db_rewrite_map;
+
+set session binlog_db_rewrite_map="1:2";
+select @@session.binlog_db_rewrite_map;
+
+set session binlog_db_rewrite_map="3:5, test3:test4";
+select @@session.binlog_db_rewrite_map;
+
+set session binlog_db_rewrite_map = NULL;
+select @@session.binlog_db_rewrite_map;

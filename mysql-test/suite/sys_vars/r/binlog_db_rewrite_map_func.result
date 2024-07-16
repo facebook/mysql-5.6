@@ -1,0 +1,219 @@
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE db1;
+CREATE TABLE db1.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM db1.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE db1;
+DROP DATABASE _other_;
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE db1;
+CREATE TABLE db1.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM db1.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+DROP DATABASE db1;
+DROP DATABASE _other_;
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE schemab;
+CREATE TABLE schemab.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM schemab.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemab;
+DROP DATABASE _other_;
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE schemab;
+CREATE TABLE schemab.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM schemab.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+DROP DATABASE schemab;
+DROP DATABASE _other_;
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE my_new_fancy_and_very_long_schema_name;
+CREATE TABLE my_new_fancy_and_very_long_schema_name.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM my_new_fancy_and_very_long_schema_name.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE my_new_fancy_and_very_long_schema_name;
+DROP DATABASE _other_;
+CREATE DATABASE schemaa;
+CREATE DATABASE _other_;
+CREATE TABLE schemaa.test (id int);;
+CREATE TABLE _other_.t1 (a int);;
+FLUSH LOGS;
+USE schemaa;;
+INSERT INTO test (id) VALUES (1);
+INSERT INTO test (id) VALUES (2), (3);
+USE _other_;;
+INSERT INTO t1 (a) VALUES (3);
+INSERT INTO t1 (a) VALUES (4), (5);
+FLUSH LOGS;
+SELECT * FROM schemaa.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+3
+4
+5
+DROP DATABASE schemaa;
+CREATE DATABASE my_new_fancy_and_very_long_schema_name;
+CREATE TABLE my_new_fancy_and_very_long_schema_name.test (id int);;
+TRUNCATE TABLE _other_.t1;
+SELECT * FROM my_new_fancy_and_very_long_schema_name.test;
+id
+1
+2
+3
+SELECT * FROM _other_.t1;
+a
+DROP DATABASE my_new_fancy_and_very_long_schema_name;
+DROP DATABASE _other_;

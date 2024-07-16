@@ -108,8 +108,8 @@
 #include "sql/auth/sql_security_ctx.h"  // Security_context
 #include "sql/column_statistics_dt.h"
 #include "sql/current_thd.h"
-#include "sql/dd/string_type.h"      // dd::string_type
-#include "sql/discrete_interval.h"   // Discrete_interval
+#include "sql/dd/string_type.h"     // dd::string_type
+#include "sql/discrete_interval.h"  // Discrete_interval
 #include "sql/index_statistics.h"
 #include "sql/locked_tables_list.h"  // enum_locked_tables_mode
 #include "sql/mdl.h"
@@ -1412,8 +1412,7 @@ class THD : public MDL_context_owner,
     /// Asserts that current_thd has locked this plan, if it does not own it.
     void assert_plan_is_locked_if_other() const
 #ifdef NDEBUG
-    {
-    }
+        {}
 #else
         ;
 #endif
@@ -1423,7 +1422,8 @@ class THD : public MDL_context_owner,
           sql_command(SQLCOM_END),
           lex(nullptr),
           modification_plan(nullptr),
-          is_ps(false) {}
+          is_ps(false) {
+    }
 
     /**
       Set query plan.
@@ -5527,6 +5527,14 @@ class THD : public MDL_context_owner,
 
   bool m_plan_capture_ongoing{false};
   ulong m_plan_format_modifiers{0};
+
+ public:
+  /**
+   * This is the parsed session variable 'binlog_db_rewrite_map'.
+   * It is primarily used when we need to execute binlog statements
+   * while rewriting the DB. This is reset at the end of a session.
+   */
+  std::map<std::string, std::string, std::less<>> binlog_db_rewrite_map;
 };
 
 /**

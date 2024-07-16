@@ -706,6 +706,8 @@ struct System_variables {
     reverse REF iterators in storage engines.
   */
   bool optimizer_icp_with_desc_ref_scans;
+
+  char *binlog_db_rewrite_map_str;
 };
 
 /**

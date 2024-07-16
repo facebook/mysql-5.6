@@ -463,6 +463,15 @@ static bool set_thd_db(THD *thd, const char *db, size_t db_len) {
     if (strcmp(db, new_db.str)) need_increase_counter = true;
   }
 
+  if (thd->rli_fake && !thd->binlog_db_rewrite_map.empty()) {
+    std::string_view db_in_log(new_db.str, new_db.length);
+    auto it = thd->binlog_db_rewrite_map.find(db_in_log);
+    if (it != thd->binlog_db_rewrite_map.end()) {
+      new_db.str = it->second.c_str();
+      new_db.length = it->second.length();
+    }
+  }
+
   thd->set_db(new_db);
 
   return need_increase_counter;
@@ -11962,6 +11971,14 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli) {
       ((ptr = rli->rpl_filter->get_rewrite_db(db_mem, &dummy_len)) != db_mem)) {
     rli->rpl_filter->get_rewrite_db_statistics()->increase_counter();
     my_stpcpy(db_mem, ptr);
+  }
+
+  if (thd->rli_fake && !thd->binlog_db_rewrite_map.empty()) {
+    std::string_view db_in_log(db_mem);
+    auto it = thd->binlog_db_rewrite_map.find(db_in_log);
+    if (it != thd->binlog_db_rewrite_map.end()) {
+      my_stpcpy(db_mem, it->second.c_str());
+    }
   }
 
   new (table_list) RPL_Table_ref(db_mem, strlen(db_mem), tname_mem,

@@ -848,6 +848,8 @@ THD::THD(bool enable_plugins, bool is_slave)
   m_user_connect = nullptr;
   user_vars.clear();
 
+  binlog_db_rewrite_map.clear();
+
   sp_proc_cache = nullptr;
   sp_func_cache = nullptr;
 
@@ -1558,6 +1560,9 @@ void THD::cleanup(void) {
   close_temporary_tables(this);
   sp_cache_clear(&sp_proc_cache);
   sp_cache_clear(&sp_func_cache);
+
+  // Reset this session variable
+  binlog_db_rewrite_map.clear();
 
   /*
     Actions above might generate events for the binary log, so we
