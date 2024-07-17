@@ -1444,6 +1444,7 @@ int rli_relay_log_raft_reset(
   char *gtid_set_relay_log = nullptr;
   int error = 0;
   std::string normalized_log_name;
+  bool lock_global_log_index = opt_reset_rli_lock_index;
 
   if (disable_raft_log_repointing) DBUG_RETURN(0);
 
@@ -1474,7 +1475,6 @@ int rli_relay_log_raft_reset(
     original path, but ultimately fail due to the index file already being
     recreated by this method.
   */
-  bool lock_global_log_index = opt_reset_rli_lock_index;
   if (lock_global_log_index) mysql_bin_log.lock_index();
 
   /*
@@ -1546,8 +1546,13 @@ int rli_relay_log_raft_reset(
     error = 1;
     mi->rli->relay_log.unlock_index();
     mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    if (lock_global_log_index) mysql_bin_log.unlock_index();
     goto end;
   }
+
+  // We need to ensure we unlock before relay_log.register_log_entities is
+  // called (this is called later in this method) as this could create a deadlock.
+  if (lock_global_log_index) mysql_bin_log.unlock_index();
 
   all_gtid_set = const_cast<Gtid_set *>(mi->rli->get_gtid_set());
   if (all_gtid_set == nullptr) {
@@ -1620,7 +1625,6 @@ end:
 
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
-  if (lock_global_log_index) mysql_bin_log.unlock_index();
   channel_map.unlock();
   DBUG_RETURN(error);
 }
