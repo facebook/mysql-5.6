@@ -1,0 +1,19 @@
+Default value is true
+SELECT @@global.include_applied_opid_in_snapshot_info;
+@@global.include_applied_opid_in_snapshot_info
+1
+SELECT @@session.include_applied_opid_in_snapshot_info;
+ERROR HY000: Variable 'include_applied_opid_in_snapshot_info' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.include_applied_opid_in_snapshot_info = true;
+SELECT @@global.include_applied_opid_in_snapshot_info;
+@@global.include_applied_opid_in_snapshot_info
+1
+SET @@global.include_applied_opid_in_snapshot_info = false;
+SELECT @@global.include_applied_opid_in_snapshot_info;
+@@global.include_applied_opid_in_snapshot_info
+0
+SET @@global.include_applied_opid_in_snapshot_info = default;
+SELECT @@global.include_applied_opid_in_snapshot_info;
+@@global.include_applied_opid_in_snapshot_info
+1

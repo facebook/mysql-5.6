@@ -1584,6 +1584,7 @@ bool opt_core_file = false;
 bool skip_core_dump_on_error = false;
 bool show_query_digest = false;
 bool skip_sys_tables_engine_check = false;
+bool include_applied_opid_in_snapshot_info = true;
 /* write_control_level:
  * Global variable to control write throttling for short running writes
  */

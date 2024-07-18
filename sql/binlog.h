@@ -566,12 +566,14 @@ class MYSQL_BIN_LOG : public TC_LOG {
   std::mutex m_num_committing_trxs_lock;
   std::condition_variable m_num_committing_trxs_cv;
 
-  void inc_num_committing_trxs() {
-    ++m_num_committing_trxs;
+  void inc_num_committing_trxs(uint32_t inc_by = 1) {
+    mysql_mutex_assert_owner(&LOCK_log);
+    m_num_committing_trxs += inc_by;
   }
 
   void dec_num_committing_trxs() {
     if (--m_num_committing_trxs == 0) {
+      std::unique_lock<std::mutex> lock(m_num_committing_trxs_lock);
       m_num_committing_trxs_cv.notify_all();
     }
   }
@@ -614,9 +616,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
  public:
   void wait_for_all_committing_trxs_to_finish() {
+    mysql_mutex_assert_owner(&LOCK_log);
     std::unique_lock<std::mutex> lock(m_num_committing_trxs_lock);
-    m_num_committing_trxs_cv.wait(lock,
-                                  [&] { return m_num_committing_trxs == 0; });
+    while (m_num_committing_trxs) {
+      m_num_committing_trxs_cv.wait_for(lock, std::chrono::milliseconds(5));
+    }
   }
 
   /*

@@ -789,6 +789,9 @@ The following options may be given as the first argument:
  Include the table name in the error text when receiving a
  duplicate key error and log the query into a new
  duplicate key query log file.
+ --include-applied-opid-in-snapshot-info 
+ Include applied opid in consistent snapshot info
+ (Defaults to on; use --skip-include-applied-opid-in-snapshot-info to disable.)
  --index-stats-control=name 
  Control the collection of index statistics. The data is
  exposed via the index_statistics table in performance
@@ -3539,6 +3542,7 @@ hlc-upper-bound-delta 0
 host-cache-size 279
 hostname my-hostname
 improved-dup-key-error FALSE
+include-applied-opid-in-snapshot-info TRUE
 index-stats-control OFF_HARD
 information-schema-engine TempTable
 information-schema-stats-expiry 86400

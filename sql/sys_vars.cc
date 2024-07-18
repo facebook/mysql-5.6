@@ -10540,3 +10540,9 @@ static Sys_var_dbtids Sys_dbtids("dbtids", "DB transaction IDs",
                                  NON_PERSIST GLOBAL_VAR(dbtids), NO_CMD_LINE,
                                  DEFAULT(nullptr), NO_MUTEX_GUARD,
                                  NOT_IN_BINLOG, ON_CHECK(nullptr));
+
+static Sys_var_bool Sys_include_applied_opid_in_snapshot_info(
+    "include_applied_opid_in_snapshot_info",
+    "Include applied opid in consistent snapshot info",
+    GLOBAL_VAR(include_applied_opid_in_snapshot_info), CMD_LINE(OPT_ARG),
+    DEFAULT(true));

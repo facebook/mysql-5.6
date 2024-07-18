@@ -9817,12 +9817,14 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
 
   global_sid_lock->unlock();
 
-  // unlike drain_committing_trxs() this waits for the entire pipeline to finish
-  // i.e. after_commit hook etc.
-  wait_for_all_committing_trxs_to_finish();
+  if (include_applied_opid_in_snapshot_info) {
+    // unlike drain_committing_trxs() this waits for the entire pipeline to
+    // finish i.e. after_commit hook etc.
+    wait_for_all_committing_trxs_to_finish();
 
-  if (!get_applied_opid_set(&ss_info->applied_opid_set)) {
-    ss_info->applied_opid_set = "-1:-1";
+    if (!get_applied_opid_set(&ss_info->applied_opid_set)) {
+      ss_info->applied_opid_set = "-1:-1";
+    }
   }
 
   ss_info->dbtids = get_dbtids_str();
@@ -11174,6 +11176,7 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   assert(thd_count > 0);
   DBUG_PRINT("info", ("Number of threads in group commit %llu", thd_count));
   counter_histogram_increment(&histogram_binlog_group_commit, thd_count);
+  inc_num_committing_trxs(thd_count);
 
   *out_queue_var = first_seen;
   *total_bytes_var = total_bytes;
@@ -11659,6 +11662,10 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   DBUG_TRACE;
   DEBUG_SYNC(thd, "reached_finish_commit");
 
+  // decrement num committing trxs after this method is done
+  raii::Sentry<> num_committing_trxs_guard{
+      [&]() -> void { dec_num_committing_trxs(); }};
+
   /*
     In some unlikely situations, it can happen that binary
     log is closed before the thread flushes it's cache.
@@ -12115,18 +12122,8 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
                    &LOCK_log)) {
     DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d", thd->thread_id(),
                           thd->commit_error));
-    // incrementing num committing trxs after holding LOCK_log
-    inc_num_committing_trxs();
-    const int ret = finish_commit(thd);
-    dec_num_committing_trxs();
-    return ret;
+    return finish_commit(thd);
   }
-
-  // incrementing num committing trxs after holding LOCK_log
-  inc_num_committing_trxs();
-  // decrement num committing trxs after this method is done
-  raii::Sentry<> num_committing_trxs_guard{
-      [&]() -> void { dec_num_committing_trxs(); }};
 
   if (enable_raft_plugin) {
     enable_raft_plugin_save = enable_raft_plugin;
@@ -12139,6 +12136,11 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
   bool update_binlog_end_pos_after_sync;
   if (unlikely(!is_open())) {
     final_queue = fetch_and_process_flush_stage_queue(true);
+    uint32_t num_trxs = 0;
+    for (THD *head = final_queue; head; head = head->next_to_commit) {
+      ++num_trxs;
+    }
+    inc_num_committing_trxs(num_trxs);
     leave_mutex_before_commit_stage = &LOCK_log;
     /*
       binary log is closed, flush stage and sync stage should be

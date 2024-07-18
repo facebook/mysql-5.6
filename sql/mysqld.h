@@ -794,6 +794,8 @@ extern PSI_file_key key_file_binlog_index_cache;
 
 extern bool skip_sys_tables_engine_check;
 
+extern bool include_applied_opid_in_snapshot_info;
+
 #ifdef HAVE_PSI_INTERFACE
 
 extern PSI_mutex_key key_LOCK_tc;

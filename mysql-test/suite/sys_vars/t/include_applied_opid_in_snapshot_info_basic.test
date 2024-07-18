@@ -1,0 +1,17 @@
+-- source include/load_sysvars.inc
+
+--echo Default value is true
+SELECT @@global.include_applied_opid_in_snapshot_info;
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.include_applied_opid_in_snapshot_info;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SET @@global.include_applied_opid_in_snapshot_info = true;
+SELECT @@global.include_applied_opid_in_snapshot_info;
+
+SET @@global.include_applied_opid_in_snapshot_info = false;
+SELECT @@global.include_applied_opid_in_snapshot_info;
+
+SET @@global.include_applied_opid_in_snapshot_info = default;
+SELECT @@global.include_applied_opid_in_snapshot_info;
