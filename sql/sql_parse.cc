@@ -8386,8 +8386,8 @@ static void store_client_stats_in_resp_attrs(THD *thd) {
     const size_t len = 1024;
     char buf[len];
     size_t sz = tp_get_current_client_stats(buf, len);
-    if (sz < len) {
-      LEX_CSTRING value = {buf, len};
+    if (sz != 0 && sz < len) {
+      LEX_CSTRING value = {buf, sz};
       tracker->mark_as_changed(thd, key, &value);
     }
   }
