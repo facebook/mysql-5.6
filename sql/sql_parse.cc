@@ -3014,6 +3014,12 @@ done:
   /* After sending response, switch to clone protocol */
   if (clone_cmd != nullptr) {
     assert(command == COM_CLONE);
+
+    if (thd->is_managed_by_cpu_scheduler()) {
+      // Give scheduler a chance to filter out SQLCOM_CLONE if needed.
+      thd->admit_query();
+    }
+
     error = clone_cmd->execute_server(thd);
   }
 

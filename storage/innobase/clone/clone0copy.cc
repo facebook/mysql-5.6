@@ -1527,6 +1527,9 @@ int Clone_Handle::process_chunk(Clone_Task *task, uint32_t chunk_num,
   uint32_t unpin_count = snapshot->get_max_blocks_pin();
 
   while (err == 0) {
+    // Processing a chunk could take a long time so yield between blocks.
+    thd_check_yield(nullptr);
+
     /* For page copy same chunk might have pages from different files. */
     if (is_page_copy) {
       file_ctx = snapshot->get_file_ctx(chunk_num, block_num, 0);
