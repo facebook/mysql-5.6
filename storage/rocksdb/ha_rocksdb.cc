@@ -4651,19 +4651,24 @@ class Rdb_transaction {
     const bool fill_cache = !THDVAR(get_thd(), skip_fill_cache);
 
     if (skip_bloom_filter) {
-      const bool enable_iterate_bounds =
-          THDVAR(get_thd(), enable_iterate_bounds);
       options.total_order_seek = true;
-      options.iterate_lower_bound =
-          enable_iterate_bounds ? &eq_cond_lower_bound : nullptr;
-      options.iterate_upper_bound =
-          enable_iterate_bounds ? &eq_cond_upper_bound : nullptr;
     } else {
       // With this option, Iterator::Valid() returns false if key
       // is outside of the prefix bloom filter range set at Seek().
       // Must not be set to true if not using bloom filter.
       options.prefix_same_as_start = true;
     }
+
+    if (rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds ||
+        skip_bloom_filter) {
+      const bool enable_iterate_bounds =
+          THDVAR(get_thd(), enable_iterate_bounds);
+      options.iterate_lower_bound =
+          enable_iterate_bounds ? &eq_cond_lower_bound : nullptr;
+      options.iterate_upper_bound =
+          enable_iterate_bounds ? &eq_cond_upper_bound : nullptr;
+    }
+
     options.fill_cache = fill_cache;
     if (read_current) {
       options.snapshot = nullptr;
