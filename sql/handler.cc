@@ -9109,7 +9109,8 @@ static bool notify_table_ddl_helper(THD *thd, plugin_ref plugin, void *arg) {
 
     /* If the DDL is ALTER or TRUNCATE, it shouldn't have the names set. */
     assert(((params->ddl_type == HA_ALTER_DDL ||
-             params->ddl_type == HA_TRUNCATE_DDL) &&
+             params->ddl_type == HA_TRUNCATE_DDL ||
+             params->ddl_type == HA_DROP_DDL) &&
             (params->m_old_db_name == nullptr &&
              params->m_old_table_name == nullptr &&
              params->m_new_db_name == nullptr &&
@@ -9135,6 +9136,12 @@ static bool notify_table_ddl_helper(THD *thd, plugin_ref plugin, void *arg) {
               thd, params->key, params->notification_type,
               params->m_old_db_name, params->m_old_table_name,
               params->m_new_db_name, params->m_new_table_name);
+        }
+        break;
+      case HA_DROP_DDL:
+        if (hton->notify_drop_table) {
+          notify_ret = hton->notify_drop_table(thd, params->key,
+                                               params->notification_type);
         }
         break;
       default:

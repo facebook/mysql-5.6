@@ -2823,6 +2823,10 @@ static bool drop_base_table(THD *thd, const Drop_tables_ctx &drop_ctx,
     return true;
   }
 
+  Table_ddl_hton_notification_guard notification_guard{
+      thd, &(table->mdl_request.key), ha_ddl_type::HA_DROP_DDL};
+  if (!is_temporary_table(table) && notification_guard.notify()) return true;
+
   // Drop table from secondary engine.
   if (secondary_engine_unload_table(thd, table->db, table->table_name,
                                     *table_def, false))

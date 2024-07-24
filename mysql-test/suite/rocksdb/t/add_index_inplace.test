@@ -230,8 +230,8 @@ CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 VALUES (1,1);
 
-# Disconnect connection 1, this starts the code path that will call
-# rocksdb_close_connection, ending the bulk load.
+# Disconnect connection 1, the bulk load on the connection
+# will be aborted
 --echo # Disconnecting on con1
 disconnect con1;
 
@@ -242,7 +242,6 @@ connection con2;
 
 # when alter table happens, it tries to close all other TABLE instances
 # when acquiring the exclusive lock for alter table (this happens in SQL layer)
-# make sure bulk_load now handles this possible race condition properly
 ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
 
 SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
@@ -273,13 +272,25 @@ connection con2;
 # therefore select count returns 0
 SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
 
-# implicilty close the table from connection 2
+# alter table not allowed when bulk load is not completed
+error ER_LOCK_REFUSED_BY_ENGINE;
 ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
 
 SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
-SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
 
+# set bulk_load 0 on conn2 does not complete bulk load in conn1
 set global rocksdb_bulk_load=0;
+error ER_LOCK_REFUSED_BY_ENGINE;
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+
+connection con1;
+set global rocksdb_bulk_load=0;
+
+# bulk load on con1 completes, now alter table can succeed
+connection con2;
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
 
 DROP TABLE t1;
 

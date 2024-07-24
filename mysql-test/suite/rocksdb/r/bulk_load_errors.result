@@ -34,6 +34,10 @@ SELECT * FROM t1;
 pk
 10
 11
+SELECT * FROM t1;
+pk
+10
+11
 # restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.3.err
 TRUNCATE TABLE t1;
 SET rocksdb_bulk_load_allow_unsorted=1;
@@ -68,20 +72,44 @@ INSERT INTO t1 VALUES (),(),();
 ERROR HY000: Rows must be inserted in primary key order during bulk load operation
 SET rocksdb_bulk_load=0;
 DROP TABLE t1;
-SET @orig_table_open_cache=@@global.table_open_cache;
 CREATE TABLE t1(a INT AUTO_INCREMENT, b INT, PRIMARY KEY (a)) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
 SET rocksdb_bulk_load=1;
-INSERT INTO t1 VALUES(13, 0);
+INSERT INTO t1 VALUES(1, 0);
 INSERT INTO t1 VALUES(2, 'test 2');
 Warnings:
 Warning	1366	Incorrect integer value: 'test 2' for column 'b' at row 1
-INSERT INTO t1 VALUES(@id, @arg04);
-SET @@global.table_open_cache=FALSE;
-Warnings:
-Warning	1292	Truncated incorrect table_open_cache value: '0'
-INSERT INTO t1 VALUES(51479+0.333333333,1);
+INSERT INTO t1 VALUES(3, @arg04);
+INSERT INTO t1 VALUES(4,1);
+alter/drop table is not allowed in a ongoing bulk load
+ALTER TABLE t1 ADD COLUMN c int;
+ERROR HY000: Lock acquisition refused by storage engine.
 DROP TABLE t1;
-SET @@global.table_open_cache=@orig_table_open_cache;
+ERROR HY000: Lock acquisition refused by storage engine.
+on a different connection
+alter/drop table is not allowed during a ongoing bulk load
+ALTER TABLE t1 ADD COLUMN c int;
+ERROR HY000: Lock acquisition refused by storage engine.
+DROP TABLE t1;
+ERROR HY000: Lock acquisition refused by storage engine.
+INSERT INTO t1 VALUES(5,1);
+SET rocksdb_bulk_load=0;
+select * from t1;
+a	b
+1	0
+2	0
+3	NULL
+4	1
+5	1
+alter/drop will succeed after bulk load complete
+ALTER TABLE t1 ADD COLUMN c int;
+select * from t1;
+a	b	c
+1	0	NULL
+2	0	NULL
+3	NULL	NULL
+4	1	NULL
+5	1	NULL
+DROP TABLE t1;
 # restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.4.err
 CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
 CREATE TABLE t2 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;

@@ -74,9 +74,7 @@ SELECT * FROM t1;
   --source include/wait_until_count_sessions.inc
 #}
 
---let SEARCH_FILE=$LOG2
---let SEARCH_PATTERN=RocksDB: Error 504 finalizing last SST file while disconnecting
---source include/search_pattern_in_file.inc
+SELECT * FROM t1;
 
 --let LOG3=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.3.err
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
@@ -119,21 +117,36 @@ INSERT INTO t1 VALUES (),(),();
 SET rocksdb_bulk_load=0;
 DROP TABLE t1;
 
-# Crash when table open cache closes handler with bulk load operation not finalized
-SET @orig_table_open_cache=@@global.table_open_cache;
+# forbid alter/drop table before bulk load operation finalized
 CREATE TABLE t1(a INT AUTO_INCREMENT, b INT, PRIMARY KEY (a)) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
 SET rocksdb_bulk_load=1;
-INSERT INTO t1 VALUES(13, 0);
+INSERT INTO t1 VALUES(1, 0);
 INSERT INTO t1 VALUES(2, 'test 2');
-INSERT INTO t1 VALUES(@id, @arg04);
-SET @@global.table_open_cache=FALSE;
-INSERT INTO t1 VALUES(51479+0.333333333,1);
+INSERT INTO t1 VALUES(3, @arg04);
+INSERT INTO t1 VALUES(4,1);
+echo alter/drop table is not allowed in a ongoing bulk load;
+error ER_LOCK_REFUSED_BY_ENGINE;
+ALTER TABLE t1 ADD COLUMN c int;
+error ER_LOCK_REFUSED_BY_ENGINE;
 DROP TABLE t1;
-SET @@global.table_open_cache=@orig_table_open_cache;
 
---let SEARCH_FILE=$LOG3
---let SEARCH_PATTERN=RocksDB: Error 504 finalizing bulk load while closing handler
---source include/search_pattern_in_file.inc
+connect (con1,localhost,root,,);
+echo on a different connection;
+echo alter/drop table is not allowed during a ongoing bulk load;
+error ER_LOCK_REFUSED_BY_ENGINE;
+ALTER TABLE t1 ADD COLUMN c int;
+error ER_LOCK_REFUSED_BY_ENGINE;
+DROP TABLE t1;
+
+connection default;
+INSERT INTO t1 VALUES(5,1);
+SET rocksdb_bulk_load=0;
+ 
+select * from t1;
+echo alter/drop will succeed after bulk load complete;
+ALTER TABLE t1 ADD COLUMN c int;
+select * from t1;
+DROP TABLE t1;
 
 --let LOG4=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.4.err
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR

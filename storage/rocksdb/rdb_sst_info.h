@@ -43,7 +43,7 @@ class Rdb_sst_file_ordered {
     rocksdb::DB *const m_db;
     rocksdb::ColumnFamilyHandle &m_cf;
     const rocksdb::DBOptions &m_db_options;
-    rocksdb::SstFileWriter *m_sst_file_writer;
+    std::unique_ptr<rocksdb::SstFileWriter> m_sst_file_writer;
     const std::string m_name;
     const bool m_tracing;
     const rocksdb::Comparator *m_comparator;
@@ -54,7 +54,6 @@ class Rdb_sst_file_ordered {
     Rdb_sst_file(rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
                  const rocksdb::DBOptions &db_options, const std::string &name,
                  bool tracing, uint32_t compression_parallel_threads);
-    ~Rdb_sst_file();
 
     rocksdb::Status open();
     rocksdb::Status put(const rocksdb::Slice &key, const rocksdb::Slice &value);
@@ -125,7 +124,7 @@ class Rdb_sst_info {
   static std::atomic<uint64_t> m_prefix_counter;
   static std::string m_suffix;
   mysql_mutex_t m_commit_mutex;
-  Rdb_sst_file_ordered *m_sst_file;
+  std::unique_ptr<Rdb_sst_file_ordered> m_sst_file;
 
   // List of committed SST files - we'll ingest them later in one single batch
   std::vector<std::string> m_committed_files;

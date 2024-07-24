@@ -181,6 +181,7 @@ SET(ROCKSDB_SE_SOURCES
   sql_dd.cc sql_dd.h
   rdb_cmd_srv_helper.cc rdb_cmd_srv_helper.h
   rdb_vector_db.cc rdb_vector_db.h
+  rdb_bulk_load.cc rdb_bulk_load.h
   clone/common.h clone/common.cc clone/donor.h clone/donor.cc clone/client.cc
 )
 
