@@ -107,6 +107,9 @@ int Rdb_iterator_base::read_before_key(const bool full_key_match,
     if (!m_ignore_killed && thd_killed(m_thd)) {
       return HA_ERR_QUERY_INTERRUPTED;
     }
+
+    m_thd->check_yield();
+
     /*
       We are using full key and we've hit an exact match.
       */
@@ -279,6 +282,8 @@ int Rdb_iterator_base::next_with_direction(bool move_forward, bool skip_next) {
       rc = HA_ERR_QUERY_INTERRUPTED;
       break;
     }
+
+    m_thd->check_yield();
 
     assert(m_scan_it != nullptr);
     if (m_scan_it == nullptr) {

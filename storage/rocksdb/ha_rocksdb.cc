@@ -12726,8 +12726,9 @@ int ha_rocksdb::check_uniqueness_and_lock(
        row_info.new_data == table->record[0]) ||
       (row_info.old_data == nullptr && row_info.new_data == table->record[0]));
 
+  THD *thd = ha_thd();
   Rdb_transaction *const tx =
-      get_or_create_tx(ha_thd(), m_tbl_def->get_table_type());
+      get_or_create_tx(thd, m_tbl_def->get_table_type());
   tx->acquire_snapshot(false, m_tbl_def->get_table_type());
 
   /*
@@ -12739,6 +12740,10 @@ int ha_rocksdb::check_uniqueness_and_lock(
   for (uint key_id = 0; key_id < m_tbl_def->m_key_count; key_id++) {
     bool found;
     int rc;
+
+    if (thd) {
+      thd->check_yield();
+    }
 
     DBUG_EXECUTE_IF("rocksdb_blob_crash",
                     DBUG_SET("+d,rocksdb_check_uniqueness"););
