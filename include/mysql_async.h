@@ -124,6 +124,7 @@ typedef struct NET_ASYNC {
   enum net_async_read_packet_state async_packet_read_state;
   /** Size of the packet we're currently reading */
   size_t async_packet_length;
+  size_t async_packet_uncompressed_length;
 
   /**
     Headers and vector for our async writes; see net_serv.c for

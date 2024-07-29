@@ -1754,7 +1754,6 @@ static net_async_status net_read_packet_nonblocking(NET *net, ulong *ret) {
   DBUG_TRACE;
   NET_ASYNC *net_async = NET_ASYNC_DATA(net);
   size_t pkt_data_len;
-  size_t async_packet_uncompressed_length = 0;
   bool err;
 
   switch (net_async->async_packet_read_state) {
@@ -1795,15 +1794,17 @@ static net_async_status net_read_packet_nonblocking(NET *net, ulong *ret) {
         */
         assert(net->where_b + NET_HEADER_SIZE + sizeof(uint32) <=
                net->max_packet + NET_HEADER_SIZE + COMP_HEADER_SIZE + 1);
-        async_packet_uncompressed_length =
+        net_async->async_packet_uncompressed_length =
             uint3korr(net->buff + net->where_b + NET_HEADER_SIZE);
+      } else {
+        net_async->async_packet_uncompressed_length = 0;
       }
 
       /* End of big multi-packet. */
       if (!net_async->async_packet_length) goto end;
 
       pkt_data_len = max(net_async->async_packet_length,
-                         async_packet_uncompressed_length) +
+                         net_async->async_packet_uncompressed_length) +
                      net->where_b;
 
       /* Expand packet buffer if necessary. */
@@ -1838,6 +1839,8 @@ end:
   net->read_pos[*ret] = 0;
   net->reading_or_writing = 0;
   if (net->compress) {
+    size_t async_packet_uncompressed_length =
+        net_async->async_packet_uncompressed_length;
     mysql_compress_context *mysql_compress_ctx = compress_context(net);
     if (my_uncompress(mysql_compress_ctx, net->buff + net->where_b,
                       net_async->async_packet_length,
