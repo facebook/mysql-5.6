@@ -4682,7 +4682,7 @@ class Rdb_transaction {
   virtual bool is_tx_started(TABLE_TYPE table_type) const = 0;
   virtual void start_tx(TABLE_TYPE table_type) = 0;
   virtual void start_stmt() = 0;
-  virtual void set_name() = 0;
+  virtual bool set_name() = 0;
 
  protected:
   // Non-virtual functions with actions to be done on transaction start and
@@ -5350,20 +5350,23 @@ class Rdb_transaction_impl : public Rdb_transaction {
     }
   }
 
-  void set_name() override {
+  /* False - ok, True - fail to set (abort)
+   */
+  bool set_name() override {
     XID xid;
     thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
     auto name = m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetName();
     if (!name.empty()) {
-      assert(name == rdb_xid_to_string(xid));
-      return;
+      return name != rdb_xid_to_string(xid);
     }
     rocksdb::Status s =
         m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetName(rdb_xid_to_string(xid));
     assert(s.ok());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      return true;
     }
+    return false;
   }
 
   /* Implementations of do_*savepoint based on rocksdB::Transaction savepoints
@@ -5730,7 +5733,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     set_initial_savepoint();
   }
 
-  void set_name() override {}
+  bool set_name() override { return false; }
 
   void start_stmt() override {}
 
@@ -6155,7 +6158,9 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       }
       // For write unprepared, set_name is called at the start of a transaction.
       if (rocksdb_write_policy != rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
-        tx->set_name();
+        if (tx->set_name()) {
+          return HA_EXIT_FAILURE;
+        }
       }
       if (!tx->prepare()) {
         return HA_EXIT_FAILURE;
