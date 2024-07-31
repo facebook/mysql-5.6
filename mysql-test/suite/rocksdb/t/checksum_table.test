@@ -85,9 +85,53 @@ checksum table t1 (pk, col1, col2, col3);
 let $checksum_all_cols_stmt = checksum table t1 (pk, col1, col2, col3);
 let $t1_chksum_individually = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
 
---echo Compare that checksumming the table wholesale and individually yields
---echo the same result.
-assert($t1_chksum_individually == $t1_chksum);
+--echo Add a nullable column to t1 at the end to ensure the selective checksum
+--echo does not change. Note: the default values for col4 will be NULL.
+alter table t1 add column col4 int;
+select pk, col4 from t1;
+let $t1_chksum_individually_with_new_col = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+assert($t1_chksum_individually == $t1_chksum_individually_with_new_col);
+
+--echo Add a nullable column to t1 in the middle to ensure the selective
+--echo checksum does not change. Note: the default values for col5 will be NULL.
+alter table t1 add column col5 int after col2;
+select pk, col5 from t1;
+let $t1_chksum_individually_with_new_col_in_middle = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+assert($t1_chksum_individually == $t1_chksum_individually_with_new_col_in_middle);
+
+--echo Change a nullable column to a non-NULL value to verify that the checksum
+--echo stays the same when that column is not selected.
+update t1 set col4 = 1 where pk = 1;
+select pk, col4 from t1;
+let $t1_chksum_individually_after_null_change = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+assert($t1_chksum_individually == $t1_chksum_individually_after_null_change);
+
+--echo Add lots of nullable columns to t1 at the end to ensure that even if the
+--echo number of null bytes changes, the selective checksum still
+--echo does not change.
+alter table t1
+  add column col6 int, add column col7 int,
+  add column col8 int, add column col9 int,
+  add column col10 int;
+let $t1_chksum_individually_with_many_cols = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+assert($t1_chksum_individually == $t1_chksum_individually_with_many_cols);
+
+create table t2 (a int, b int, c int) engine=rocksdb;
+insert into t2 values (1, 0, 0);
+checksum table t2 (a, b, c);
+begin;
+update t2 set b=NULL;
+# Define variable for checksum query to workaround MTR parsing due to comma.
+let $checksum_all_cols_stmt = checksum table t2 (a, b, c);
+let $t2_chksum_b_null = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+rollback;
+begin;
+update t2 set c=NULL;
+let $t2_chksum_c_null = query_get_value("$checksum_all_cols_stmt", Checksum, 1);
+rollback;
+--echo Checksums should differ.
+assert($t2_chksum_b_null != $t2_chksum_c_null);
+drop table t2;
 
 --echo Negative tests
 --echo --------------

@@ -18956,7 +18956,9 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
       else {
         /* calculating table's checksum */
         ha_checksum crc = 0;
-        uchar null_mask = 256 - (1 << t->s->last_null_bit_pos);
+        // Compute the mask of set bits (1s) beyond the last null bit position,
+        // which is a function of how many nullable columns there are.
+        const uchar null_mask = 256 - (1 << t->s->last_null_bit_pos);
 
         if (!item_list) {
           // Add all columns to the read_set.
@@ -18972,9 +18974,38 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
           }
         }
 
+        int nullable_used_fields = 0;
+        for (uint i = 0; i < t->s->fields; i++) {
+          if (bitmap_is_set(t->read_set, i)) {
+            Field *f = t->field[i];
+            if (f->is_nullable()) {
+              ++nullable_used_fields;
+            }
+          }
+        }
+
+        const int used_null_bytes_size =
+            bitmap_buffer_size(nullable_used_fields);
+
         if (t->file->ha_rnd_init(true /* scan */))
           protocol->store_null();
         else {
+          uchar *used_null_bytes = nullptr;
+          MY_BITMAP used_null_bitmap;
+          if (item_list && t->s->null_bytes) {
+            // Allocate a bitmap for the number of used, nullable, fields.
+            used_null_bytes = static_cast<uchar *>(
+                thd->mem_root->Alloc(used_null_bytes_size));
+            if (!used_null_bytes) {
+              goto err;
+            }
+            bool is_err [[maybe_unused]] =
+                bitmap_init(&used_null_bitmap,
+                            reinterpret_cast<my_bitmap_map *>(used_null_bytes),
+                            nullable_used_fields);
+            assert(!is_err);  // cannot fail since memory is preallocated.
+          }
+
           for (;;) {
             if (thd->killed) {
               /*
@@ -18992,12 +19023,44 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
               break;
             }
             if (t->s->null_bytes) {
-              /* fix undefined null bits */
-              t->record[0][t->s->null_bytes - 1] |= null_mask;
-              if (!(t->s->db_create_options & HA_OPTION_PACK_RECORD))
-                t->record[0][0] |= 1;
+              /**
+                Fix undefined null bits in the last null byte.
 
-              row_crc = checksum_crc32(row_crc, t->record[0], t->s->null_bytes);
+                Essentially, the bits beyond t->s->last_null_bit_pos are
+                undefined. The code below gives them a fixed, known value to
+                ensure checksum is deterministic.
+              */
+              if (!item_list) {
+                t->record[0][t->s->null_bytes - 1] |= null_mask;
+                if (!(t->s->db_create_options & HA_OPTION_PACK_RECORD))
+                  t->record[0][0] |= 1;
+
+                row_crc =
+                    checksum_crc32(row_crc, t->record[0], t->s->null_bytes);
+              } else {
+                /**
+                  When item list is provided, extract the null bits of the used
+                  fields to ensure that only they affect the checksum result.
+                */
+
+                bitmap_clear_all(&used_null_bitmap);
+
+                int null_bit = 0;
+                for (uint i = 0; i < t->s->fields; i++) {
+                  Field *f = t->field[i];
+                  if (bitmap_is_set(t->read_set, i) && f->is_nullable()) {
+                    if (f->is_null()) {
+                      bitmap_set_bit(&used_null_bitmap, null_bit);
+                    }
+                    null_bit++;
+                  }
+                }
+                assert(null_bit == nullable_used_fields);
+
+                // Feed our custom null bytes to the checksum.
+                row_crc = checksum_crc32(row_crc, used_null_bytes,
+                                         used_null_bytes_size);
+              }
             }
 
             for (uint i = 0; i < t->s->fields; i++) {

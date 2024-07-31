@@ -76,7 +76,7 @@ Table	Checksum
 test.t1	3633741545
 checksum table t1 (pk);
 Table	Checksum
-test.t1	1856968723
+test.t1	3499145227
 insert into t1 values (3, NULL,  123,  NULL);
 insert into t1 values (4, NULL,  NULL, 2.78);
 checksum table t1;
@@ -92,18 +92,69 @@ actually affect the CRC32 order: it merely sets bits in the read_set.
 The columns will still be processed in table schema order.
 checksum table t1 (pk, col1);
 Table	Checksum
-test.t1	2408254905
+test.t1	2346353413
 checksum table t1 (col1, pk);
 Table	Checksum
-test.t1	2408254905
+test.t1	2346353413
 checksum table t1 (pk, col1, col2);
 Table	Checksum
-test.t1	1214636397
+test.t1	3268587521
 checksum table t1 (pk, col1, col2, col3);
 Table	Checksum
-test.t1	3183101003
-Compare that checksumming the table wholesale and individually yields
-the same result.
+test.t1	1678552936
+Add a nullable column to t1 at the end to ensure the selective checksum
+does not change. Note: the default values for col4 will be NULL.
+alter table t1 add column col4 int;
+select pk, col4 from t1;
+pk	col4
+1	NULL
+2	NULL
+3	NULL
+4	NULL
+5	NULL
+6	NULL
+Add a nullable column to t1 in the middle to ensure the selective
+checksum does not change. Note: the default values for col5 will be NULL.
+alter table t1 add column col5 int after col2;
+select pk, col5 from t1;
+pk	col5
+1	NULL
+2	NULL
+3	NULL
+4	NULL
+5	NULL
+6	NULL
+Change a nullable column to a non-NULL value to verify that the checksum
+stays the same when that column is not selected.
+update t1 set col4 = 1 where pk = 1;
+select pk, col4 from t1;
+pk	col4
+1	1
+2	NULL
+3	NULL
+4	NULL
+5	NULL
+6	NULL
+Add lots of nullable columns to t1 at the end to ensure that even if the
+number of null bytes changes, the selective checksum still
+does not change.
+alter table t1
+add column col6 int, add column col7 int,
+add column col8 int, add column col9 int,
+add column col10 int;
+create table t2 (a int, b int, c int) engine=rocksdb;
+insert into t2 values (1, 0, 0);
+checksum table t2 (a, b, c);
+Table	Checksum
+test.t2	1998456634
+begin;
+update t2 set b=NULL;
+rollback;
+begin;
+update t2 set c=NULL;
+rollback;
+Checksums should differ.
+drop table t2;
 Negative tests
 --------------
 checksum table t1 ();
