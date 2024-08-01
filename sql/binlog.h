@@ -37,8 +37,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
-
 #include "libbinlogevents/include/binlog_event.h"  // enum_binlog_checksum_alg
 #include "m_string.h"                              // llstr
 #include "my_dbug.h"
@@ -1132,30 +1130,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   static bool dbtids_from_str(
       const std::string &tids_str,
-      std::unordered_map<std::string, uint64_t> *tids_ptr) {
-    if (!tids_ptr) {
-      return false;
-    }
-    if (tids_str.empty()) {
-      tids_ptr->clear();
-      return true;
-    }
-    std::vector<std::string> kvs;
-    boost::split(kvs, tids_str, boost::is_any_of(","));
-    for (const auto &kv : kvs) {
-      std::vector<std::string> parts;
-      boost::split(parts, kv, boost::is_any_of(":"));
-      if (parts.size() != 2) {
-        return false;
-      }
-      boost::trim(parts[0]);
-      boost::trim(parts[1]);
-      const std::string &key = parts[0];
-      const uint64_t &value = std::stoull(parts[1]);
-      (*tids_ptr)[key] = value;
-    }
-    return true;
-  }
+      std::unordered_map<std::string, uint64_t> *tids_ptr);
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};

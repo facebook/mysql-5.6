@@ -15925,6 +15925,33 @@ bool MYSQL_BIN_LOG::validate_dbtids(THD *thd, const std::string &tids_str) {
   return true;
 }
 
+bool MYSQL_BIN_LOG::dbtids_from_str(
+    const std::string &tids_str,
+    std::unordered_map<std::string, uint64_t> *tids_ptr) {
+  if (!tids_ptr) {
+    return false;
+  }
+  if (tids_str.empty()) {
+    tids_ptr->clear();
+    return true;
+  }
+  std::vector<std::string> kvs;
+  boost::split(kvs, tids_str, boost::is_any_of(","));
+  for (const auto &kv : kvs) {
+    std::vector<std::string> parts;
+    boost::split(parts, kv, boost::is_any_of(":"));
+    if (parts.size() != 2) {
+      return false;
+    }
+    boost::trim(parts[0]);
+    boost::trim(parts[1]);
+    const std::string &key = parts[0];
+    const uint64_t &value = std::stoull(parts[1]);
+    (*tids_ptr)[key] = value;
+  }
+  return true;
+}
+
 int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids) {
   if (trimmed_gtids.empty()) return 0;
 
