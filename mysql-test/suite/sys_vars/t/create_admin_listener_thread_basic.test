@@ -38,13 +38,47 @@ set persist create_admin_listener_thread=1;
 --replace_result $ADMIN_PORT ADMIN_PORT
 --source include/restart_mysqld.inc
 
+--disable_query_log
+--disable_result_log
+
+# The place to add validation of CPU scheduler features.
+let $thread_pool_loaded= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'THREAD_POOL'`;
+if ($thread_pool_loaded) {
+  # Verify that collecting all stack traces does not break any threads.
+  # Raise log level to ERR (4000) to avoid the huge printout in the log
+  # and then back to INFO (2000 or default).
+  set global thread_pool_log_level=4000;
+  set global thread_pool_collect_stack_trace_tid=0;
+  set global thread_pool_collect_stack_trace_tid=default;
+  set global thread_pool_log_level=default;
+  sleep 5;
+}
+
+--enable_result_log
+--enable_query_log
+
+select name, type from performance_schema.threads where name="thread/sql/admin_interface";
+
+CREATE USER admin_user IDENTIFIED BY 'abcd';
+GRANT ALL ON *.* TO admin_user;
+
+--connect(admin_con,127.0.0.1,admin_user,abcd,,$ADMIN_PORT,,TCP)
+--connection admin_con
+
 --disable_warnings
 select * from performance_schema.global_variables where variable_name='create_admin_listener_thread';
 select * from performance_schema.session_variables where variable_name='create_admin_listener_thread';
 --enable_warnings
+
+--disconnect admin_con
+--source include/wait_until_disconnected.inc
+--connection default
 
 --echo #
 --echo # Starting mysqld in the regular mode...
 --echo #
 --let $restart_parameters=
 --source include/restart_mysqld.inc
+
+# Cleanup.
+DROP USER admin_user;

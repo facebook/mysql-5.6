@@ -1104,9 +1104,12 @@ static bool handle_admin_socket(
         LogErr(ERROR_LEVEL, ER_CONN_SOCKET_SELECT_FAILED, socket_errno);
     }
 
-    if (retval < 0) return true;
-
     if (connection_events_loop_aborted()) return false;
+
+    if (retval < 0) {
+      // Ignore errors and unrelated signals and retry.
+      continue;
+    }
 
 #ifdef HAVE_SETNS
     /*
