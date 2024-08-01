@@ -87,21 +87,23 @@ insert into t1 values (6, '',            NULL, 2.78);
 checksum table t1;
 Table	Checksum
 test.t1	3183101003
-The following two should match because the select list order doesn't
-actually affect the CRC32 order: it merely sets bits in the read_set.
-The columns will still be processed in table schema order.
+Column order should be respected: these should yield different results.
 checksum table t1 (pk, col1);
 Table	Checksum
 test.t1	2346353413
 checksum table t1 (col1, pk);
 Table	Checksum
-test.t1	2346353413
+test.t1	1075735415
 checksum table t1 (pk, col1, col2);
 Table	Checksum
 test.t1	3268587521
+Column order should be respected: these should yield different results.
 checksum table t1 (pk, col1, col2, col3);
 Table	Checksum
 test.t1	1678552936
+checksum table t1 (pk, col1, col3, col2);
+Table	Checksum
+test.t1	305394284
 Add a nullable column to t1 at the end to ensure the selective checksum
 does not change. Note: the default values for col4 will be NULL.
 alter table t1 add column col4 int;

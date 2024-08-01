@@ -18880,6 +18880,30 @@ bool mysql_recreate_table(THD *thd, Table_ref *table_list, bool table_copy) {
   return ret;
 }
 
+static ha_checksum compute_field_checksum(Field *f, ha_checksum row_crc) {
+  /*
+  BLOB and VARCHAR have pointers in their field, we must convert
+  to string; GEOMETRY and JSON are implemented on top of BLOB.
+  BIT may store its data among NULL bits, convert as well.
+  */
+  switch (f->type()) {
+    case MYSQL_TYPE_BLOB:
+    case MYSQL_TYPE_VARCHAR:
+    case MYSQL_TYPE_GEOMETRY:
+    case MYSQL_TYPE_JSON:
+    case MYSQL_TYPE_BIT: {
+      String tmp;
+      f->val_str(&tmp);
+      row_crc = checksum_crc32(row_crc, (uchar *)tmp.ptr(), tmp.length());
+      break;
+    }
+    default:
+      row_crc = checksum_crc32(row_crc, f->field_ptr(), f->pack_length());
+      break;
+  }
+  return row_crc;
+}
+
 bool mysql_checksum_table(THD *thd, Table_ref *tables,
                           mem_root_deque<Item *> *item_list,
                           HA_CHECK_OPT *check_opt) {
@@ -19063,34 +19087,22 @@ bool mysql_checksum_table(THD *thd, Table_ref *tables,
               }
             }
 
-            for (uint i = 0; i < t->s->fields; i++) {
-              if (!bitmap_is_set(t->read_set, i)) {
-                continue;
+            if (!item_list) {
+              for (uint i = 0; i < t->s->fields; i++) {
+                assert(bitmap_is_set(t->read_set, i));
+
+                Field *f = t->field[i];
+                row_crc = compute_field_checksum(f, row_crc);
               }
+            } else {
+              // Traverse fields in item_list order.
+              for (auto it = item_list->begin(); it != item_list->end(); ++it) {
+                Item *item = *it;
 
-              Field *f = t->field[i];
-
-              /*
-                BLOB and VARCHAR have pointers in their field, we must convert
-                to string; GEOMETRY and JSON are implemented on top of BLOB.
-                BIT may store its data among NULL bits, convert as well.
-              */
-              switch (f->type()) {
-                case MYSQL_TYPE_BLOB:
-                case MYSQL_TYPE_VARCHAR:
-                case MYSQL_TYPE_GEOMETRY:
-                case MYSQL_TYPE_JSON:
-                case MYSQL_TYPE_BIT: {
-                  String tmp;
-                  f->val_str(&tmp);
-                  row_crc =
-                      checksum_crc32(row_crc, (uchar *)tmp.ptr(), tmp.length());
-                  break;
-                }
-                default:
-                  row_crc =
-                      checksum_crc32(row_crc, f->field_ptr(), f->pack_length());
-                  break;
+                assert(item->type() == Item::FIELD_ITEM);
+                Field *f = static_cast<const Item_field *>(item)->field;
+                assert(bitmap_is_set(t->read_set, f->field_index()));
+                row_crc = compute_field_checksum(f, row_crc);
               }
             }
 
