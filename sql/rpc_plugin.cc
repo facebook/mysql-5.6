@@ -218,6 +218,7 @@ class Bypass_select_context {
         close_thread_tables(m_thd);
         m_thd->mdl_context.release_transactional_locks();
       }
+      THD_STAGE_INFO(m_thd, stage_user_sleep);
       m_thd->lex->unit->cleanup(true);
       lex_end(m_thd->lex);
       m_thd->free_items();
@@ -435,9 +436,14 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   }
 
   initialize_thd();
+  THD *thd = current_thd;
+  thd->set_command(COM_QUERY);
+  THD_STAGE_INFO(thd, stage_init);
   if (check_input(param)) {
     bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
                              "Bypass rpc input is not valid"};
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return ret;
   }
 
@@ -445,6 +451,8 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
       rocksdb_hton->bypass_select_by_key == nullptr) {
     bypass_rpc_exception ret{ER_UNKNOWN_ERROR, "MYF(0)",
                              "Handlerton is not set"};
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return ret;
   }
 
@@ -457,6 +465,8 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
       rpcbuf->type = myrocks_value_type::UNSIGNED_INT;
       param->send_row(param->rpc_buffer, &columns, 1);
     }
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return clean_return;
   }
 
@@ -466,6 +476,8 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
     bypass_rpc_exception ret{
         ER_NOT_SUPPORTED_YET, "MYF(0)",
         "Bypass rpc does not allow nonzero value in wait_for_hlc_timeout_ms"};
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return ret;
   }
 
@@ -482,18 +494,23 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
 
     bypass_rpc_exception ret{ER_STALE_HLC_READ, "MYF(0)", error_msg,
                              applied_hlc};
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return ret;
   }
 
-  THD *thd = current_thd;
   // context destructor will clean up resources
   // before returning back to the rpc plugin
+  THD_STAGE_INFO(thd, stage_opening_tables);
   Bypass_select_context context;
   if (context.open_table(thd, param)) {
     bypass_rpc_exception ret{ER_NOT_SUPPORTED_YET, "MYF(0)",
                              "Error in opening a table", applied_hlc};
+    thd->set_command(COM_SLEEP);
+    THD_STAGE_INFO(thd, stage_user_sleep);
     return ret;
   }
+  THD_STAGE_INFO(thd, stage_executing);
   thd->status_var.com_stat[SQLCOM_SELECT]++;
   thd->status_var.questions++;
   myrocks_columns columns;
@@ -542,6 +559,8 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   MYSQL_DIGEST_END(m_digest_psi, &thd->m_digest->m_digest_storage);
 
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
+  thd->set_command(COM_SLEEP);
+  THD_STAGE_INFO(thd, stage_user_sleep);
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;
 
