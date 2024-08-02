@@ -41,8 +41,10 @@
 #include <valgrind/memcheck.h>
 
 #define MEM_UNDEFINED(a, len) VALGRIND_MAKE_MEM_UNDEFINED(a, len)
-// #define MEM_DEFINED_IF_ADDRESSABLE(a, len) \
-//   VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(a, len)
+#if 0
+#define MEM_DEFINED_IF_ADDRESSABLE(a, len) \
+  VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(a, len)
+#endif
 #define MEM_NOACCESS(a, len) VALGRIND_MAKE_MEM_NOACCESS(a, len)
 #define MEM_CHECK_ADDRESSABLE(a, len) VALGRIND_CHECK_MEM_IS_ADDRESSABLE(a, len)
 
