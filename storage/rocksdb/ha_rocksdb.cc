@@ -3489,9 +3489,49 @@ static int rdb_dbug_set_ttl_read_filter_ts();
   return true;
 }
 
+// The global list of currently-active MyRocks transactions, implemented as a
+// doubly-linked intrusive linked list.
+class [[nodiscard]] Rdb_transaction_list final {
+ private:
+  static Rds_mysql_mutex mutex;
+  static Rdb_transaction *head;
+
+ public:
+  static void init() { mutex.init(key_mutex_tx_list, MY_MUTEX_INIT_FAST); }
+
+  static void shutdown() {
+    assert(head == nullptr);
+    mutex.destroy();
+  }
+
+  static void insert(Rdb_transaction *tx);
+  static void erase(Rdb_transaction *tx);
+  static void for_each(Rdb_tx_list_walker &walker);
+
+#ifndef NDEBUG
+  [[nodiscard]] static bool contains(Rdb_transaction *tx);
+#endif
+
+  Rdb_transaction_list() = delete;
+  Rdb_transaction_list(const Rdb_transaction_list &) = delete;
+  Rdb_transaction_list(Rdb_transaction_list &&) = delete;
+  Rdb_transaction_list &operator=(const Rdb_transaction_list &) = delete;
+  Rdb_transaction_list &operator=(Rdb_transaction_list &&) = delete;
+  ~Rdb_transaction_list() = delete;
+};
+
+Rds_mysql_mutex Rdb_transaction_list::mutex;
+Rdb_transaction *Rdb_transaction_list::head{nullptr};
+
 /* This is the base class for transactions when interacting with rocksdb.
  */
 class Rdb_transaction {
+ private:
+  friend class Rdb_transaction_list;
+
+  Rdb_transaction *next{nullptr};
+  Rdb_transaction *prev{nullptr};
+
  protected:
   ulonglong m_write_count[2] = {0, 0};
   ulonglong m_insert_count = 0;
@@ -3519,9 +3559,6 @@ class Rdb_transaction {
 
  protected:
   THD *m_thd = nullptr;
-
-  static std::multiset<Rdb_transaction *> s_tx_list;
-  static Rds_mysql_mutex s_tx_list_mutex;
 
   Rdb_io_perf *m_tbl_io_perf;
 
@@ -3598,27 +3635,6 @@ class Rdb_transaction {
     when using walk tx list
   */
   virtual bool is_writebatch_trx() const = 0;
-
-  static void init_mutex() {
-    s_tx_list_mutex.init(key_mutex_tx_list, MY_MUTEX_INIT_FAST);
-  }
-
-  static void term_mutex() {
-    assert(s_tx_list.size() == 0);
-    s_tx_list_mutex.destroy();
-  }
-
-  static void walk_tx_list(Rdb_tx_list_walker *walker) {
-    assert(walker != nullptr);
-
-    RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
-
-    for (auto it : s_tx_list) {
-      walker->process_tran(it);
-    }
-
-    RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
-  }
 
   int set_status_error(THD *const thd, const rocksdb::Status &s,
                        const Rdb_key_def &kd, const Rdb_tbl_def *const tbl_def,
@@ -4833,16 +4849,6 @@ class Rdb_transaction {
 
   void set_tx_read_only(bool val) { m_tx_read_only = val; }
 
-  /*
-    Add or remove from the global list of active transactions
-    needed by information_schema queries.
-  */
-  void add_to_global_trx_list() {
-    RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
-    s_tx_list.insert(this);
-    RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
-  }
-
   void remove_from_global_trx_list(void) {
     DBUG_EXECUTE_IF("rocksdb_trx_list_crash", {
       if (!m_thd->is_system_thread() &&
@@ -4859,9 +4865,7 @@ class Rdb_transaction {
         delete thd;
       }
     });
-    RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
-    s_tx_list.erase(this);
-    RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
+    Rdb_transaction_list::erase(this);
   }
 
   explicit Rdb_transaction(THD *const thd)
@@ -4872,13 +4876,7 @@ class Rdb_transaction {
         !rocksdb_enable_delete_range_for_drop_index;
   }
 
-  virtual ~Rdb_transaction() {
-#ifndef NDEBUG
-    RDB_MUTEX_LOCK_CHECK(s_tx_list_mutex);
-    assert(s_tx_list.find(this) == s_tx_list.end());
-    RDB_MUTEX_UNLOCK_CHECK(s_tx_list_mutex);
-#endif
-  }
+  virtual ~Rdb_transaction() { assert(!Rdb_transaction_list::contains(this)); }
 };
 
 #ifndef NDEBUG
@@ -5757,15 +5755,83 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 };
 
+void Rdb_transaction_list::insert(Rdb_transaction *tx) {
+  tx->prev = nullptr;
+
+  RDB_MUTEX_LOCK_CHECK(mutex);
+  if (head != nullptr) {
+    assert(head->prev == nullptr);
+    head->prev = tx;
+  }
+  tx->next = head;
+  head = tx;
+  RDB_MUTEX_UNLOCK_CHECK(mutex);
+}
+
+void Rdb_transaction_list::erase(Rdb_transaction *tx) {
+  RDB_MUTEX_LOCK_CHECK(mutex);
+
+  assert(head->prev == nullptr);
+  assert(tx->prev != nullptr || tx == head);
+
+  if (tx->prev != nullptr) {
+    tx->prev->next = tx->next;
+  } else {
+    head = tx->next;
+  }
+  if (tx->next != nullptr) {
+    tx->next->prev = tx->prev;
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(mutex);
+}
+
+void Rdb_transaction_list::for_each(Rdb_tx_list_walker &walker) {
+  RDB_MUTEX_LOCK_CHECK(mutex);
+
+  auto *tx = head;
+  assert(tx == nullptr || tx->prev == nullptr);
+
+  while (tx != nullptr) {
+    assert(tx->prev == nullptr || tx->prev->next == tx);
+    assert(tx->next == nullptr || tx->next->prev == tx);
+
+    walker.process_tran(tx);
+    tx = tx->next;
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(mutex);
+}
+
+#ifndef NDEBUG
+[[nodiscard]] bool Rdb_transaction_list::contains(Rdb_transaction *tx) {
+  RDB_MUTEX_LOCK_CHECK(mutex);
+
+  auto *list_tx = head;
+  assert(list_tx == nullptr || list_tx->prev == nullptr);
+
+  while (list_tx != nullptr) {
+    assert(list_tx->prev == nullptr || list_tx->prev->next == list_tx);
+    assert(list_tx->next == nullptr || list_tx->next->prev == list_tx);
+
+    if (list_tx == tx) {
+      RDB_MUTEX_UNLOCK_CHECK(mutex);
+      return true;
+    }
+    list_tx = list_tx->next;
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(mutex);
+  return false;
+}
+#endif
+
 void Rdb_snapshot_notifier::SnapshotCreated(
     const rocksdb::Snapshot *const snapshot) {
   if (m_owning_tx != nullptr) {
     m_owning_tx->snapshot_created(snapshot);
   }
 }
-
-std::multiset<Rdb_transaction *> Rdb_transaction::s_tx_list;
-Rds_mysql_mutex Rdb_transaction::s_tx_list_mutex;
 
 /* data structure to hold per THD data */
 class [[nodiscard]] Rdb_ha_data {
@@ -5955,7 +6021,7 @@ static Rdb_transaction *get_or_create_tx(THD *const thd,
     set_tx_on_thd(thd, tx);
     // Add the transaction to the global list of transactions
     // once it is fully constructed.
-    tx->add_to_global_trx_list();
+    Rdb_transaction_list::insert(tx);
   } else {
     tx->set_params(thd, table_type);
     if (!tx->is_tx_started(table_type)) {
@@ -6792,7 +6858,7 @@ class Rdb_min_binlog_ttl_read_filtering_ts_calculator
 std::vector<Rdb_trx_info> rdb_get_all_trx_info() {
   std::vector<Rdb_trx_info> trx_info;
   Rdb_trx_info_aggregator trx_info_agg(&trx_info);
-  Rdb_transaction::walk_tx_list(&trx_info_agg);
+  Rdb_transaction_list::for_each(trx_info_agg);
   return trx_info;
 }
 
@@ -6802,7 +6868,7 @@ std::vector<Rdb_trx_info> rdb_get_all_trx_info() {
 */
 std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
   Rdb_snapshot_status showStatus;
-  Rdb_transaction::walk_tx_list(&showStatus);
+  Rdb_transaction_list::for_each(showStatus);
   return showStatus.get_deadlock_info();
 }
 
@@ -6812,7 +6878,7 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
 */
 uint64_t rdb_get_min_binlog_ttl_read_filtering_ts() {
   Rdb_min_binlog_ttl_read_filtering_ts_calculator calc;
-  Rdb_transaction::walk_tx_list(&calc);
+  Rdb_transaction_list::for_each(calc);
   return calc.get();
 }
 
@@ -6896,7 +6962,7 @@ static bool rocksdb_show_snapshot_status(
     stat_print_fn *const stat_print) {
   Rdb_snapshot_status showStatus;
 
-  Rdb_transaction::walk_tx_list(&showStatus);
+  Rdb_transaction_list::for_each(showStatus);
   showStatus.populate_deadlock_buffer();
 
   /* Send the result data back to MySQL */
@@ -7806,7 +7872,7 @@ static int rocksdb_init_internal(void *const p) {
   rdb_bottom_pri_background_compactions_resize_mutex.init(
       rdb_bottom_pri_background_compactions_resize_mutex_key,
       MY_MUTEX_INIT_FAST);
-  Rdb_transaction::init_mutex();
+  Rdb_transaction_list::init();
 
   DBUG_EXECUTE_IF("rocksdb_init_failure_mutexes_initialized",
                   { DBUG_RETURN(HA_EXIT_FAILURE); });
@@ -8576,7 +8642,7 @@ static int rocksdb_shutdown(bool minimalShutdown) {
   rdb_collation_data_mutex.destroy();
   rdb_mem_cmp_space_mutex.destroy();
 
-  Rdb_transaction::term_mutex();
+  Rdb_transaction_list::shutdown();
 
   if (!minimalShutdown) {
     for (auto &it : rdb_collation_data) {
