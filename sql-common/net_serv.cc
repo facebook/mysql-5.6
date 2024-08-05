@@ -46,8 +46,10 @@
 #include <mysql/plugin.h>
 #include <mysql/thread_pool_priv.h>
 #include "../sql/current_thd.h"
+#ifdef MYSQL_SERVER
 #include "../sql/mysqld.h"  // send_error_before_closing_timed_out_connection
 #include "../sql/sql_class.h"
+#endif
 #include "../sql/sql_thd_internal_api.h"
 #include "my_byteorder.h"
 #include "my_compiler.h"
