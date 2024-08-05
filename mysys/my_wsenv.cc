@@ -8,7 +8,6 @@
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysys_err.h"
 #include "rocksdb/env.h"
-#include "sql/mysqld.h"
 
 extern mysql_rwlock_t ws_current_fd_lock;
 
