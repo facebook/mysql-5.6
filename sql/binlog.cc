@@ -12771,16 +12771,24 @@ Dump_log::Dump_log() {
 void Dump_log::switch_log(bool relay_log, bool should_lock) {
   bool is_locked = false;
   if (should_lock) is_locked = lock();
-  mysql_mutex_assert_owner(log_->get_binlog_end_pos_lock());
-  log_->update_binlog_end_pos(/* need_lock= */ false);
   Master_info *active_mi = nullptr;
   if (!get_and_lock_master_info(&active_mi)) {
     // NO_LINT_DEBUG
     sql_print_error("active_mi or rli is not set");
   }
   assert(active_mi && active_mi->rli);
-  log_ = relay_log ? &active_mi->rli->relay_log : &mysql_bin_log;
+  auto new_log = relay_log ? &active_mi->rli->relay_log : &mysql_bin_log;
   unlock_master_info(active_mi);
+  if (new_log != log_) {
+    mysql_mutex_assert_owner(log_->get_binlog_end_pos_lock());
+    log_->update_binlog_end_pos(/* need_lock= */ false);
+    log_ = new_log;
+  } else {
+    // If we're not actaully switching the log end log pos lock is not taken by
+    // the caller. The caller only takes end log pos lock on the to-be-switched
+    // log, so we need to lock in this case
+    log_->update_binlog_end_pos(/* need_lock= */ true);
+  }
   // Now let's update the dump thread's linfos
   log_->reset_semi_sync_last_acked();
   adjust_linfo_in_dump_threads(relay_log);
