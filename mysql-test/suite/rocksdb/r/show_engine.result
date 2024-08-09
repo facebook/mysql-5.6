@@ -435,7 +435,7 @@ DROP TABLE t4;
 SHOW ENGINE rocksdb MUTEX;
 Type	Name	Status
 SHOW ENGINE ALL MUTEX;
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -451,7 +451,7 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
 
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -463,7 +463,7 @@ SNAPSHOTS
 LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
-SHOW ENGINE rocksdb TRANSACTION STATUS
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
 lock count 0, write count 0
 insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------

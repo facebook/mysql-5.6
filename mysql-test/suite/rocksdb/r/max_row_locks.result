@@ -2,7 +2,7 @@ create table t1 (id1 bigint, id2 bigint, c1 bigint, c2 bigint, c3 bigint, c4 big
 begin;
 select * from t1 where c3=1 for update;
 id1	id2	c1	c2	c3	c4	c5	c6	c7
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -14,7 +14,7 @@ SNAPSHOTS
 LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
-SHOW ENGINE rocksdb TRANSACTION STATUS
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
 lock count 0, write count 0
 insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
@@ -34,7 +34,7 @@ id1	id2	c1	c2	c3	c4	c5	c6	c7
 108	0	108	0	0	0	0	0	108
 109	0	109	0	0	0	0	0	109
 110	0	110	0	0	0	0	0	110
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -46,7 +46,7 @@ SNAPSHOTS
 LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
-SHOW ENGINE rocksdb TRANSACTION STATUS
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
 lock count 10, write count 0
 insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
@@ -59,7 +59,7 @@ set session rocksdb_lock_scanned_rows=on;
 begin;
 select * from t1 where c3=1 for update;
 id1	id2	c1	c2	c3	c4	c5	c6	c7
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -71,7 +71,7 @@ SNAPSHOTS
 LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
-SHOW ENGINE rocksdb TRANSACTION STATUS
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
 lock count 1000, write count 0
 insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------

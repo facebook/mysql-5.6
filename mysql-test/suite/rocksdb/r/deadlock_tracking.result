@@ -8,7 +8,7 @@ set global rocksdb_max_latest_deadlocks = 0;
 set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
 create table t (i int primary key) engine=rocksdb;
 insert into t values (1), (2), (3);
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -39,7 +39,7 @@ rollback;
 i
 2
 rollback;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -90,7 +90,7 @@ rollback;
 i
 2
 rollback;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -162,7 +162,7 @@ rollback;
 i
 2
 rollback;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -238,7 +238,7 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
 
 set global rocksdb_max_latest_deadlocks = 1;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -303,7 +303,7 @@ i
 2
 rollback;
 set global rocksdb_max_latest_deadlocks = 5;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -352,7 +352,7 @@ i
 2
 rollback;
 rollback;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -411,7 +411,7 @@ drop table t1;
 set global rocksdb_lock_wait_timeout = @prior_lock_wait_timeout;
 set global rocksdb_deadlock_detect = @prior_deadlock_detect;
 drop table t;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
@@ -471,7 +471,7 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 set global rocksdb_max_latest_deadlocks = 0;
 # Clears deadlock buffer of any existent deadlocks.
 set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
-show engine rocksdb transaction status;
+SHOW ENGINE ROCKSDB TRANSACTION STATUS;
 Type	Name	Status
 rocksdb		
 ============================================================
