@@ -349,28 +349,12 @@ DROP TABLE t1;
 set global rocksdb_bulk_load=1;
 # Establish connection con1 (user=root)
 # Switch to connection con1
-show global variables like 'rocksdb_bulk_load%';
+show global variables like 'rocksdb_bulk_load';
 Variable_name	Value
 rocksdb_bulk_load	ON
-rocksdb_bulk_load_allow_sk	OFF
-rocksdb_bulk_load_allow_unsorted	OFF
-rocksdb_bulk_load_compression_parallel_threads	1
-rocksdb_bulk_load_enable_unique_key_check	OFF
-rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
-rocksdb_bulk_load_partial_index	ON
-rocksdb_bulk_load_size	1000
-rocksdb_bulk_load_use_sst_partitioner	OFF
-show session variables like 'rocksdb_bulk_load%';
+show session variables like 'rocksdb_bulk_load';
 Variable_name	Value
 rocksdb_bulk_load	ON
-rocksdb_bulk_load_allow_sk	OFF
-rocksdb_bulk_load_allow_unsorted	OFF
-rocksdb_bulk_load_compression_parallel_threads	1
-rocksdb_bulk_load_enable_unique_key_check	OFF
-rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
-rocksdb_bulk_load_partial_index	ON
-rocksdb_bulk_load_size	1000
-rocksdb_bulk_load_use_sst_partitioner	OFF
 CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,1);
 # Disconnecting on con1
@@ -415,17 +399,9 @@ SET @prior_rocksdb_merge_combine_read_size= @@rocksdb_merge_combine_read_size;
 SET @prior_rocksdb_merge_buf_size = @@rocksdb_merge_buf_size;
 SET session rocksdb_merge_combine_read_size = 566;
 SET session rocksdb_merge_buf_size = 340;
-show variables like 'rocksdb_bulk_load%';
+show variables like 'rocksdb_bulk_load';
 Variable_name	Value
 rocksdb_bulk_load	OFF
-rocksdb_bulk_load_allow_sk	OFF
-rocksdb_bulk_load_allow_unsorted	OFF
-rocksdb_bulk_load_compression_parallel_threads	1
-rocksdb_bulk_load_enable_unique_key_check	OFF
-rocksdb_bulk_load_fail_if_not_bottommost_level	OFF
-rocksdb_bulk_load_partial_index	ON
-rocksdb_bulk_load_size	1000
-rocksdb_bulk_load_use_sst_partitioner	OFF
 CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));

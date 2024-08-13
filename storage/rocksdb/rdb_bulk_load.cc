@@ -20,6 +20,34 @@
 
 namespace myrocks {
 
+std::string_view rdb_bulk_load_status_to_string(Rdb_bulk_load_status status) {
+  switch (status) {
+    case Rdb_bulk_load_status::ACTIVE:
+      return "ACTIVE";
+    case Rdb_bulk_load_status::COMPLETED:
+      return "COMPLETED";
+    case Rdb_bulk_load_status::FAILED:
+      return "FAILED";
+    case Rdb_bulk_load_status::ABORTED:
+      return "ABORTED";
+    default:
+      assert(false);
+      return "UNKNOWN";
+  }
+}
+
+std::string_view rdb_bulk_load_type_to_string(Rdb_bulk_load_type type) {
+  switch (type) {
+    case Rdb_bulk_load_type::DDL:
+      return "DDL";
+    case Rdb_bulk_load_type::SST_FILE_WRITER:
+      return "SST_FILE_WRITER";
+    default:
+      assert(false);
+      return "UNKNOWN";
+  }
+}
+
 class Rdb_bulk_load_manager {
  public:
   Rdb_bulk_load_manager() { mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST); }
@@ -41,7 +69,7 @@ class Rdb_bulk_load_manager {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
     auto lock_guard =
         create_scope_guard([this]() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); });
-    Rdb_bulk_load_session *existing_session = find_session(id);
+    Rdb_bulk_load_session *existing_session = find_active_session(id);
     assert(existing_session);
     if (!existing_session) {
       return HA_EXIT_FAILURE;
@@ -82,47 +110,93 @@ class Rdb_bulk_load_manager {
     return HA_EXIT_SUCCESS;
   }
 
-  uint complete_session(const std::string &id, int rtn_code) {
+  uint complete_session(const std::string &id, int rtn_code,
+                        uint num_sst_files) {
     return finish_session(id,
                           rtn_code ? Rdb_bulk_load_status::FAILED
                                    : Rdb_bulk_load_status::COMPLETED,
-                          rtn_code);
+                          rtn_code, num_sst_files);
   }
 
-  uint abort_session(const std::string &id) {
-    return finish_session(id, Rdb_bulk_load_status::ABORTED, HA_EXIT_FAILURE);
+  uint abort_session(const std::string &id, uint num_sst_files) {
+    return finish_session(id, Rdb_bulk_load_status::ABORTED, HA_EXIT_FAILURE,
+                          num_sst_files);
+  }
+
+  std::vector<Rdb_bulk_load_session> dump_sessions() {
+    RDB_MUTEX_LOCK_CHECK(m_mutex);
+    auto lock_guard =
+        create_scope_guard([this]() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); });
+    std::vector<Rdb_bulk_load_session> result;
+    result.reserve(m_sessions.size());
+    for (auto &it : m_sessions) {
+      result.push_back(it.second);
+    }
+    return result;
+  }
+
+  void set_history_size(uint size) {
+    RDB_MUTEX_LOCK_CHECK(m_mutex);
+    auto lock_guard =
+        create_scope_guard([this]() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); });
+    m_history_size = size;
+    enforce_history_size();
   }
 
  private:
   mysql_mutex_t m_mutex;
   std::map<std::string, Rdb_bulk_load_session> m_sessions;
+  // completed sessions
+  std::deque<std::string> m_completed_sessions;
   std::atomic<int> m_id_seed{0};
+  uint m_history_size = RDB_BULK_LOAD_HISTORY_DEFAULT_SIZE;
 
-  Rdb_bulk_load_session *find_session(const std::string &session_id) {
+  Rdb_bulk_load_session *find_active_session(const std::string &session_id) {
     mysql_mutex_assert_owner(&m_mutex);
     auto it = m_sessions.find(session_id);
     if (it == m_sessions.end()) {
       return nullptr;
     }
-    return &it->second;
+    auto existing_session = &it->second;
+    if (existing_session->status() == Rdb_bulk_load_status::ACTIVE) {
+      return existing_session;
+    }
+    return nullptr;
   }
 
   uint finish_session(const std::string &id, Rdb_bulk_load_status status,
-                      int rtn_code) {
+                      int rtn_code, uint num_sst_files) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
     auto lock_guard =
         create_scope_guard([this]() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); });
-    Rdb_bulk_load_session *existing_session = find_session(id);
+    Rdb_bulk_load_session *existing_session = find_active_session(id);
     assert(existing_session);
     if (!existing_session) {
       return HA_EXIT_FAILURE;
     }
-    existing_session->complete(status, rtn_code);
-    // simply remove completed sessions for now,
-    // will save completed sessions in a future diff.
-    [[maybe_unused]] auto erased = m_sessions.erase(id);
-    assert(erased == 1);
+    existing_session->complete(status, rtn_code, num_sst_files);
+    m_completed_sessions.push_back(id);
+    enforce_history_size();
     return HA_EXIT_SUCCESS;
+  }
+
+  // remove the oldest completed sessions
+  void enforce_history_size() {
+    mysql_mutex_assert_owner(&m_mutex);
+    if (m_completed_sessions.size() <= m_history_size) {
+      return;
+    }
+
+    auto to_remove = m_completed_sessions.size() - m_history_size;
+    // remove the oldest completed sessions
+    for (uint i = 0; i < to_remove; i++) {
+      auto id = m_completed_sessions.front();
+      m_completed_sessions.pop_front();
+      [[maybe_unused]] auto erased = m_sessions.erase(id);
+      assert(erased);
+    }
+
+    assert(m_completed_sessions.size() == m_history_size);
   }
 };
 
@@ -134,11 +208,20 @@ void rdb_bulk_load_init() {
 
 void rdb_bulk_load_deinit() { bulk_load_manger = nullptr; }
 
+void rdb_set_bulk_load_history_size(uint size) {
+  bulk_load_manger->set_history_size(size);
+}
+
+std::vector<Rdb_bulk_load_session> rdb_dump_bulk_load_sessions() {
+  return bulk_load_manger->dump_sessions();
+}
+
 Rdb_bulk_load_context::Rdb_bulk_load_context(THD *thd) : m_thd(thd) {}
 
 Rdb_bulk_load_context::~Rdb_bulk_load_context() {
   if (m_active) {
-    bulk_load_manger->abort_session(m_bulk_load_session_id);
+    bulk_load_manger->abort_session(m_bulk_load_session_id,
+                                    m_num_commited_sst_files);
   }
 }
 
@@ -206,8 +289,10 @@ Rdb_sst_info *Rdb_bulk_load_context::add_sst_info(
 
 void Rdb_bulk_load_context::complete_bulk_load_session(int rtn) {
   if (m_active) {
-    bulk_load_manger->complete_session(m_bulk_load_session_id, rtn);
+    bulk_load_manger->complete_session(m_bulk_load_session_id, rtn,
+                                       m_num_commited_sst_files);
     m_active = false;
+    m_num_commited_sst_files = 0;
   }
 }
 
@@ -230,6 +315,11 @@ uint Rdb_bulk_load_context::add_key_merge(
   }
   *key_merge = find;
   return HA_EXIT_SUCCESS;
+}
+
+void Rdb_bulk_load_context::increment_num_commited_sst_files(uint count) {
+  assert(m_active);
+  m_num_commited_sst_files += count;
 }
 
 }  // namespace myrocks

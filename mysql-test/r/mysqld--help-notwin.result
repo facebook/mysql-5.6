@@ -2030,6 +2030,12 @@ The following options may be given as the first argument:
  cannot fit in the rocksdb bottommost level. Turn off this
  variable could have severe performance impact. Can be
  changed only when bulk load is disabled.
+ --rocksdb-bulk-load-history[=name] 
+ Enable or disable ROCKSDB_BULK_LOAD_HISTORY plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
+ --rocksdb-bulk-load-history-size=# 
+ the number of completed bulk load sessions to be kept
  --rocksdb-bulk-load-partial-index 
  Materialize partial index during bulk load, instead of
  leaving it empty.
@@ -3876,6 +3882,8 @@ rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-compression-parallel-threads 1
 rocksdb-bulk-load-enable-unique-key-check FALSE
 rocksdb-bulk-load-fail-if-not-bottommost-level FALSE
+rocksdb-bulk-load-history ON
+rocksdb-bulk-load-history-size 10
 rocksdb-bulk-load-partial-index TRUE
 rocksdb-bulk-load-size 1000
 rocksdb-bulk-load-use-sst-partitioner FALSE

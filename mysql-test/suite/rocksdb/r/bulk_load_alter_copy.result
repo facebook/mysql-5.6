@@ -1,0 +1,43 @@
+set global rocksdb_bulk_load_history_size=1;
+CREATE TABLE t1(c1 INT primary key, c2 int, index k2(c2));
+INSERT INTO t1 VALUES(1, 1), (2, 2);
+
+sst commit failure should fail the alter copy
+
+SET DEBUG='+d,myrocks_end_alter_copy_failure';
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+ALTER TABLE t1 ADD column c3 int default 42 after c1;
+ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+select TYPE, STATUS, RETURN_CODE, SST_FILES from information_schema.rocksdb_bulk_load_history  where TABLES like '%test.t1';
+TYPE	STATUS	RETURN_CODE	SST_FILES
+DDL	COMPLETED	0	2
+select * from t1;
+c1	c2
+1	1
+2	2
+SET rocksdb_bulk_load=0;
+select * from t1;
+c1	c2
+1	1
+2	2
+
+alter copy should commit sst file on statement complete
+
+SET DEBUG='-d,myrocks_end_alter_copy_failure';
+SET rocksdb_bulk_load=1;
+ALTER TABLE t1 ADD column c3 int default 42 after c1;
+select TYPE, STATUS, RETURN_CODE, SST_FILES from information_schema.rocksdb_bulk_load_history  where TABLES like '%test.t1';
+TYPE	STATUS	RETURN_CODE	SST_FILES
+DDL	COMPLETED	0	2
+select * from t1;
+c1	c3	c2
+1	42	1
+2	42	2
+SET rocksdb_bulk_load=0;
+select * from t1;
+c1	c3	c2
+1	42	1
+2	42	2
+set global rocksdb_bulk_load_history_size=default;
+DROP TABLE t1;

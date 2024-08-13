@@ -41,6 +41,7 @@
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
 #include "./nosql_access.h"
+#include "./rdb_bulk_load.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
@@ -2494,6 +2495,116 @@ static int rdb_i_s_deadlock_info_init(void *const p) {
   DBUG_RETURN(0);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_BULK_LOAD_HISTORY dynamic table
+ */
+namespace RDB_BULK_LOAD_FIELD {
+enum {
+  SESSION_ID = 0,
+  TYPE,
+  STATUS,
+  RETURN_CODE,
+  TABLE_COUNT,
+  TABLES,
+  SST_FILES,
+  CREATED_TIME,
+  COMPLETED_TIME
+};
+constexpr uint TABLES_MAX_LENGTH = 64 * 1024;
+}  // namespace RDB_BULK_LOAD_FIELD
+
+static ST_FIELD_INFO rdb_i_s_bulk_load_history_fields_info[] = {
+    ROCKSDB_FIELD_INFO("SESSION_ID", 128, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("TYPE", 64, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("STATUS", 64, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("RETURN_CODE", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("TABLE_COUNT", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    // leave some room for tailing "..." when names get too long
+    ROCKSDB_FIELD_INFO("TABLES", RDB_BULK_LOAD_FIELD::TABLES_MAX_LENGTH + 10,
+                       MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("SST_FILES", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("CREATED_TIME", 3, MYSQL_TYPE_TIMESTAMP, 0),
+    ROCKSDB_FIELD_INFO("COMPLETED_TIME", 3, MYSQL_TYPE_TIMESTAMP, 0),
+    ROCKSDB_FIELD_INFO_END};
+
+static int rdb_i_s_bulk_load_history_fill_table(
+    my_core::THD *thd, my_core::Table_ref *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_TRACE;
+
+  assert(thd != nullptr);
+  assert(tables != nullptr);
+  assert(tables->table != nullptr);
+
+  int ret = HA_EXIT_SUCCESS;
+  const auto bulk_load_sessions = rdb_dump_bulk_load_sessions();
+  for (auto &record : bulk_load_sessions) {
+    Field **field = tables->table->field;
+    const auto &id = record.id();
+    field[RDB_BULK_LOAD_FIELD::SESSION_ID]->store(id.c_str(), id.size(),
+                                                  system_charset_info);
+    std::string_view type = rdb_bulk_load_type_to_string(record.type());
+    field[RDB_BULK_LOAD_FIELD::TYPE]->store(type.data(), type.size(),
+                                            system_charset_info);
+    std::string_view status = rdb_bulk_load_status_to_string(record.status());
+    field[RDB_BULK_LOAD_FIELD::STATUS]->store(status.data(), status.size(),
+                                              system_charset_info);
+    field[RDB_BULK_LOAD_FIELD::RETURN_CODE]->store(record.rtn_code(), true);
+    const auto &table_names = record.tables();
+    field[RDB_BULK_LOAD_FIELD::TABLE_COUNT]->store(table_names.size(), true);
+    std::string tables_str;
+    for (const auto &table_name : table_names) {
+      if (tables_str.length() + table_name.length() >
+          RDB_BULK_LOAD_FIELD::TABLES_MAX_LENGTH) {
+        tables_str.append("...");
+        break;
+      } else {
+        if (tables_str.length() > 0) {
+          tables_str.append(",");
+        }
+        tables_str.append(table_name);
+      }
+    }
+    field[RDB_BULK_LOAD_FIELD::TABLES]->store(
+        tables_str.c_str(), tables_str.size(), system_charset_info);
+    field[RDB_BULK_LOAD_FIELD::SST_FILES]->store(record.num_sst_files(), true);
+    my_timeval created_time;
+    my_micro_time_to_timeval(record.created_micro(), &created_time);
+    field[RDB_BULK_LOAD_FIELD::CREATED_TIME]->store_timestamp(&created_time);
+    if (record.completed_micro() > 0) {
+      my_timeval completed_time;
+      my_micro_time_to_timeval(record.completed_micro(), &completed_time);
+      field[RDB_BULK_LOAD_FIELD::COMPLETED_TIME]->store_timestamp(
+          &completed_time);
+    } else {
+      field[RDB_BULK_LOAD_FIELD::COMPLETED_TIME]->set_null();
+    }
+
+    ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+
+    if (ret) {
+      return ret;
+    }
+  }
+
+  return ret;
+}
+
+static int rdb_i_s_bulk_load_history_init(void *p) {
+  DBUG_TRACE;
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  assert(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_bulk_load_history_fields_info;
+  schema->fill_table = rdb_i_s_bulk_load_history_fill_table;
+
+  return 0;
+}
+
 static int rdb_i_s_deinit(void *p MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
   DBUG_RETURN(0);
@@ -2802,6 +2913,23 @@ struct st_mysql_plugin rdb_i_s_vector_index_config = {
     nullptr, /* uninstall */
     rdb_i_s_deinit,
     0x0002,  /* version number (0.2) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_bulk_load_history_config = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_BULK_LOAD_HISTORY",
+    "Facebook",
+    "bulk load history",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_bulk_load_history_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
+    0x0001,  /* version number (0.1) */
     nullptr, /* status variables */
     nullptr, /* system variables */
     nullptr, /* config options */

@@ -1,0 +1,103 @@
+source include/have_debug_sync.inc;
+
+disable_query_log;
+call mtr.add_suppression("failed to bulk load");
+call mtr.add_suppression("Error 504 finalizing last SST file while setting bulk loading variable");
+disable_warnings;
+DROP TABLE IF EXISTS t1,t2,t3;
+enable_warnings;
+enable_query_log;
+
+echo clear out history before test;
+set global rocksdb_bulk_load_history_size=0;
+set global rocksdb_bulk_load_history_size=10;
+
+CREATE TABLE t1(c1 INT primary key, c2 int, index k2(c2));
+CREATE TABLE t2(c1 INT primary key, c2 int, index k2(c2));
+CREATE TABLE t3(c1 INT primary key, c2 int, index k2(c2));
+
+echo;
+echo bulk load history for active bulk loads;
+echo;
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES(1, 1);
+INSERT INTO t1 VALUES(2, 2);
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+INSERT INTO t2 VALUES(2, 2);
+INSERT INTO t3 VALUES(2, 2);
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+SET rocksdb_bulk_load=0;
+
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+echo;
+echo bulk load history for failed bulk loads;
+echo;
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES(1, 1), (3, 3);
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+error ER_OVERLAPPING_KEYS;
+SET rocksdb_bulk_load=0;
+
+# should have a failed record
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+echo;
+echo bulk load history for aborted bulk loads;
+echo;
+connect (con1,localhost,root,,);
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t2 VALUES(10, 10);
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+connection default;
+disconnect con1;
+
+# should have a aborted record
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+echo;
+echo set bulk load history size;
+echo should remove old records when record count exceeds history size;
+set global rocksdb_bulk_load_history_size=2;
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+echo;
+echo set bulk load history size 0 should clear all completed records;
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+INSERT INTO t3 VALUES(10, 10);
+echo active records should not be cleared out;
+set global rocksdb_bulk_load_history_size=0;
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+SET rocksdb_bulk_load=0;
+
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+SET global rocksdb_bulk_load_history_size=10;
+
+echo;
+echo test for bulk load triggered by alter table;
+echo;
+echo bulk load is not used, sst_files should be 0;
+ALTER TABLE t1 ADD column c3 int default 42;
+
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, TABLES, SST_FILES from information_schema.rocksdb_bulk_load_history;
+
+echo bulk load is used, sst_files should be none 0;
+SET rocksdb_bulk_load_allow_sk=1;
+SET rocksdb_bulk_load=1;
+ALTER TABLE t2 ADD column c3 int default 42;
+# sst files commited after the alter statement
+select * from t2;
+# copy alter creates a temp table like 'test.#sql-faa28_a', the table name
+# is not determinstic, so we do not select TABLES field here.
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, SST_FILES from information_schema.rocksdb_bulk_load_history where TABLES like '%test.t2';
+SET rocksdb_bulk_load=0;
+
+select TYPE, STATUS, RETURN_CODE, TABLE_COUNT, SST_FILES from information_schema.rocksdb_bulk_load_history where TABLES like '%test.t2';
+
+set global rocksdb_bulk_load_history_size=default;
+DROP TABLE t1,t2,t3;

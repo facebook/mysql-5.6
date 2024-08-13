@@ -18550,6 +18550,7 @@ static int copy_data_between_tables(
   DBUG_TRACE;
 
   int error;
+  int tmp_error;
   Copy_field *copy, *copy_end;
   Field **ptr;
   /*
@@ -18825,7 +18826,11 @@ static int copy_data_between_tables(
     error = 1;
   }
 
-  to->file->ha_extra(HA_EXTRA_END_ALTER_COPY);
+  tmp_error = to->file->ha_extra(HA_EXTRA_END_ALTER_COPY);
+  if (tmp_error && error <= 0) {
+    to->file->print_error(tmp_error, MYF(0));
+    error = 1;
+  }
 
   DBUG_EXECUTE_IF("crash_copy_before_commit", DBUG_SUICIDE(););
   if ((!(to->file->ht->flags & HTON_SUPPORTS_ATOMIC_DDL) ||
