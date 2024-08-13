@@ -16,14 +16,12 @@ begin;
 select * from t1 where c3=1 for update;
 
 # This should report 0 row lock
---replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /(OS thread handle) [0-9a-f]+/\1 PTR/ /(query id) [0-9]+/\1 QID/ /(root) [a-z ]+/\1 ACTION/
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+--source ../include/show_transaction_status.inc
 
 select * from t1 where c7 between 101 and 110 for update;
 
 # This should report 10 row locks
---replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /(OS thread handle) [0-9a-f]+/\1 PTR/ /(query id) [0-9]+/\1 QID/ /(root) [a-z ]+/\1 ACTION/
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+--source ../include/show_transaction_status.inc
 
 rollback;
 
@@ -32,8 +30,7 @@ set session rocksdb_lock_scanned_rows=on;
 begin;
 select * from t1 where c3=1 for update;
 # This should report 1000 row locks
---replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /(OS thread handle) [0-9a-f]+/\1 PTR/ /(query id) [0-9]+/\1 QID/ /(root) [a-z ]+/\1 ACTION/
-SHOW ENGINE rocksdb TRANSACTION STATUS;
+--source ../include/show_transaction_status.inc
 
 rollback;
 set session rocksdb_lock_scanned_rows=off;

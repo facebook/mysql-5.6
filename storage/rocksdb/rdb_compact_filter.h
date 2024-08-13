@@ -236,9 +236,11 @@ class Rdb_compact_filter_factory : public rocksdb::CompactionFilterFactory {
   Rdb_compact_filter_factory(const Rdb_compact_filter_factory &) = delete;
   Rdb_compact_filter_factory &operator=(const Rdb_compact_filter_factory &) =
       delete;
-  Rdb_compact_filter_factory() {}
+  Rdb_compact_filter_factory(Rdb_compact_filter_factory &&) = delete;
+  Rdb_compact_filter_factory &operator=(Rdb_compact_filter_factory &&) = delete;
+  Rdb_compact_filter_factory() = default;
 
-  ~Rdb_compact_filter_factory() {}
+  ~Rdb_compact_filter_factory() = default;
 
   const char *Name() const override { return "Rdb_compact_filter_factory"; }
 

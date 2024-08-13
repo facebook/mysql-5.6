@@ -3573,6 +3573,10 @@ class Rdb_transaction {
 
   std::shared_ptr<Rdb_snapshot_notifier> m_notifier;
 
+  rocksdb::ReadOptions m_read_opts[2];
+
+  std::int64_t m_snapshot_timestamp = 0;
+
   // This should be used only when updating binlog information.
   virtual rocksdb::WriteBatchBase *get_write_batch() = 0;
   virtual bool commit_no_binlog(
@@ -3615,12 +3619,10 @@ class Rdb_transaction {
   virtual void do_rollback_to_savepoint() = 0;
 
  public:
-  rocksdb::ReadOptions m_read_opts[2];
   const char *m_mysql_log_file_name;
   my_off_t m_mysql_log_offset;
   const char *m_mysql_max_gtid;
   String m_detailed_error;
-  int64_t m_snapshot_timestamp = 0;
   std::shared_ptr<Rdb_explicit_snapshot> m_explicit_snapshot;
   bool should_refresh_iterator_after_first_write = false;
 
@@ -3776,6 +3778,10 @@ class Rdb_transaction {
 
   [[nodiscard]] bool is_dd_transaction() const { return m_dd_transaction; }
 
+  [[nodiscard]] std::int64_t get_snapshot_timestamp() const noexcept {
+    return m_snapshot_timestamp;
+  }
+
   virtual void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) = 0;
 
   ulonglong get_write_count(
@@ -3904,8 +3910,14 @@ class Rdb_transaction {
   virtual void release_snapshot(TABLE_TYPE table_type) = 0;
 
   bool has_snapshot(TABLE_TYPE table_type) const {
+    assert(m_read_opts[INTRINSIC_TMP].snapshot == nullptr);
     if (table_type == INTRINSIC_TMP) return false;
     return m_read_opts[table_type].snapshot != nullptr;
+  }
+
+  void create_explicit_snapshot(snapshot_info_st *ss_info) {
+    m_explicit_snapshot = Rdb_explicit_snapshot::create(
+        ss_info, rdb, m_read_opts[TABLE_TYPE::USER_TABLE].snapshot);
   }
 
  private:
@@ -4700,8 +4712,15 @@ class Rdb_transaction {
   virtual void start_stmt() = 0;
   virtual bool set_name() = 0;
 
+ private:
+  void on_finish() noexcept {
+    modified_tables.clear();
+
+    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
+  }
+
  protected:
-  // Non-virtual functions with actions to be done on transaction start and
+  // Non-virtual functions with actions to be done on transaction rollback and
   // commit.
   void on_commit(TABLE_TYPE table_type) {
     if (table_type == TABLE_TYPE::INTRINSIC_TMP) return;
@@ -4710,15 +4729,10 @@ class Rdb_transaction {
     for (auto &it : modified_tables) {
       it->m_update_time = tm;
     }
-    modified_tables.clear();
-
-    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
+    on_finish();
   }
 
-  void on_rollback() {
-    modified_tables.clear();
-    m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
-  }
+  void on_rollback() { on_finish(); }
 
  private:
   std::atomic<uint64_t> m_binlog_ttl_read_filtering_ts{0};
@@ -5071,7 +5085,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
       return;
     }
 
-    if (m_read_opts[table_type].snapshot == nullptr) {
+    if (!has_snapshot(table_type)) {
       const auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
           m_thd->get_explicit_snapshot());
       if (thd_ss) {
@@ -5099,7 +5113,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
     bool need_clear = m_is_delayed_snapshot;
 
-    if (m_read_opts[table_type].snapshot != nullptr) {
+    if (has_snapshot(table_type)) {
       m_snapshot_timestamp = 0;
       if (m_explicit_snapshot) {
         m_explicit_snapshot.reset();
@@ -5561,8 +5575,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       assert(false);
       return;
     }
-    if (m_read_opts[table_type].snapshot == nullptr)
-      snapshot_created(rdb->GetSnapshot());
+    if (!has_snapshot(table_type)) snapshot_created(rdb->GetSnapshot());
   }
 
   void release_snapshot(TABLE_TYPE table_type) override {
@@ -5570,7 +5583,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       assert(false);
       return;
     }
-    if (m_read_opts[table_type].snapshot != nullptr) {
+    if (has_snapshot(table_type)) {
       rdb->ReleaseSnapshot(m_read_opts[table_type].snapshot);
       m_read_opts[table_type].snapshot = nullptr;
     }
@@ -6684,7 +6697,7 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
     assert(tx != nullptr);
 
     /* Calculate the duration the snapshot has existed */
-    int64_t snapshot_timestamp = tx->m_snapshot_timestamp;
+    const auto snapshot_timestamp = tx->get_snapshot_timestamp();
     if (snapshot_timestamp != 0) {
       int64_t curr_time;
       rdb->GetEnv()->GetCurrentTime(&curr_time);
@@ -7443,8 +7456,7 @@ static int rocksdb_start_tx_with_shared_read_view(
 
     // case: an explicit snapshot was not assigned to this transaction
     if (!tx->m_explicit_snapshot) {
-      tx->m_explicit_snapshot = Rdb_explicit_snapshot::create(
-          ss_info, rdb, tx->m_read_opts[TABLE_TYPE::USER_TABLE].snapshot);
+      tx->create_explicit_snapshot(ss_info);
       if (!tx->m_explicit_snapshot) {
         my_printf_error(ER_UNKNOWN_ERROR, "Could not create snapshot", MYF(0));
         error = HA_EXIT_FAILURE;
@@ -19390,9 +19402,8 @@ unsigned long long get_partial_index_sort_max_mem(THD *thd) {
   return THDVAR(thd, partial_index_sort_max_mem);
 }
 
-const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
-  tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
-  return tx->m_read_opts[TABLE_TYPE::USER_TABLE];
+void rdb_tx_acquire_snapshot(Rdb_transaction &tx) {
+  tx.acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
 }
 
 std::unique_ptr<rocksdb::Iterator> rdb_tx_get_iterator(

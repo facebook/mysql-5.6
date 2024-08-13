@@ -1504,7 +1504,7 @@ class select_exec {
     }
 
     bool start() {
-      rdb_tx_acquire_snapshot(m_tx);
+      rdb_tx_acquire_snapshot(*m_tx);
 
       return false;
     }
