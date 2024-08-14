@@ -16,6 +16,7 @@
 #ifndef RAFT_REPLICATION_H
 #define RAFT_REPLICATION_H
 
+#include <optional>
 #include <string>
 // For RaftReplicateMsgOpType
 #include "raft_optype.h"
@@ -282,6 +283,13 @@ typedef struct Raft_replication_observer {
    * Callback to set the current applied opid set
    */
   int (*set_applied_opid_set)(const std::string &opid_set_str);
+
+  /**
+   * Callback to get LWM applied opid
+   */
+  int (*get_lwm_applied_opid)(
+      std::pair<int64_t, int64_t> *lwm,
+      const std::optional<std::pair<int64_t, int64_t>> &committing_opid);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

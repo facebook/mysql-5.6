@@ -376,6 +376,12 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
 
   info.binlog_smallest_max_gtid = nullptr;
 
+  fprintf(stderr,
+          "Opid recovery info: Smallest low watermark Opid %ld:%ld, "
+          "Largest max Opid %ld:%ld\n",
+          info.smallest_lwm_opid.first, info.smallest_lwm_opid.second,
+          info.largest_max_opid.first, info.largest_max_opid.second);
+
   if (info.found_foreign_xids) {
     LogErr(WARNING_LEVEL, ER_XA_RECOVER_FOUND_XA_TRX, info.found_foreign_xids);
     if (binlog_pos)
@@ -767,8 +773,9 @@ static bool update_binlog_pos(THD *, plugin_ref plugin, void *arg) {
   /*
     Update SE's binlog position.
   */
-  bool status = hton->update_binlog_pos(hton, info->binlog_file, info->binlog_pos,
-                                      info->binlog_max_gtid_buf);
+  bool status = hton->update_binlog_pos(
+      hton, info->binlog_file, info->binlog_pos, info->binlog_max_gtid_buf,
+      info->lwm_opid, info->max_opid);
 
   if (status) {
     /* SE is expected to do final check on updating binlog positions - it needs
@@ -795,7 +802,9 @@ static bool update_binlog_pos(THD *, plugin_ref plugin, void *arg) {
  * group commit phase where LOCK_commit is taken.
  */
 int ha_update_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
-                       Gtid *max_gtid) {
+                         Gtid *max_gtid,
+                         const std::pair<int64_t, int64_t> &lwm_opid,
+                         const std::pair<int64_t, int64_t> &max_opid) {
   xarecover_st info;
   char max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
   DBUG_ENTER("ha_update_binlog_pos");
@@ -819,6 +828,9 @@ int ha_update_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
     max_gtid->to_string(global_sid_map, info.binlog_max_gtid_buf);
     global_sid_lock->unlock();
   }
+
+  info.lwm_opid = lwm_opid;
+  info.max_opid = max_opid;
 
   /*
      Update binlog position of all SE that supports 2pc

@@ -1,0 +1,49 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+"Case 1: Checking backward compatibility by not writing opids in engine and then reading"
+set @@global.debug = "+d,innodb_skip_binlog_opid_update,rocksdb_skip_binlog_opid_update";
+create table rocks(a int primary key) engine = rocksdb;
+create table inno(a int primary key) engine = innodb;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+0:0
+<EOL>
+set @@global.debug = "-d,innodb_skip_binlog_opid_update,rocksdb_skip_binlog_opid_update";
+"Case 2: Checking if LWM and max opid are updated in both engines on regular commit"
+insert into rocks values(1);
+insert into inno values(1);
+1:5
+1:4
+"Case 3: Checking if update_binlog_pos_threshold = 0 then opids are updated in both engines"
+set @save_update_binlog_pos_threshold = @@global.update_binlog_pos_threshold;
+set @@global.update_binlog_pos_threshold = 0;
+insert into rocks values(2);
+insert into inno values(2);
+1:7
+1:7
+set @@global.update_binlog_pos_threshold = @save_update_binlog_pos_threshold;
+"Cleanup"
+drop table rocks;
+drop table inno;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

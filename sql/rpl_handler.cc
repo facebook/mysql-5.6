@@ -1526,6 +1526,15 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::get_lwm_applied_opid(
+    std::pair<int64_t, int64_t> *lwm,
+    const std::optional<std::pair<int64_t, int64_t>> &committing_opid) {
+  DBUG_ENTER("Raft_replication_delegate::get_lwm_applied_opid");
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, get_lwm_applied_opid, (lwm, committing_opid));
+  DBUG_RETURN(ret);
+}
+
 int Raft_replication_delegate::show_raft_status(
     THD * /* thd */,
     std::vector<std::pair<std::string, std::string>> *var_value_pairs) {

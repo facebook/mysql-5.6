@@ -1465,11 +1465,14 @@ typedef int (*rollback_t)(handlerton *hton, THD *thd, bool all);
 typedef int (*prepare_t)(handlerton *hton, THD *thd, bool all);
 
 typedef void (*recover_binlog_pos_t)(handlerton *hton, Gtid *binlog_max_gtid,
-                                     char *binlog_file, my_off_t *binlog_pos);
+                                     char *binlog_file, my_off_t *binlog_pos,
+                                     std::pair<int64_t, int64_t> *lwm_opid,
+                                     std::pair<int64_t, int64_t> *max_opid);
 
-typedef bool (*update_binlog_pos_t)(handlerton *hton, const char *file,
-                                    const my_off_t *offset,
-                                    const char *max_gtid_buf);
+typedef bool (*update_binlog_pos_t)(
+    handlerton *hton, const char *file, const my_off_t *offset,
+    const char *max_gtid_buf, const std::pair<int64_t, int64_t> &lwm_opid,
+    const std::pair<int64_t, int64_t> &max_opid);
 
 typedef bool (*update_binlog_ttl_compaction_ts_t)(handlerton *hton, THD *thd,
                                                   uint64_t *ts);

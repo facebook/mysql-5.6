@@ -3600,6 +3600,7 @@ void trx_sys_update_binlog_position(trx_t *trx) {
   thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid,
                  &trx->mysql_max_gtid);
   trx->mysql_log_offset = static_cast<uint64_t>(pos);
+  thd_binlog_opid(thd, &trx->mysql_lwm_opid, &trx->mysql_max_opid);
 }
 
 bool trx_is_prepared_in_tc(trx_t const *trx) {

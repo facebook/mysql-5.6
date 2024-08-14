@@ -758,6 +758,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   char engine_binlog_file[FN_REFLEN + 1];
   my_off_t engine_binlog_pos;
 
+  std::pair<int64_t, int64_t> engine_max_opid = {-1, -1};
+
   void set_recovery_binlog_max_gtid(const std::string &max_binlog_gtid) {
     recovery_binlog_max_gtid = max_binlog_gtid;
   }
@@ -1131,6 +1133,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
   static bool dbtids_from_str(
       const std::string &tids_str,
       std::unordered_map<std::string, uint64_t> *tids_ptr);
+
+  bool get_lwm_applied_opid(
+      std::pair<int64_t, int64_t> *lwm,
+      const std::optional<std::pair<int64_t, int64_t>> &committing_opid = {});
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};

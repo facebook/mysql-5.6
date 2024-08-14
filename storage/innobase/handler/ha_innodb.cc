@@ -1568,15 +1568,19 @@ static void innobase_recover_binlog_pos(
     handlerton *hton,      /*!< in: InnoDB handlerton */
     Gtid *binlog_max_gtid, /*!< out: Max valid binlog gtid*/
     char *binlog_file,     /*!< out: Last valid binlog file */
-    my_off_t *binlog_pos); /*!< out: Last valid binlog pos */
+    my_off_t *binlog_pos,  /*!< out: Last valid binlog pos */
+    std::pair<int64_t, int64_t>
+        *lwm_opid, /*!< out: Low watermark binlog opid */
+    std::pair<int64_t, int64_t> *max_opid); /*!< out: Max binlog opid */
 /** This function is used to sync binlog positions and Gtid.
  */
 static bool innobase_update_binlog_pos(
-    handlerton *hton,       /*!< in: InnoDB handlerton */
-    const char *file,       /*!< in: Valid binlog file */
-    const my_off_t *offset, /*!< in: Valid binlog offset */
-    const char
-        *max_gtid_buf); /*!< in: Max valid binlog gtid in string format */
+    handlerton *hton,         /*!< in: InnoDB handlerton */
+    const char *file,         /*!< in: Valid binlog file */
+    const my_off_t *offset,   /*!< in: Valid binlog offset */
+    const char *max_gtid_buf, /*!< in: Max valid binlog gtid in string format */
+    const std::pair<int64_t, int64_t> &lwm_opid,  /*!< in: Low watermark opid */
+    const std::pair<int64_t, int64_t> &max_opid); /*!< in: Max opid */
 /** This function is used to prepare an X/Open XA distributed transaction.
  @return 0 or error number */
 static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
@@ -20322,7 +20326,10 @@ static void innobase_recover_binlog_pos(
     handlerton *hton,      /*!< in: InnoDB handlerton */
     Gtid *binlog_max_gtid, /*!< out: Max valid binlog gtid*/
     char *binlog_file,     /*!< out: Last valid binlog file */
-    my_off_t *binlog_pos)  /*!< out: Last valid binlog pos */
+    my_off_t *binlog_pos,  /*!< out: Last valid binlog pos */
+    std::pair<int64_t, int64_t>
+        *lwm_opid, /*!< out: Low watermark binlog opid */
+    std::pair<int64_t, int64_t> *max_opid) /*!< out: Max binlog opid */
 {
   assert(hton == innodb_hton_ptr);
 
@@ -20344,6 +20351,19 @@ static void innobase_recover_binlog_pos(
     binlog_max_gtid->parse(global_sid_map, gtid_buf);
     global_sid_lock->unlock();
   }
+
+  std::pair<int64_t, int64_t> lwm, max;
+  if (trx_sys_get_mysql_bin_log_opids(&lwm, &max)) {
+    return;
+  }
+
+  if (lwm_opid) {
+    *lwm_opid = lwm;
+  }
+
+  if (max_opid) {
+    *max_opid = max;
+  }
 }
 
 /** This function is used to sync binlog positions and Gtid.
@@ -20353,8 +20373,9 @@ static bool innobase_update_binlog_pos(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     const char *file,         /*!< in: Valid binlog file */
     const my_off_t *offset,   /*!< in: Valid binlog offset */
-    const char *max_gtid_buf) /*!< in: Max valid binlog gtid in string format */
-{
+    const char *max_gtid_buf, /*!< in: Max valid binlog gtid in string format */
+    const std::pair<int64_t, int64_t> &lwm_opid, /*!< in: Low watermark opid */
+    const std::pair<int64_t, int64_t> &max_opid) { /*!< in: Max opid */
   assert(hton == innodb_hton_ptr);
   assert(file && offset && max_gtid_buf);
 
@@ -20365,7 +20386,8 @@ static bool innobase_update_binlog_pos(
   /* Update SE with the new position
    A failure here means its already been updated so we can
    safely skip */
-  trx_sys_update_mysql_binlog_offset(file, *offset, max_gtid_buf);
+  trx_sys_update_mysql_binlog_offset(file, *offset, max_gtid_buf, lwm_opid,
+                                     max_opid);
 
   return false;
 }

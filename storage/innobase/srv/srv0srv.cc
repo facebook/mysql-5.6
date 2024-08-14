@@ -1408,8 +1408,21 @@ void srv_printf_innodb_binlog_position(FILE *file) /*!< in: output stream */
   char binlog_file[FN_REFLEN + 1] = {0};
   uint64_t binlog_pos = ULLONG_MAX;
   char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  std::pair<int64_t, int64_t> lwm_opid = {-1, -1};
+  std::pair<int64_t, int64_t> max_opid = {-1, -1};
   trx_sys_read_binlog_position(binlog_file, binlog_pos);
   trx_sys_get_mysql_bin_log_max_gtid(gtid_buf);
+  trx_sys_get_mysql_bin_log_opids(&lwm_opid, &max_opid);
+
+  std::string opid_info;
+
+  if (lwm_opid != std::make_pair(-1L, -1L) &&
+      max_opid != std::make_pair(-1L, -1L)) {
+    opid_info += "LWM OPID " + std::to_string(lwm_opid.first) + ":" +
+                 std::to_string(lwm_opid.second);
+    opid_info += "\nMAX OPID " + std::to_string(max_opid.first) + ":" +
+                 std::to_string(max_opid.second) + "\n";
+  }
 
   mutex_enter(&srv_innodb_monitor_mutex);
 
@@ -1423,10 +1436,11 @@ void srv_printf_innodb_binlog_position(FILE *file) /*!< in: output stream */
           "BINLOG OFFSET %" PRIu64
           "\n"
           "MAX GTID %s\n"
+          "%s"
           "----------------------------------------\n"
           "END OF INNODB BINLOG POSITION OUTPUT\n"
           "========================================\n",
-          binlog_file, binlog_pos, gtid_buf);
+          binlog_file, binlog_pos, gtid_buf, opid_info.c_str());
 
   mutex_exit(&srv_innodb_monitor_mutex);
 

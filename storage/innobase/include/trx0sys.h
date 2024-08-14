@@ -207,7 +207,9 @@ is yet to update the binary log position in SE.
 @param[in]	gtid Gtid of the transaction */
 bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
                                    const char *file, uint64_t offset,
-                                   const char *gtid);
+                                   const char *gtid,
+                                   const std::pair<int64_t, int64_t> &lwm_opid,
+                                   const std::pair<int64_t, int64_t> &max_opid);
 
 /** Updates the offset information about the end of the MySQL binlog entry
 which corresponds to the transaction being committed, external XA transaction
@@ -224,14 +226,24 @@ void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
   @param[in]	file		current binary log file name
   @param[in]	offset		current binary log file offset
   @param[in]	Max Gtid seen so far */
-void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
-                                        const char *max_gtid);
+void trx_sys_update_mysql_binlog_offset(
+    const char *file, uint64_t offset, const char *max_gtid,
+    const std::pair<int64_t, int64_t> &lwm_opid,
+    const std::pair<int64_t, int64_t> &max_opid);
 
 /** Gets the max gtid info from system header.
     @param[in, out] gtid info in system header
     @return true on failure.
     @return false on success */
 bool trx_sys_get_mysql_bin_log_max_gtid(char *gtid_buf);
+
+/** Gets the low watermark and max opid from system header
+    @param[out] lwm_opid Low watermark opid
+    @param[out] max_opid Max opid
+    @return true on failure.
+    @return false on success */
+bool trx_sys_get_mysql_bin_log_opids(std::pair<int64_t, int64_t> *lwm_opid,
+                                     std::pair<int64_t, int64_t> *max_opid);
 
 /** Prints to stderr the MySQL binlog offset info in the trx system header if
  *  the magic number shows it valid. */
@@ -340,8 +352,17 @@ are persisted to table */
 #define TRX_SYS_MYSQL_GTID \
   (TRX_SYS_MYSQL_LOG_NAME + TRX_SYS_MYSQL_LOG_NAME_LEN + 8)
 
+#define TRX_SYS_MYSQL_LWM_OPID_TERM \
+  (TRX_SYS_MYSQL_GTID + TRX_SYS_MYSQL_GTID_LEN)
+
+#define TRX_SYS_MYSQL_LWM_OPID_INDEX (TRX_SYS_MYSQL_LWM_OPID_TERM + 8)
+
+#define TRX_SYS_MYSQL_MAX_OPID_TERM (TRX_SYS_MYSQL_LWM_OPID_INDEX + 8)
+
+#define TRX_SYS_MYSQL_MAX_OPID_INDEX (TRX_SYS_MYSQL_MAX_OPID_TERM + 8)
+
 #define TRX_SYS_TRX_NUM_END \
-  (TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID + TRX_SYS_MYSQL_GTID_LEN)
+  (TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_MAX_OPID_INDEX + 8)
 
 /** Doublewrite buffer */
 /** @{ */

@@ -251,7 +251,9 @@ static bool is_loggable_xa_prepare(THD *thd);
 static int check_instance_backup_locked();
 static std::pair<std::string, uint> extract_file_index(
     const std::string &file_name);
-extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *);
+extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *,
+                                const std::pair<int64_t, int64_t> &,
+                                const std::pair<int64_t, int64_t> &);
 
 static ulong raft_new_trx_apply_log_err_window = 5000000 /* 5 sec */;
 
@@ -1443,7 +1445,9 @@ static void binlog_trans_log_savepos(THD *thd, my_off_t *pos) {
 }
 
 static void binlog_dummy_recover_binlog_pos(handlerton *, Gtid *, char *,
-                                            my_off_t *) {}
+                                            my_off_t *,
+                                            std::pair<int64_t, int64_t> *,
+                                            std::pair<int64_t, int64_t> *) {}
 
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
                                 MEM_ROOT *) {
@@ -5973,6 +5977,22 @@ bool MYSQL_BIN_LOG::set_applied_opid_set(const std::string &opid_set) {
 
   return RUN_HOOK_STRICT(raft_replication, set_applied_opid_set, (opid_set)) ==
          0;
+}
+
+bool MYSQL_BIN_LOG::get_lwm_applied_opid(
+    std::pair<int64_t, int64_t> *lwm,
+    const std::optional<std::pair<int64_t, int64_t>> &committing_opid) {
+  if (!lwm) {
+    return false;
+  }
+
+  if (!enable_raft_plugin) {
+    *lwm = std::make_pair(-1L, -1L);
+    return true;
+  }
+
+  return RUN_HOOK_STRICT(raft_replication, get_lwm_applied_opid,
+                         (lwm, committing_opid)) == 0;
 }
 
 bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
@@ -11346,6 +11366,10 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
       if (len > 0) last_char = binlog_file[len - 1];
     }
 
+    std::pair<int64_t, int64_t> lwm_opid;
+    std::pair<int64_t, int64_t> max_opid;
+    thd_binlog_opid(candidate, &lwm_opid, &max_opid);
+
     /*
      This is just a partial check (offset comparison without
      checking the log file name) mainly as an optimization to
@@ -11370,7 +11394,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
         global_sid_lock->unlock();
       }
 
-      if (!ha_update_binlog_pos(binlog_file, binlog_pos, &max_gtid)) {
+      if (!ha_update_binlog_pos(binlog_file, binlog_pos, &max_gtid, lwm_opid,
+                                max_opid)) {
         ha_last_updated_binlog_pos = binlog_pos;
         ha_last_updated_binlog_file = last_char;
       }

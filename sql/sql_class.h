@@ -1981,6 +1981,9 @@ class THD : public MDL_context_owner,
    */
   std::pair<std::string, my_off_t> m_trans_relay_log_pos = {"", 0};
 
+  std::pair<int64_t, int64_t> m_trans_max_opid = {-1, -1};
+  std::pair<int64_t, int64_t> m_trans_lwm_opid = {-1, -1};
+
   /* The term and index that need to be communicated across different raft
    * plugin hooks. These fields are not protected by locks since they are
    * accessed by the same THD serially during different stages of ordered commit
@@ -2566,6 +2569,8 @@ class THD : public MDL_context_owner,
 
   void update_global_binlog_max_gtid(void);
 
+  void update_global_binlog_max_opid();
+
   typedef struct {
     std::string db_metadata;
     std::string db_shard_id;
@@ -3036,6 +3041,9 @@ class THD : public MDL_context_owner,
     } else {
       m_trans_gtid = nullptr;
     }
+
+    update_global_binlog_max_opid();
+
     DBUG_PRINT("return",
                ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
                 "m_trans_end_pos: %llu, "
@@ -3059,6 +3067,12 @@ class THD : public MDL_context_owner,
         ("file: %s, pos: %llu, gtid: %s", file_var ? *file_var : "<none>",
          pos_var ? *pos_var : 0, gtid_var ? m_trans_gtid : "<none>"));
     return;
+  }
+
+  void get_trans_opid(std::pair<int64_t, int64_t> *lwm_opid,
+                      std::pair<int64_t, int64_t> *max_opid) const {
+    if (lwm_opid) *lwm_opid = m_trans_lwm_opid;
+    if (max_opid) *max_opid = m_trans_max_opid;
   }
 
   const char *get_trans_fixed_log_path() const {

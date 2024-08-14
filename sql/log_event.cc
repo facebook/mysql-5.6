@@ -10521,7 +10521,12 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
       we need to do any changes to that value after this function.
     */
     lex_start(thd);
+    bool server_status_more_results =
+        thd->server_status & SERVER_MORE_RESULTS_EXISTS;
     mysql_reset_thd_for_next_command(thd);
+    if (server_status_more_results) {
+      thd->server_status |= SERVER_MORE_RESULTS_EXISTS;
+    }
 
     thd->m_force_raft_after_commit_hook = false;
     enum_gtid_statement_status state = gtid_pre_statement_checks(thd);

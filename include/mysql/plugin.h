@@ -873,6 +873,12 @@ void thd_binlog_pos(const MYSQL_THD thd, const char **file_var,
                     const char **max_gtid_var);
 
 /**
+ * Get raft opid
+ */
+void thd_binlog_opid(const MYSQL_THD thd, std::pair<int64_t, int64_t> *lwm,
+                     std::pair<int64_t, int64_t> *max);
+
+/**
   Return the thread id of a user thread
 
   @param thd  user thread connection handle

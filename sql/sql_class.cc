@@ -3304,6 +3304,22 @@ void THD::update_global_binlog_max_gtid(void) {
   DBUG_VOID_RETURN;
 }
 
+void THD::update_global_binlog_max_opid(void) {
+  DBUG_ENTER("THD::update_global_binlog_max_opid");
+
+  if (index_ > mysql_bin_log.engine_max_opid.second) {
+    mysql_bin_log.engine_max_opid = std::make_pair(term_, index_);
+  }
+  m_trans_max_opid = mysql_bin_log.engine_max_opid;
+  std::optional<std::pair<int64_t, int64_t>> committing_opid = {};
+  if (term_ != -1 && index_ != -1) {
+    committing_opid = std::make_pair(term_, index_);
+  }
+  mysql_bin_log.get_lwm_applied_opid(&m_trans_lwm_opid, committing_opid);
+
+  DBUG_VOID_RETURN;
+}
+
 void THD::set_user_connect(USER_CONN *uc) {
   DBUG_TRACE;
 

@@ -216,10 +216,10 @@ static bool read_binlog_position(const byte *binlog_buf, const char *&file_name,
 @param[in]	max_gtid	Max Gtid seen till this transaction */
 static void write_binlog_position(const char *file_name, uint64_t offset,
                                   byte *binlog_buf, mtr_t *mtr,
-                                  const char *max_gtid) {
-  DBUG_EXECUTE_IF("innodb_skip_binlog_pos_update", {
-    return;
-  };);
+                                  const char *max_gtid,
+                                  const std::pair<int64_t, int64_t> &lwm_opid,
+                                  const std::pair<int64_t, int64_t> &max_opid) {
+  DBUG_EXECUTE_IF("innodb_skip_binlog_pos_update", { return; };);
 
   if (file_name == nullptr ||
       ut_strlen(file_name) >= TRX_SYS_MYSQL_LOG_NAME_LEN) {
@@ -264,6 +264,22 @@ static void write_binlog_position(const char *file_name, uint64_t offset,
                         reinterpret_cast<const byte *>(max_gtid),
                         1 + gtid_length, mtr);
     }
+  }
+
+  DBUG_EXECUTE_IF("innodb_skip_binlog_opid_update", { return; };);
+
+  if (lwm_opid != std::make_pair(-1L, -1L)) {
+    mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_LWM_OPID_TERM, lwm_opid.first,
+                   mtr);
+    mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_LWM_OPID_INDEX, lwm_opid.second,
+                   mtr);
+  }
+
+  if (max_opid != std::make_pair(-1L, -1L)) {
+    mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_MAX_OPID_TERM, max_opid.first,
+                   mtr);
+    mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_MAX_OPID_INDEX, max_opid.second,
+                   mtr);
   }
 }
 
@@ -319,9 +335,11 @@ static bool binlog_position_changed(const char *file_name, uint64_t offset,
   return (offset != cur_offset);
 }
 
-bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
-                                   const char *file, uint64_t offset,
-                                   const char *gtid) {
+bool trx_sys_write_binlog_position(
+    const char *last_file, uint64_t last_offset, const char *file,
+    uint64_t offset, const char *gtid,
+    const std::pair<int64_t, int64_t> &lwm_opid,
+    const std::pair<int64_t, int64_t> &max_opid) {
   mtr_t mtr;
   mtr_start(&mtr);
   byte *binlog_pos = trx_sysf_get(&mtr) + TRX_SYS_MYSQL_LOG_INFO;
@@ -331,7 +349,8 @@ bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
     mtr_commit(&mtr);
     return (false);
   }
-  write_binlog_position(file, offset, binlog_pos, &mtr, gtid);
+  write_binlog_position(file, offset, binlog_pos, &mtr, gtid, lwm_opid,
+                        max_opid);
   mtr_commit(&mtr);
   return (true);
 }
@@ -352,11 +371,14 @@ void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
     /* Don't write blank name in binary log file position. */
     return;
   }
-  write_binlog_position(file_name, offset, binlog_pos, mtr, max_gtid);
+  write_binlog_position(file_name, offset, binlog_pos, mtr, max_gtid,
+                        trx->mysql_lwm_opid, trx->mysql_max_opid);
 }
 
-void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
-                                        const char *max_gtid) {
+void trx_sys_update_mysql_binlog_offset(
+    const char *file, uint64_t offset, const char *max_gtid,
+    const std::pair<int64_t, int64_t> &lwm_opid,
+    const std::pair<int64_t, int64_t> &max_opid) {
   mtr_t mtr;
   mtr_start(&mtr);
 
@@ -364,7 +386,8 @@ void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
 
   /* Don't write blank name in binary log file position. */
   if (file != nullptr && file[0] != '\0') {
-    write_binlog_position(file, offset, binlog_pos, &mtr, max_gtid);
+    write_binlog_position(file, offset, binlog_pos, &mtr, max_gtid, lwm_opid,
+                          max_opid);
   }
 
   mtr_commit(&mtr);
@@ -393,6 +416,39 @@ bool trx_sys_get_mysql_bin_log_max_gtid(char *gtid_buf) {
              reinterpret_cast<const char *>(sys_header) +
                  TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID,
              TRX_SYS_MYSQL_GTID_LEN);
+
+  mtr_commit(&mtr);
+  return false;
+}
+
+bool trx_sys_get_mysql_bin_log_opids(std::pair<int64_t, int64_t> *lwm_opid,
+                                     std::pair<int64_t, int64_t> *max_opid) {
+  assert(lwm_opid && max_opid);
+  trx_sysf_t *sys_header;
+  mtr_t mtr;
+
+  mtr_start(&mtr);
+
+  sys_header = trx_sysf_get(&mtr);
+
+  if (mach_read_from_4(sys_header + TRX_SYS_MYSQL_LOG_INFO +
+                       TRX_SYS_MYSQL_LOG_MAGIC_N_FLD) !=
+      TRX_SYS_MYSQL_LOG_MAGIC_N) {
+    mtr_commit(&mtr);
+    return true;
+  }
+
+  const int64_t lwm_term = mach_read_from_8(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LWM_OPID_TERM);
+  const int64_t lwm_index = mach_read_from_8(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LWM_OPID_INDEX);
+  const int64_t max_term = mach_read_from_8(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_MAX_OPID_TERM);
+  const int64_t max_index = mach_read_from_8(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_MAX_OPID_INDEX);
+
+  *lwm_opid = std::make_pair(lwm_term, lwm_index);
+  *max_opid = std::make_pair(max_term, max_index);
 
   mtr_commit(&mtr);
   return false;
@@ -444,6 +500,17 @@ void trx_sys_print_mysql_binlog_offset(void) {
       log_offset, sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_NAME);
   fprintf(stderr, "InnoDB: Last MySQL Gtid %s\n",
           trx_sys_mysql_bin_log_max_gtid);
+
+  std::pair<int64_t, int64_t> lwm_opid;
+  std::pair<int64_t, int64_t> max_opid;
+  if (trx_sys_get_mysql_bin_log_opids(&lwm_opid, &max_opid)) {
+    return;
+  }
+  fprintf(stderr,
+          "InnoDB: Low watermark binlog opid: %" PRIu64 ":%" PRIu64 "\n",
+          lwm_opid.first, lwm_opid.second);
+  fprintf(stderr, "InnoDB: Max binlog opid: %" PRIu64 ":%" PRIu64 "\n",
+          max_opid.first, max_opid.second);
 
   mtr_commit(&mtr);
 }

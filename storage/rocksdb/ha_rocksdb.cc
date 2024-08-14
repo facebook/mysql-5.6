@@ -3878,8 +3878,21 @@ class Rdb_transaction {
             "position info GTID: %s",
             m_thd->rli_slave->last_gtid);
       }
-      binlog_manager.update(m_mysql_log_file_name, m_mysql_log_offset,
-                            m_mysql_max_gtid, get_write_batch());
+      std::pair<int64_t, int64_t> lwm_opid = {-1, -1};
+      std::pair<int64_t, int64_t> max_opid = {-1, -1};
+      my_core::thd_binlog_opid(m_thd, &lwm_opid, &max_opid);
+
+      Rdb_binlog_manager::Marker marker;
+      if (m_mysql_log_file_name) {
+        strcpy(marker.file, m_mysql_log_file_name);
+      }
+      marker.offset = m_mysql_log_offset;
+      if (m_mysql_max_gtid) {
+        strcpy(marker.max_gtid, m_mysql_max_gtid);
+      }
+      marker.lwm_opid = lwm_opid;
+      marker.max_opid = max_opid;
+      binlog_manager.update(get_write_batch(), marker);
       return commit_no_binlog();
     }
   }
@@ -6367,43 +6380,36 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
 }
 
 static void rocksdb_recover_binlog_pos_internal(
-    /*!< in: print stderr */
-    bool print_stderr,
-    /*!< out: Max valid binlog gtid*/
-    Gtid *binlog_max_gtid,
-    /*!< out: Last valid binlog file */
-    char *binlog_file,
-    /*!< out: Last valid binlog pos */
-    my_off_t *binlog_pos) {
-  assert(binlog_file && binlog_pos);
+    bool print_stderr, Rdb_binlog_manager::Marker *marker) {
+  assert(marker);
 
-  char file_buf[FN_REFLEN + 1] = {0};
-  my_off_t pos = ULLONG_MAX;
-  char gtid_buf[FN_REFLEN + 1] = {0};
-
-  if (!binlog_manager.read(file_buf, &pos, gtid_buf)) {
+  if (!binlog_manager.read(marker)) {
     return;
   }
 
-  memcpy(binlog_file, file_buf, FN_REFLEN + 1);
-  *binlog_pos = pos;
-
-  if (print_stderr) {
-    // NO_LINT_DEBUG
-    fprintf(stderr,
-            "RocksDB: Last binlog file position %llu,"
-            " file name %s\n",
-            pos, file_buf);
+  if (!print_stderr) {
+    return;
   }
 
-  if (binlog_max_gtid && *gtid_buf) {
-    global_sid_lock->rdlock();
-    binlog_max_gtid->parse(global_sid_map, gtid_buf);
-    global_sid_lock->unlock();
-    if (print_stderr) {
-      // NO_LINT_DEBUG
-      fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
-    }
+  // NO_LINT_DEBUG
+  fprintf(stderr, "RocksDB: Last binlog file position %u, file name %s\n",
+          marker->offset, marker->file);
+
+  if (marker->max_gtid[0]) {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", marker->max_gtid);
+  }
+
+  if (marker->lwm_opid != std::pair(-1L, -1L)) {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "RocksDB: Low watermark binlog opid: %lu:%lu\n",
+            marker->lwm_opid.first, marker->lwm_opid.second);
+  }
+
+  if (marker->max_opid != std::pair(-1L, -1L)) {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "RocksDB: Max binlog opid: %lu:%lu\n",
+            marker->max_opid.first, marker->max_opid.second);
   }
 }
 
@@ -6415,9 +6421,32 @@ static void rocksdb_recover_binlog_pos(
     /*!< out: Last valid binlog file */
     char *binlog_file,
     /*!< out: Last valid binlog pos */
-    my_off_t *binlog_pos) {
-  rocksdb_recover_binlog_pos_internal(/* print_stderr */ true, binlog_max_gtid,
-                                      binlog_file, binlog_pos);
+    my_off_t *binlog_pos,
+    /*!< out: Low watermark binlog opid */
+    std::pair<int64_t, int64_t> *lwm_opid,
+    /*!< out: Max binlog opid */
+    std::pair<int64_t, int64_t> *max_opid) {
+  Rdb_binlog_manager::Marker marker;
+  rocksdb_recover_binlog_pos_internal(/* print_stderr */ true, &marker);
+
+  if (binlog_file && binlog_pos) {
+    memcpy(binlog_file, marker.file, FN_REFLEN + 1);
+    *binlog_pos = marker.offset;
+  }
+
+  if (binlog_max_gtid && marker.max_gtid[0]) {
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, marker.max_gtid);
+    global_sid_lock->unlock();
+  }
+
+  if (lwm_opid) {
+    *lwm_opid = marker.lwm_opid;
+  }
+
+  if (max_opid) {
+    *max_opid = marker.max_opid;
+  }
 }
 
 /** This function is used to sync binlog positions and Gtid.
@@ -6427,15 +6456,22 @@ static bool rocksdb_update_binlog_pos(
     handlerton *,             /*!< in: RocksDB handlerton */
     const char *file,         /*!< in: Valid binlog file */
     const my_off_t *offset,   /*!< in: Valid binlog offset */
-    const char *max_gtid_buf) /*!< in: Max valid binlog gtid in str format */
-{
+    const char *max_gtid_buf, /*!< in: Max valid binlog gtid in str format */
+    const std::pair<int64_t, int64_t> &lwm_opid, /*!< in: Low watermark opid */
+    const std::pair<int64_t, int64_t> &max_opid) { /*!< in: Max opid */
   assert(file && offset && max_gtid_buf);
 
   bool sync = false;
   DBUG_EXECUTE_IF("update_binlog_pos", sync = true;);
 
-  if (binlog_manager.persist_pos(file, *offset, max_gtid_buf, sync))
-    return true;
+  Rdb_binlog_manager::Marker marker;
+  strcpy(marker.file, file);
+  strcpy(marker.max_gtid, max_gtid_buf);
+  marker.offset = *offset;
+  if (lwm_opid != std::make_pair(-1L, -1L)) marker.lwm_opid = lwm_opid;
+  if (max_opid != std::make_pair(-1L, -1L)) marker.max_opid = max_opid;
+
+  if (binlog_manager.persist_pos(marker, sync)) return true;
 
   return false;
 }
@@ -6992,23 +7028,23 @@ static bool rocksdb_show_binlog_position(THD *const thd,
   std::ostringstream oss;
 
   /* Get binlog position in SE */
-  char binlog_file[FN_REFLEN + 1] = {0};
-  my_off_t binlog_pos = ULLONG_MAX;
-  Gtid max_gtid{0, 0};
-  rocksdb_recover_binlog_pos_internal(/* print_stderr */ false, &max_gtid,
-                                      binlog_file, &binlog_pos);
-
-  char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
-  if (!max_gtid.is_empty()) {
-    global_sid_lock->rdlock();
-    max_gtid.to_string(global_sid_map, gtid_buf);
-    global_sid_lock->unlock();
-  }
+  Rdb_binlog_manager::Marker marker;
+  rocksdb_recover_binlog_pos_internal(/* print_stderr */ false, &marker);
 
   oss << "\n"
-      << "BINLOG FILE " << binlog_file << "\n"
-      << "BINLOG OFFSET " << binlog_pos << "\n"
-      << "MAX GTID " << gtid_buf << "\n";
+      << "BINLOG FILE " << marker.file << "\n"
+      << "BINLOG OFFSET " << marker.offset << "\n"
+      << "MAX GTID " << marker.max_gtid << "\n";
+
+  if (marker.lwm_opid != std::make_pair(-1L, -1L)) {
+    oss << "LWM OPID " << marker.lwm_opid.first << ":" << marker.lwm_opid.second
+        << "\n";
+  }
+
+  if (marker.max_opid != std::make_pair(-1L, -1L)) {
+    oss << "MAX OPID " << marker.max_opid.first << ":" << marker.max_opid.second
+        << "\n";
+  }
 
   return print_stats(thd, "BINLOG POSITION", "rocksdb", oss.str(), stat_print);
 }

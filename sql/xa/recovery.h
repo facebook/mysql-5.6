@@ -38,6 +38,10 @@ struct xarecover_st {
   Gtid *binlog_smallest_max_gtid; /* smallest max gtid for engine */
   char *binlog_file;
   my_off_t *binlog_pos;
+  std::pair<int64_t, int64_t> lwm_opid = {-1, -1};
+  std::pair<int64_t, int64_t> max_opid = {-1, -1};
+  std::pair<int64_t, int64_t> smallest_lwm_opid = {-1, -1};
+  std::pair<int64_t, int64_t> largest_max_opid = {-1, -1};
 };
 
 namespace xa {

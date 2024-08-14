@@ -1544,27 +1544,30 @@ class Rdb_ddl_manager : public Ensure_initialized {
 */
 class Rdb_binlog_manager {
  public:
+  struct Marker {
+    char file[FN_REFLEN + 1] = {0};
+    uint32_t offset = UINT_MAX;
+    char max_gtid[FN_REFLEN + 1] = {0};
+    std::pair<int64_t, int64_t> lwm_opid = {-1, -1};
+    std::pair<int64_t, int64_t> max_opid = {-1, -1};
+  };
+
   Rdb_binlog_manager(const Rdb_binlog_manager &) = delete;
   Rdb_binlog_manager &operator=(const Rdb_binlog_manager &) = delete;
   Rdb_binlog_manager() = default;
 
   bool init(Rdb_dict_manager *const dict);
   void cleanup();
-  void update(const char *const binlog_name, const my_off_t binlog_pos,
-              const char *const binlog_max_gtid,
-              rocksdb::WriteBatchBase *const batch);
-  int persist_pos(const char *file, const my_off_t offset,
-                  const char *const max_gtid, const bool sync);
-  bool read(char *const binlog_name, my_off_t *const binlog_pos,
-            char *const binlog_gtid) const;
+  void update(rocksdb::WriteBatchBase *const batch, const Marker &marker);
+  int persist_pos(const Marker &marker, bool sync);
+  bool read(Marker *marker) const;
 
  private:
   Rdb_dict_manager *m_dict = nullptr;
   Rdb_buf_writer<Rdb_key_def::INDEX_NUMBER_SIZE> m_key_writer;
   rocksdb::Slice m_key_slice;
 
-  bool unpack_value(const uchar *const value, char *const binlog_name,
-                    my_off_t *const binlog_pos, char *const binlog_gtid) const;
+  bool unpack_value(const std::string &value, Marker *marker) const;
 };
 
 /*

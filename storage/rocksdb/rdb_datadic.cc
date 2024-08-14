@@ -5303,143 +5303,156 @@ void Rdb_binlog_manager::cleanup() {}
   since binlog info is set only at transaction commit.
   Actual write into RocksDB is not done here, so checking if
   write succeeded or not is not possible here.
-  @param binlog_name   Binlog name
-  @param binlog_pos    Binlog pos
-  @param binlog_gtid   Binlog max GTID
   @param batch         WriteBatch
+  @param marker        Binlog marker
 */
-void Rdb_binlog_manager::update(const char *const binlog_name,
-                                const my_off_t binlog_pos,
-                                const char *const binlog_max_gtid,
-                                rocksdb::WriteBatchBase *const batch) {
+void Rdb_binlog_manager::update(rocksdb::WriteBatchBase *const batch,
+                                const Marker &marker) {
   DBUG_EXECUTE_IF("rocksdb_skip_binlog_pos_update", { return; };);
 
-  if (binlog_name && binlog_pos) {
-    // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
-    const size_t RDB_MAX_BINLOG_INFO_LEN = 1024;
-    Rdb_buf_writer<RDB_MAX_BINLOG_INFO_LEN> value_writer;
+  if (!marker.file[0] || !marker.offset) return;
 
-    // store version
-    value_writer.write_uint16(Rdb_key_def::BINLOG_INFO_INDEX_NUMBER_VERSION);
+  // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
+  const size_t RDB_MAX_BINLOG_INFO_LEN = 1024;
+  Rdb_buf_writer<RDB_MAX_BINLOG_INFO_LEN> value_writer;
 
-    // store binlog file name length
-    assert(strlen(binlog_name) <= FN_REFLEN);
-    const uint16_t binlog_name_len = strlen(binlog_name);
-    value_writer.write_uint16(binlog_name_len);
+  // store version
+  value_writer.write_uint16(Rdb_key_def::BINLOG_INFO_INDEX_NUMBER_VERSION);
 
-    // store binlog file name
-    value_writer.write(binlog_name, binlog_name_len);
+  // store binlog file name length
+  assert(strlen(marker.file) <= FN_REFLEN);
+  const uint16_t binlog_name_len = strlen(marker.file);
+  value_writer.write_uint16(binlog_name_len);
 
-    // store binlog pos
-    value_writer.write_uint32(binlog_pos);
+  // store binlog file name
+  value_writer.write(marker.file, binlog_name_len);
 
-    // store binlog gtid length.
-    // If gtid was not set, store 0 instead
-    const uint16_t binlog_max_gtid_len =
-        binlog_max_gtid ? strlen(binlog_max_gtid) : 0;
-    value_writer.write_uint16(binlog_max_gtid_len);
+  // store binlog pos
+  value_writer.write_uint32(marker.offset);
 
-    if (binlog_max_gtid_len > 0) {
-      // store binlog gtid
-      value_writer.write(binlog_max_gtid, binlog_max_gtid_len);
-    }
+  // store binlog gtid length.
+  // If gtid was not set, store 0 instead
+  const uint16_t binlog_max_gtid_len =
+      marker.max_gtid[0] ? strlen(marker.max_gtid) : 0;
+  value_writer.write_uint16(binlog_max_gtid_len);
 
-    m_dict->put_key(batch, m_key_slice, value_writer.to_slice());
+  if (binlog_max_gtid_len > 0) {
+    // store binlog gtid
+    value_writer.write(marker.max_gtid, binlog_max_gtid_len);
   }
+
+  DBUG_EXECUTE_IF("rocksdb_skip_binlog_opid_update", {
+    m_dict->put_key(batch, m_key_slice, value_writer.to_slice());
+    return;
+  };);
+
+  if (marker.lwm_opid != std::pair(-1L, -1L)) {
+    value_writer.write_uint64(marker.lwm_opid.first);
+    value_writer.write_uint64(marker.lwm_opid.second);
+  }
+
+  if (marker.max_opid != std::pair(-1L, -1L)) {
+    value_writer.write_uint64(marker.max_opid.first);
+    value_writer.write_uint64(marker.max_opid.second);
+  }
+
+  m_dict->put_key(batch, m_key_slice, value_writer.to_slice());
 }
 
 /**
   Persists binlog name, pos and optionally gtid into RocksDB.
   This function allocates a new batch that is independent from
   any transaction and writes the batch into RocksDB.
-  @param[IN] file          Binlog file
-  @param[IN] offset        Binlog offset
-  @param[IN] binlog_gtid   Binlog max GTID
+  @param[IN] marker        Binlog marker
   @param[IN] sync          Wait for flush when true
   @return
     non 0 value when write fails
     0 for Success
   */
-int Rdb_binlog_manager::persist_pos(const char *file, const my_off_t offset,
-                                    const char *const max_gtid,
-                                    const bool sync) {
-  assert(file);
-
+int Rdb_binlog_manager::persist_pos(const Marker &marker, bool sync) {
   auto wb = std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
-  update(file, offset, max_gtid, wb.get());
+  update(wb.get(), marker);
   return m_dict->commit(wb.get(), sync);
 }
 
 /**
   Read binlog committed entry stored in RocksDB, then unpack
-  @param[OUT] binlog_name  Binlog name
-  @param[OUT] binlog_pos   Binlog pos
-  @param[OUT] binlog_gtid  Binlog GTID
+  @param[OUT] marker  Binlog marker
   @return
     true is binlog info was found (valid behavior)
     false otherwise
 */
-bool Rdb_binlog_manager::read(char *const binlog_name,
-                              my_off_t *const binlog_pos,
-                              char *const binlog_gtid) const {
-  bool ret = false;
-  if (binlog_name) {
-    std::string value;
-    rocksdb::Status status = m_dict->get_value(m_key_slice, &value);
-    if (status.ok()) {
-      if (!unpack_value((const uchar *)value.c_str(), binlog_name, binlog_pos,
-                        binlog_gtid)) {
-        ret = true;
-      }
-    }
-  }
-  return ret;
+bool Rdb_binlog_manager::read(Marker *marker) const {
+  if (!marker) return false;
+  std::string value;
+  if (!m_dict->get_value(m_key_slice, &value).ok()) return false;
+  return !unpack_value(value, marker);
 }
 
 /**
   Unpack value then split into binlog_name, binlog_pos (and binlog_gtid)
-  @param[IN]  value        Binlog state info fetched from RocksDB
-  @param[OUT] binlog_name  Binlog name
-  @param[OUT] binlog_pos   Binlog pos
-  @param[OUT] binlog_gtid  Binlog GTID
+  @param[IN]  value_str    Binlog state info fetched from RocksDB
+  @param[OUT] marker       Binlog marker
   @return     true on error
 */
-bool Rdb_binlog_manager::unpack_value(const uchar *const value,
-                                      char *const binlog_name,
-                                      my_off_t *const binlog_pos,
-                                      char *const binlog_gtid) const {
-  uint pack_len = 0;
+bool Rdb_binlog_manager::unpack_value(const std::string &value_str,
+                                      Marker *marker) const {
+  assert(marker != nullptr);
 
-  assert(binlog_pos != nullptr);
+  Rdb_string_reader reader(value_str);
 
   // read version
-  const uint16_t version = rdb_netbuf_to_uint16(value);
-  pack_len += Rdb_key_def::VERSION_SIZE;
+  uint version = 0;
+  if (reader.read_uint16(&version)) return true;
+
   if (version != Rdb_key_def::BINLOG_INFO_INDEX_NUMBER_VERSION) return true;
 
   // read binlog file name length
-  const uint16_t binlog_name_len = rdb_netbuf_to_uint16(value + pack_len);
-  pack_len += sizeof(uint16);
+  uint binlog_name_len = 0;
+  if (reader.read_uint16(&binlog_name_len)) return true;
+
   if (binlog_name_len) {
     // read and set binlog name
-    memcpy(binlog_name, value + pack_len, binlog_name_len);
-    binlog_name[binlog_name_len] = '\0';
-    pack_len += binlog_name_len;
+    const char *file_buf = reader.read(binlog_name_len);
+    if (file_buf == nullptr) return true;
+    memcpy(marker->file, file_buf, binlog_name_len);
+    marker->file[binlog_name_len] = '\0';
 
     // read and set binlog pos
-    *binlog_pos = rdb_netbuf_to_uint32(value + pack_len);
-    pack_len += sizeof(uint32);
-
-    // read gtid length
-    const uint16_t binlog_gtid_len = rdb_netbuf_to_uint16(value + pack_len);
-    pack_len += sizeof(uint16);
-    if (binlog_gtid && binlog_gtid_len > 0) {
-      // read and set gtid
-      memcpy(binlog_gtid, value + pack_len, binlog_gtid_len);
-      binlog_gtid[binlog_gtid_len] = '\0';
-      pack_len += binlog_gtid_len;
-    }
+    if (reader.read_uint32(&marker->offset)) return true;
   }
+
+  if (reader.remaining_bytes() == 0) return false;
+
+  // read gtid length
+  uint binlog_gtid_len = 0;
+  if (reader.read_uint16(&binlog_gtid_len)) return true;
+
+  if (binlog_gtid_len > 0) {
+    // read and set gtid
+    const char *gtid_buf = reader.read(binlog_gtid_len);
+    if (gtid_buf == nullptr) return true;
+    memcpy(marker->max_gtid, gtid_buf, binlog_gtid_len);
+    marker->max_gtid[binlog_gtid_len] = '\0';
+  }
+
+  if (reader.remaining_bytes() == 0) return false;
+
+  // read lwm opid
+  uint64_t term = 0, index = 0;
+  if (reader.read_uint64(&term)) return true;
+  if (reader.read_uint64(&index)) return true;
+  assert(term > 0 && index > 0);
+  marker->lwm_opid = std::make_pair(term, index);
+
+  if (reader.remaining_bytes() == 0) return false;
+
+  // read max opid
+  if (reader.read_uint64(&term)) return true;
+  if (reader.read_uint64(&index)) return true;
+  assert(term > 0 && index > 0);
+  marker->max_opid = std::make_pair(term, index);
+
   return false;
 }
 

@@ -403,12 +403,19 @@ int Clone_Snapshot::update_binlog_position() {
   LOG_INFO log_info;
   mysql_bin_log.get_current_log(&log_info);
 
+  std::pair<int64_t, int64_t> lwm_opid = {-1, -1};
+  std::pair<int64_t, int64_t> max_opid = {-1, -1};
+  if (trx_sys_get_mysql_bin_log_opids(&lwm_opid, &max_opid)) {
+    return (1);
+  }
+
   /* 3. Check and write binary log position in Innodb. */
   /* TODO -- FB/herman -- This probably needs to pull out the gtid executed set
    * for the current binlog offset. */
   char *gtid = nullptr;
   bool written = trx_sys_write_binlog_position(
-      &file_name[0], file_pos, &log_info.log_file_name[0], log_info.pos, gtid);
+      &file_name[0], file_pos, &log_info.log_file_name[0], log_info.pos, gtid,
+      lwm_opid, max_opid);
 
   /* 4. If we had to write current binary log position, should wait for all
   prepared transactions to finish to make sure that all transactions up to

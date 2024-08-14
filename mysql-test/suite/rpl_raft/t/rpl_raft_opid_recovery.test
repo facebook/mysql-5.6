@@ -1,0 +1,86 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+
+
+echo "Case 1: Checking backward compatibility by not writing opids in engine and then reading";
+
+set @@global.debug = "+d,innodb_skip_binlog_opid_update,rocksdb_skip_binlog_opid_update";
+
+create table rocks(a int primary key) engine = rocksdb;
+create table inno(a int primary key) engine = innodb;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>MAX GTID.*?<EOL>/<EOL>/;
+let $RDB_BINLOG_LWM_OPID=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION);
+let $RDB_BINLOG_LWM_OPID_VAL=`SELECT '$RDB_BINLOG_LWM_OPID'`;
+
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/;
+let $IDB_BINLOG_LWM_OPID=`SHOW ENGINE INNODB STATUS`;
+replace_regex /InnoDB[[:space:]]*//;
+let $IDB_BINLOG_LWM_OPID_VAL=`SELECT '$IDB_BINLOG_LWM_OPID'`;
+
+echo $IDB_BINLOG_LWM_OPID_VAL;
+echo $RDB_BINLOG_LWM_OPID_VAL;
+
+set @@global.debug = "-d,innodb_skip_binlog_opid_update,rocksdb_skip_binlog_opid_update";
+
+
+echo "Case 2: Checking if LWM and max opid are updated in both engines on regular commit";
+
+insert into rocks values(1);
+insert into inno values(1);
+
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>MAX GTID.*?<EOL>/<EOL>/;
+let $RDB_BINLOG_LWM_OPID=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION);
+let $RDB_BINLOG_LWM_OPID_VAL=`SELECT '$RDB_BINLOG_LWM_OPID'`;
+
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/;
+let $IDB_BINLOG_LWM_OPID=`SHOW ENGINE INNODB STATUS`;
+replace_regex /InnoDB[[:space:]]*//;
+let $IDB_BINLOG_LWM_OPID_VAL=`SELECT '$IDB_BINLOG_LWM_OPID'`;
+
+echo $IDB_BINLOG_LWM_OPID_VAL;
+echo $RDB_BINLOG_LWM_OPID_VAL;
+
+
+echo "Case 3: Checking if update_binlog_pos_threshold = 0 then opids are updated in both engines";
+
+set @save_update_binlog_pos_threshold = @@global.update_binlog_pos_threshold;
+set @@global.update_binlog_pos_threshold = 0;
+
+insert into rocks values(2);
+insert into inno values(2);
+
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>BINLOG.*?<EOL>/<EOL>/ /<EOL>MAX GTID.*?<EOL>/<EOL>/;
+let $RDB_BINLOG_LWM_OPID=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION);
+let $RDB_BINLOG_LWM_OPID_VAL=`SELECT '$RDB_BINLOG_LWM_OPID'`;
+
+replace_regex /\n/<EOL>/ /.*<EOL>LWM OPID[[:space:]]*([0-9]+:[0-9]+)<EOL>.*/\1/;
+let $IDB_BINLOG_LWM_OPID=`SHOW ENGINE INNODB STATUS`;
+replace_regex /InnoDB[[:space:]]*//;
+let $IDB_BINLOG_LWM_OPID_VAL=`SELECT '$IDB_BINLOG_LWM_OPID'`;
+
+echo $IDB_BINLOG_LWM_OPID_VAL;
+echo $RDB_BINLOG_LWM_OPID_VAL;
+
+set @@global.update_binlog_pos_threshold = @save_update_binlog_pos_threshold;
+
+
+echo "Cleanup";
+
+connection server_1;
+drop table rocks;
+drop table inno;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

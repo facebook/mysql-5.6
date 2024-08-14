@@ -27,7 +27,7 @@ FLUSH LOGS;
 --let $RDB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$RDB_BINLOG_OFFSET_BEFORE'`
 
 --let $assert_text= RocksDB binlog position should not be initialized
---let $assert_cond= $RDB_BINLOG_OFFSET_BEFORE_VALUE = 18446744073709551615
+--let $assert_cond= $RDB_BINLOG_OFFSET_BEFORE_VALUE = 4294967295
 --source include/assert.inc
 
 --echo Test Case I: getting innodb binlog position before trx...

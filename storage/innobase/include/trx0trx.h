@@ -961,6 +961,15 @@ struct trx_t {
   /*!< if MySQL binlog is used, this
   field contains the end offset of the
   binlog entry */
+
+  /*!< if MySQL binlog is used, this
+  field contains the low watermark opid */
+  std::pair<int64_t, int64_t> mysql_lwm_opid = {-1, -1};
+
+  /*!< if MySQL binlog is used, this
+  field contains the max opid */
+  std::pair<int64_t, int64_t> mysql_max_opid = {-1, -1};
+
   /*------------------------------*/
   uint32_t n_mysql_tables_in_use; /*!< number of Innobase tables
                               used in the processing of the current

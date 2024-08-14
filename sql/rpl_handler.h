@@ -466,6 +466,9 @@ class Raft_replication_delegate : public Delegate {
   int ingestion(THD *thd, Raft_ingestion_param *param);
   int get_applied_opid_set(std::string *opid_set_str);
   int set_applied_opid_set(const std::string &opid_set_str);
+  int get_lwm_applied_opid(
+      std::pair<int64_t, int64_t> *lwm,
+      const std::optional<std::pair<int64_t, int64_t>> &committing_opid);
 };
 
 int delegates_init();

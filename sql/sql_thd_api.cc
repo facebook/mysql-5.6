@@ -387,6 +387,11 @@ void thd_binlog_pos(const MYSQL_THD thd, const char **file_var,
   thd->get_trans_pos(file_var, pos_var, gtid_var, max_gtid_var);
 }
 
+void thd_binlog_opid(const MYSQL_THD thd, std::pair<int64_t, int64_t> *lwm,
+                     std::pair<int64_t, int64_t> *max) {
+  thd->get_trans_opid(lwm, max);
+}
+
 int mysql_tmpfile(const char *prefix) {
   return mysql_tmpfile_path(mysql_tmpdir, prefix);
 }
