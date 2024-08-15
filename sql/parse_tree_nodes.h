@@ -57,6 +57,7 @@
 #include "sql/set_var.h"
 #include "sql/sql_admin.h"  // Sql_cmd_shutdown etc.
 #include "sql/sql_alter.h"
+#include "sql/sql_bulk_load.h"         // Sql_cmd_bulk_load_table
 #include "sql/sql_check_constraint.h"  // Sql_check_constraint_spec
 #include "sql/sql_checksum.h"          // Sql_cmd_checksum_tables
 #include "sql/sql_cmd_srs.h"
@@ -5299,6 +5300,38 @@ class PT_load_table final : public Parse_tree_root {
   Sql_cmd_load_table m_cmd;
 
   const thr_lock_type m_lock_type;
+};
+
+class PT_bulk_load_commit final : public Parse_tree_root {
+ public:
+  PT_bulk_load_commit(const LEX_STRING bulk_load_session_id)
+      : m_cmd(Sql_cmd_bulk_load_commit(bulk_load_session_id)) {}
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_bulk_load_commit m_cmd;
+};
+
+class PT_bulk_load_rollback final : public Parse_tree_root {
+ public:
+  PT_bulk_load_rollback(const LEX_STRING bulk_load_session_id)
+      : m_cmd(Sql_cmd_bulk_load_rollback(bulk_load_session_id)) {}
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_bulk_load_rollback m_cmd;
+};
+
+class PT_bulk_load_start final : public Parse_tree_root {
+ public:
+  PT_bulk_load_start(const LEX_STRING bulk_load_session_id,
+                     Mem_root_array<Table_ident *> *table_list)
+      : m_cmd(bulk_load_session_id, table_list) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_bulk_load_start m_cmd;
 };
 
 class PT_dump_table final : public Parse_tree_root {

@@ -117,6 +117,7 @@ static const SYMBOL symbols[] = {
     {SYM("BTREE", BTREE_SYM)},
     {SYM("BUCKETS", BUCKETS_SYM)},
     {SYM("BULK", BULK_SYM)},
+    {SYM("BULK_LOAD", BULK_LOAD_SYM)},
     {SYM("BY", BY)},
     {SYM("BYTE", BYTE_SYM)},
     {SYM("CACHE", CACHE_SYM)},

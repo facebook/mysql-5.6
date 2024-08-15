@@ -10411,6 +10411,9 @@ ER_INVALID_VECTOR
 ER_COPY_VECTOR_OPERATION_NOT_SUPPORTED
   eng "Can't copy to the vector field. %s."
 
+ER_DA_BULK_LOAD
+  eng "Bulk load hits error: %s"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

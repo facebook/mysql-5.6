@@ -3686,6 +3686,26 @@ Sql_cmd *PT_load_table::make_cmd(THD *thd) {
   return &m_cmd;
 }
 
+Sql_cmd *PT_bulk_load_start::make_cmd(THD *thd) {
+  LEX *const lex = thd->lex;
+  lex->sql_command = SQLCOM_BULK_LOAD_START;
+  if (lex->current_query_block()->add_tables(thd, m_cmd.m_table_list,
+                                             TL_OPTION_UPDATING, TL_UNLOCK,
+                                             MDL_SHARED_READ))
+    return nullptr;
+  return &m_cmd;
+}
+
+Sql_cmd *PT_bulk_load_commit::make_cmd(THD *thd) {
+  thd->lex->sql_command = SQLCOM_BULK_LOAD_COMMIT;
+  return &m_cmd;
+}
+
+Sql_cmd *PT_bulk_load_rollback::make_cmd(THD *thd) {
+  thd->lex->sql_command = SQLCOM_BULK_LOAD_ROLLBACK;
+  return &m_cmd;
+}
+
 Sql_cmd *PT_dump_table::make_cmd(THD *thd) {
   LEX *const lex = thd->lex;
   lex->sql_command = SQLCOM_DUMP;

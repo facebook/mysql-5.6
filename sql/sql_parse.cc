@@ -4427,8 +4427,15 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
     case SQLCOM_ASSIGN_TO_KEYCACHE:
     case SQLCOM_PRELOAD_KEYS:
     case SQLCOM_LOAD:
+    case SQLCOM_BULK_LOAD_START:
     case SQLCOM_DUMP: {
       assert(first_table == all_tables && first_table != nullptr);
+      assert(lex->m_sql_cmd != nullptr);
+      res = lex->m_sql_cmd->execute(thd);
+      break;
+    }
+    case SQLCOM_BULK_LOAD_COMMIT:
+    case SQLCOM_BULK_LOAD_ROLLBACK: {
       assert(lex->m_sql_cmd != nullptr);
       res = lex->m_sql_cmd->execute(thd);
       break;

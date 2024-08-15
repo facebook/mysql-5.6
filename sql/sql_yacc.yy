@@ -1391,6 +1391,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> BULK_SYM                   1201  /* MYSQL */
 %token<lexer.keyword> URL_SYM                    1202   /* MYSQL */
 %token<lexer.keyword> GENERATE_SYM               1203   /* MYSQL */
+%token<lexer.keyword> BULK_LOAD_SYM               1204   /* MYSQL */
 
 /*
   Precedence rules used to resolve the ambiguity when using keywords as idents
@@ -1930,6 +1931,9 @@ void warn_about_deprecated_binary(THD *thd)
         insert_stmt
         keycache_stmt
         load_stmt
+        bulk_load_start_stmt
+        bulk_load_commit_stmt
+        bulk_load_rollback_stmt
         optimize_table_stmt
         preload_stmt
         repair_table_stmt
@@ -2427,6 +2431,9 @@ simple_statement:
         | install                       { $$= nullptr; }
         | kill                          { $$= nullptr; }
         | load_stmt
+        | bulk_load_start_stmt
+        | bulk_load_commit_stmt
+        | bulk_load_rollback_stmt
         | lock                          { $$= nullptr; }
         | optimize_table_stmt
         | keycache_stmt
@@ -14738,6 +14745,32 @@ attach:
           }
         ;
 
+bulk_load_start_stmt:
+          BULK_LOAD_SYM                       /*  1 */
+          START_SYM                           /*  2 */
+          TEXT_STRING_sys_nonewline           /*  3 */
+          TABLES                              /*  4 */
+          EQ                                  /*  5 */
+          table_list                          /*  6 */
+          {
+            $$ = NEW_PTN PT_bulk_load_start($3, $6);
+          }
+        ;
+
+bulk_load_commit_stmt:
+          BULK_LOAD_SYM COMMIT_SYM TEXT_STRING_sys_nonewline
+          {
+            $$ = NEW_PTN PT_bulk_load_commit($3);
+          }
+        ;
+
+bulk_load_rollback_stmt:
+          BULK_LOAD_SYM ROLLBACK_SYM TEXT_STRING_sys_nonewline
+          {
+            $$ = NEW_PTN PT_bulk_load_rollback($3);
+          }
+        ;
+
 /* import, export of files */
 
 load_stmt:
@@ -15709,6 +15742,7 @@ ident_keywords_ambiguous_2_labels:
         | UNICODE_SYM
         | UNINSTALL_SYM
         | XA_SYM
+        | BULK_LOAD_SYM
         ;
 
 /*
