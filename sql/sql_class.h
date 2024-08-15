@@ -3042,7 +3042,11 @@ class THD : public MDL_context_owner,
       m_trans_gtid = nullptr;
     }
 
-    update_global_binlog_max_opid();
+    if (file != nullptr && pos != 0) {
+      update_global_binlog_max_opid();
+    } else {
+      m_trans_max_opid = m_trans_lwm_opid = {-1, -1};
+    }
 
     DBUG_PRINT("return",
                ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
