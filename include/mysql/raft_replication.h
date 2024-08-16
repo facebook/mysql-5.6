@@ -62,6 +62,7 @@ typedef struct Raft_replication_param {
 */
 typedef struct Raft_ingestion_param {
   std::pair<int64_t, int64_t> checkpoint = {-1, -1};
+  uint64_t checkpoint_hlc = 0;
   uint64_t upper_bound = 0;
   bool is_from_applier = false;
   bool force = false;
@@ -132,18 +133,15 @@ typedef struct Raft_replication_observer {
      @param param Observer common parameter
      @param cache IO_CACHE containing binlog events for the txn
      @param op_type The type of operation for which before_flush is called
-     @param next_ingestion_upper_bound Next ingestion upper bound, will become
-                                       upper bound when this trx commits
-     @param next_ingestion_checkpoint Next ingestion checkpoint, will become
-                                      current checkpoint when this trx commits
+     @param ingestion_param Ingestion params to set values for checkpoint, upper
+     bounds etc.
 
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*before_flush)(
-      Raft_replication_param *param, IO_CACHE *cache,
-      RaftReplicateMsgOpType op_type, uint64_t next_ingestion_upper_bound,
-      const std::pair<int64_t, int64_t> &next_ingestion_checkpoint);
+  int (*before_flush)(Raft_replication_param *param, IO_CACHE *cache,
+                      RaftReplicateMsgOpType op_type,
+                      const Raft_ingestion_param &ingestion_param);
 
   /**
      This callback is called once upfront to setup the appropriate

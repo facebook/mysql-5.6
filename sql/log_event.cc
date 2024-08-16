@@ -5917,6 +5917,7 @@ int Rotate_log_event::do_apply_event(Relay_log_info const * /*rli*/) {
   int error = 0;
   Raft_ingestion_param param;
   param.checkpoint = thd->raft_ingestion_checkpoint;
+  param.checkpoint_hlc = thd->raft_ingestion_checkpoint_hlc;
   param.upper_bound = thd->raft_ingestion_upper_bound;
   param.is_from_applier = true;
   error = error || RUN_HOOK_STRICT(raft_replication, ingestion, (thd, &param));

@@ -1995,6 +1995,7 @@ class THD : public MDL_context_owner,
 
  public:
   std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
+  uint64_t raft_ingestion_checkpoint_hlc = 0;
   uint64_t raft_ingestion_upper_bound = 0;
 
   std::unordered_map<std::string, uint64_t> dbtids;
@@ -2032,6 +2033,7 @@ class THD : public MDL_context_owner,
     term_ = -1;
     index_ = -1;
     raft_ingestion_checkpoint = {-1, -1};
+    raft_ingestion_checkpoint_hlc = 0;
     raft_ingestion_upper_bound = 0;
   }
 

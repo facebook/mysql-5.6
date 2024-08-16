@@ -1745,6 +1745,7 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
   // case: we're applying a trx on secondary, populate the ingestion param
   if (thd->rli_slave) {
     param.checkpoint = thd->raft_ingestion_checkpoint;
+    param.checkpoint_hlc = thd->raft_ingestion_checkpoint_hlc;
     param.upper_bound = thd->raft_ingestion_upper_bound;
     param.is_from_applier = true;
   }

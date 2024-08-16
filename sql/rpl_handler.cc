@@ -1392,10 +1392,13 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
 
   int ret = 0;
 
-  FOREACH_OBSERVER_STRICT(
-      ret, before_flush,
-      (&param, io_cache, op_type, thd->raft_ingestion_upper_bound,
-       thd->raft_ingestion_checkpoint));
+  Raft_ingestion_param ingestion_param;
+  ingestion_param.checkpoint = thd->raft_ingestion_checkpoint;
+  ingestion_param.checkpoint_hlc = thd->raft_ingestion_checkpoint_hlc;
+  ingestion_param.upper_bound = thd->raft_ingestion_upper_bound;
+
+  FOREACH_OBSERVER_STRICT(ret, before_flush,
+                          (&param, io_cache, op_type, ingestion_param));
 
   DBUG_PRINT("return",
              ("term: %" PRId64 ", index: %" PRId64, param.term, param.index));
@@ -1574,6 +1577,7 @@ int Raft_replication_delegate::ingestion(THD *thd,
   if (!ret && !param->is_from_applier) {
     thd->raft_ingestion_upper_bound = param->upper_bound;
     thd->raft_ingestion_checkpoint = param->checkpoint;
+    thd->raft_ingestion_checkpoint_hlc = param->checkpoint_hlc;
   }
   DBUG_RETURN(ret);
 }
