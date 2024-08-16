@@ -1,5 +1,6 @@
 --source include/have_rocksdb.inc
 --source include/have_innodb_ddse.inc
+--source include/not_as_root.inc
 
 # save data
 --let $MYSQLD_DATADIR= `select @@datadir`

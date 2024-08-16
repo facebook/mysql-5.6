@@ -3,6 +3,7 @@
 # Test warnings caused by mysqld's command line parameters
 #
 ################################################################################
+--source not_as_root.inc
 
 --echo #
 --echo # WL#11109: Issue deprecation warnings on utf8mb3

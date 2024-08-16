@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 --source include/check_ipv6.inc
 --echo #
 --echo # WL#12138 -- Add Admin Port

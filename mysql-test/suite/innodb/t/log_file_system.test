@@ -1,5 +1,6 @@
 # Test the detection of innodb_data_file_path mismatch.
 
+--source include/not_as_root.inc
 --source include/not_valgrind.inc
 --source include/have_innodb_16k.inc
 

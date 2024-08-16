@@ -17,6 +17,7 @@
 # Bug#29995256: PRIVILEGE_CHECKS_USER NOT CLONED FOR RECOVERY CHANNEL
 #
 
+--source include/not_as_root.inc
 --source include/have_mysqld_monitoring_process.inc
 --source include/have_clone_plugin.inc
 # Test requires master-info-repository=TABLE, relay-log-info-repository=TABLE

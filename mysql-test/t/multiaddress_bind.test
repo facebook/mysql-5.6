@@ -2,6 +2,7 @@
 --echo # WL#11652 -- Support multiple addresses for the --bind-address command option
 --echo #
 
+--source include/not_as_root.inc
 --source include/check_ipv6.inc
 
 ## Setting --bind-address=127.0.0.1,::1 need to be done here, inside
