@@ -3,6 +3,7 @@
 #
 
 # Save the initial number of concurrent sessions
+--source include/not_as_root.inc
 --source include/count_sessions.inc
 
 connection default;
