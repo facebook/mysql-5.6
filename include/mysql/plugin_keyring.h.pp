@@ -131,6 +131,8 @@ void thd_check_yield(void * thd);
 void thd_binlog_pos(const void * thd, const char **file_var,
                     unsigned long long *pos_var, const char **gtid_var,
                     const char **max_gtid_var);
+void thd_binlog_opid(const void * thd, std::pair<int64_t, int64_t> *lwm,
+                     std::pair<int64_t, int64_t> *max);
 unsigned long thd_get_thread_id(const void * thd);
 void thd_get_xid(const void * thd, MYSQL_XID *xid);
 void *thd_get_ha_data(const void * thd, const struct handlerton *hton);
