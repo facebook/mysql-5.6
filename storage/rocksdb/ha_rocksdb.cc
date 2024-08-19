@@ -6659,15 +6659,16 @@ static void rocksdb_recover_binlog_pos_internal(
     fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", marker->max_gtid);
   }
 
-  if (marker->lwm_opid != std::pair(-1L, -1L)) {
+  if (marker->lwm_opid != std::pair<std::int64_t, std::int64_t>(-1, -1)) {
     // NO_LINT_DEBUG
-    fprintf(stderr, "RocksDB: Low watermark binlog opid: %lu:%lu\n",
+    fprintf(stderr,
+            "RocksDB: Low watermark binlog opid: %" PRId64 ":%" PRId64 "\n",
             marker->lwm_opid.first, marker->lwm_opid.second);
   }
 
-  if (marker->max_opid != std::pair(-1L, -1L)) {
+  if (marker->max_opid != std::pair<std::int64_t, std::int64_t>(-1, -1)) {
     // NO_LINT_DEBUG
-    fprintf(stderr, "RocksDB: Max binlog opid: %lu:%lu\n",
+    fprintf(stderr, "RocksDB: Max binlog opid: %" PRId64 ":%" PRId64 "\n",
             marker->max_opid.first, marker->max_opid.second);
   }
 }
@@ -6727,8 +6728,10 @@ static bool rocksdb_update_binlog_pos(
   strcpy(marker.file, file);
   strcpy(marker.max_gtid, max_gtid_buf);
   marker.offset = *offset;
-  if (lwm_opid != std::make_pair(-1L, -1L)) marker.lwm_opid = lwm_opid;
-  if (max_opid != std::make_pair(-1L, -1L)) marker.max_opid = max_opid;
+  if (lwm_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1))
+    marker.lwm_opid = lwm_opid;
+  if (max_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1))
+    marker.max_opid = max_opid;
 
   if (binlog_manager.persist_pos(marker, sync)) return true;
 
@@ -7320,12 +7323,12 @@ static bool rocksdb_show_binlog_position(THD *const thd,
       << "BINLOG OFFSET " << marker.offset << "\n"
       << "MAX GTID " << marker.max_gtid << "\n";
 
-  if (marker.lwm_opid != std::make_pair(-1L, -1L)) {
+  if (marker.lwm_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1)) {
     oss << "LWM OPID " << marker.lwm_opid.first << ":" << marker.lwm_opid.second
         << "\n";
   }
 
-  if (marker.max_opid != std::make_pair(-1L, -1L)) {
+  if (marker.max_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1)) {
     oss << "MAX OPID " << marker.max_opid.first << ":" << marker.max_opid.second
         << "\n";
   }

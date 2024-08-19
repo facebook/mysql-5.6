@@ -268,14 +268,14 @@ static void write_binlog_position(const char *file_name, uint64_t offset,
 
   DBUG_EXECUTE_IF("innodb_skip_binlog_opid_update", { return; };);
 
-  if (lwm_opid != std::make_pair(-1L, -1L)) {
+  if (lwm_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1)) {
     mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_LWM_OPID_TERM, lwm_opid.first,
                    mtr);
     mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_LWM_OPID_INDEX, lwm_opid.second,
                    mtr);
   }
 
-  if (max_opid != std::make_pair(-1L, -1L)) {
+  if (max_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1)) {
     mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_MAX_OPID_TERM, max_opid.first,
                    mtr);
     mlog_write_ull(binlog_buf + TRX_SYS_MYSQL_MAX_OPID_INDEX, max_opid.second,

@@ -5346,12 +5346,12 @@ void Rdb_binlog_manager::update(rocksdb::WriteBatchBase *const batch,
     return;
   };);
 
-  if (marker.lwm_opid != std::pair(-1L, -1L)) {
+  if (marker.lwm_opid != std::pair<std::int64_t, std::int64_t>(-1, -1)) {
     value_writer.write_uint64(marker.lwm_opid.first);
     value_writer.write_uint64(marker.lwm_opid.second);
   }
 
-  if (marker.max_opid != std::pair(-1L, -1L)) {
+  if (marker.max_opid != std::pair<std::int64_t, std::int64_t>(-1, -1)) {
     value_writer.write_uint64(marker.max_opid.first);
     value_writer.write_uint64(marker.max_opid.second);
   }

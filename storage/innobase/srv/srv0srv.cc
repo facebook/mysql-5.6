@@ -1416,8 +1416,8 @@ void srv_printf_innodb_binlog_position(FILE *file) /*!< in: output stream */
 
   std::string opid_info;
 
-  if (lwm_opid != std::make_pair(-1L, -1L) &&
-      max_opid != std::make_pair(-1L, -1L)) {
+  if (lwm_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1) &&
+      max_opid != std::make_pair<std::int64_t, std::int64_t>(-1, -1)) {
     opid_info += "LWM OPID " + std::to_string(lwm_opid.first) + ":" +
                  std::to_string(lwm_opid.second);
     opid_info += "\nMAX OPID " + std::to_string(max_opid.first) + ":" +
