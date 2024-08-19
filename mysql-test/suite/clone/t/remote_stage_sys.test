@@ -1,2 +1,3 @@
 # Test clone with concurrent DML on table stored in multi file system tablespace
+--source include/not_as_root.inc
 --source remote_stage.test

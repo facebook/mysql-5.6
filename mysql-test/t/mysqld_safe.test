@@ -1,5 +1,6 @@
 --source include/have_mysqld_safe.inc
 --source include/not_windows.inc
+--source include/not_as_root.inc
 
 # 1) Set variables to be used in parameters of mysqld_safe.
 let $MYSQLD_DATADIR= `SELECT @@datadir`;

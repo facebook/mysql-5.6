@@ -4,6 +4,7 @@
 ##########################################################################
 
 --source include/not_valgrind.inc
+--source include/not_as_root.inc
 --source include/have_lowercase0.inc
 
 # ------------------------------------------------------------

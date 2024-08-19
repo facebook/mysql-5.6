@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 --source include/count_sessions.inc
 
 create table t1 (f1 int primary key, j json, vjhi int as (json_unquote(j->'$.Year')) virtual);

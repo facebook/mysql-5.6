@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 
 --echo #
 --echo # Bug #30288139 MARK_NOT_PARTIALLY_UPDATABLE ASSERTION FAILURE:

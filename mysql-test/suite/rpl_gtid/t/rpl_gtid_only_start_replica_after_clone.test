@@ -23,6 +23,7 @@
 # WL#7491: GTID-based replication applier recovery and positioning
 #
 
+--source include/not_as_root.inc
 --source include/have_binlog_format_row.inc
 --source include/have_mysqld_monitoring_process.inc
 --source include/have_clone_plugin.inc

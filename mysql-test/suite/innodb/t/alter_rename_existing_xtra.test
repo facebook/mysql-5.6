@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 --echo #
 --echo # Show what happens during ALTER TABLE when an existing file
 --echo # exists in the target location.

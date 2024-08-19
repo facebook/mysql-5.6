@@ -1,4 +1,5 @@
 #Windows has trouble creating files/directories with long names
+--source include/not_as_root.inc
 --source include/not_windows.inc
 
 --echo #

@@ -1,5 +1,6 @@
 # This is a generated mtr test case
 # Generated on: 09/Mar/2018 18:47:57 IST
+--source include/not_as_root.inc
 
 # Test case scenario:
 

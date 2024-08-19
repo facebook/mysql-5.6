@@ -1,4 +1,5 @@
 # Test alter table add column
+--source include/not_as_root.inc
 CREATE TABLE t_8114 (a int) ENGINE = INNODB;
 
 ALTER TABLE t_8114 ADD b INT GENERATED  ALWAYS AS (a) VIRTUAL;

@@ -1,4 +1,5 @@
 # Test remote clone with concurrent DML without binary log
+--source include/not_as_root.inc
 
 --disable_query_log
 call mtr.add_suppression("You need to use --log-bin to make --binlog-format work");

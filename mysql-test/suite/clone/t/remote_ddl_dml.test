@@ -1,4 +1,5 @@
 # Test remote clone with concurrent DML and DDL
+--source include/not_as_root.inc
 
 --let $HOST = 127.0.0.1
 --let $PORT =`select @@port`

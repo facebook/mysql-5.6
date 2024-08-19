@@ -1,3 +1,4 @@
 # Test clone with concurrent DML and DDL
+--source include/not_as_root.inc
 --let clone_ddl = 1
 --source local_dml.test

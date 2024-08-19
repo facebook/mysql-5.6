@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 # TODO : Enable following once shared tablespaces are allowed in Partitioned
 #	 Tables (wl#12034).
 # --echo #

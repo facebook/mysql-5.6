@@ -1,6 +1,7 @@
 #
 # Bug #29846292 ROLLBACK OF BIG TRANSACTION DUE TO CONFLICT REMAINS IN HUNG STATE
 #
+--source include/not_as_root.inc
 
 # In this scenario, we create a LOB which does not fit in the buffer pool, thus
 # the rollback has to be smart about managing pages.

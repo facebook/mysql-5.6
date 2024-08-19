@@ -3,6 +3,7 @@
 # Specific tests for case sensitive file systems
 # i.e. lower_case_filesystem=OFF
 #
+--source include/not_as_root.inc
 -- source include/have_case_sensitive_file_system.inc
 -- source include/have_lowercase0.inc
 

@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 let flush_hwm=`SELECT @@GLOBAL.innodb_log_wait_for_flush_spin_hwm`;
 let cpu_lwm=`SELECT @@GLOBAL.innodb_log_spin_cpu_abs_lwm`;
 let cpu_hwm=`SELECT @@GLOBAL.innodb_log_spin_cpu_pct_hwm`;

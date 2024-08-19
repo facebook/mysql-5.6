@@ -1,4 +1,5 @@
 # Test remote clone with concurrent DML
+--source include/not_as_root.inc
 
 let $have_windows = `SELECT CONVERT(@@version_compile_os using latin1) IN ("Win32", "Win64", "Windows")`;
 

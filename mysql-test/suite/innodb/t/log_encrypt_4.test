@@ -3,6 +3,7 @@
 # and start server by setting innodb_redo_log_encrypt=ON/OFF
 
 --source include/no_valgrind_without_big.inc
+--source include/not_as_root.inc
 --source include/have_innodb_max_16k.inc
 
 # Suppress following messages from myslqd log

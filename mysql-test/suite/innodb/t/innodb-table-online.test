@@ -1,4 +1,5 @@
 --source include/have_debug_sync.inc
+--source include/not_as_root.inc
 
 let $innodb_metrics_select=
 SELECT name, count FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE

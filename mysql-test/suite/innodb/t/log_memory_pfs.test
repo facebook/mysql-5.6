@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 DELIMITER |;
 CREATE PROCEDURE check_memory(IN psi_key CHAR(64))
 BEGIN

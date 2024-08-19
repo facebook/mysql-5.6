@@ -2,6 +2,7 @@
 #              FOR HANDLER TO COMMIT"
 #
 --source include/have_debug_sync.inc
+--source include/not_as_root.inc
 
 # This scenario demonstrates that when there are N reasons for a lock wait,
 # (connections rk_1,..,rk_N hold S lock on a row needed by rt_wait)

@@ -2,6 +2,7 @@
 # Test for starting mysqld using --daemonize option.
 #
 
+--source include/not_as_root.inc
 --source include/not_windows.inc
 
 # Set valiables to be used in parameters of mysqld.

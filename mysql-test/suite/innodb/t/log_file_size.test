@@ -1,5 +1,7 @@
 # Test invalid size of redo log files.
 
+--source include/not_as_root.inc
+
 let MYSQLD_DATADIR= `select @@datadir`;
 let SEARCH_FILE= $MYSQLTEST_VARDIR/log/my_restart.err;
 let args=--console --log-error-verbosity=3 > $SEARCH_FILE 2>&1;

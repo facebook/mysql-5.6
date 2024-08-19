@@ -1,4 +1,5 @@
 # WL14008 InnoDB: Make tablespace filename validation optional via --skip-innodb-validate-tablespace-paths
+--source include/not_as_root.inc
 
 let $MYSQLD_DATADIR = `SELECT @@datadir`;
 

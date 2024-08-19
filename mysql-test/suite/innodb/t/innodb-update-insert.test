@@ -1,5 +1,6 @@
 # This file contains test cases for checking the functionality "update by
 # delete + insert".
+--source include/not_as_root.inc
 
 
 --echo #

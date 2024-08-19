@@ -7,6 +7,7 @@
 --source include/have_case_sensitive_file_system.inc
 --source include/have_innodb_16k.inc
 --source include/no_valgrind_without_big.inc
+--source include/not_as_root.inc
 
 let $restart_file= $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
 --exec echo "wait" > $restart_file

@@ -30,6 +30,7 @@
 #
 # Created: 2011-11-11 mleich
 #
+--source include/not_as_root.inc
 
 # Set this variable to
 # -   0 for standard test runs (file with expected results is made for such).
