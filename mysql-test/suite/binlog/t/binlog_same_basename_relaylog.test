@@ -16,6 +16,7 @@
 #
 # WL10470: Defaults: Enable Binary Log
 
+--source include/not_as_root.inc
 --source include/not_group_replication_plugin.inc
 # Test in this file is binlog format agnostic, thus no need
 # to rerun it for every format.
