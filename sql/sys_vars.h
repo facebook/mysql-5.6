@@ -2673,6 +2673,7 @@ class Sys_var_gtid_executed : Sys_var_charptr_func {
 
   const uchar *global_value_ptr(THD *thd, std::string_view) override {
     DBUG_TRACE;
+    Thd_wait_scope wait_scope(thd, THD_WAIT_SID_LOCK_ACQUISITION);
     global_sid_lock->wrlock();
     const Gtid_set *gs = gtid_state->get_executed_gtids();
     char *buf = (char *)thd->alloc(gs->get_string_length() + 1);
@@ -2773,6 +2774,7 @@ class Sys_var_gtid_purged : public sys_var {
   const uchar *global_value_ptr(THD *thd, std::string_view) override {
     DBUG_TRACE;
     const Gtid_set *gs;
+    Thd_wait_scope wait_scope(thd, THD_WAIT_SID_LOCK_ACQUISITION);
     global_sid_lock->wrlock();
     if (opt_bin_log)
       gs = gtid_state->get_lost_gtids();
@@ -2861,6 +2863,7 @@ class Sys_var_gtid_purged_for_tailing : public sys_var {
       if (buf == nullptr)
         my_error(ER_OUT_OF_RESOURCES, MYF(0));
       else {
+        Thd_wait_scope wait_scope(thd, THD_WAIT_SID_LOCK_ACQUISITION);
         global_sid_lock->wrlock();
         gs.to_string(buf);
         global_sid_lock->unlock();
@@ -2870,6 +2873,7 @@ class Sys_var_gtid_purged_for_tailing : public sys_var {
         When binlog is off, report @@GLOBAL.GTID_PURGED_FOR_TAILING
         from executed_gtids. Same as GTID_PURGED.
       */
+      Thd_wait_scope wait_scope(thd, THD_WAIT_SID_LOCK_ACQUISITION);
       global_sid_lock->wrlock();
       const Gtid_set *gs = gtid_state->get_executed_gtids();
       buf = reinterpret_cast<char *>(thd->alloc(gs->get_string_length() + 1));

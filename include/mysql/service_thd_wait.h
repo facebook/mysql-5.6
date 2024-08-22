@@ -146,7 +146,12 @@ typedef enum _thd_wait_type_e {
   */
   THD_WAIT_TABLE_FLUSH_SYNC = 21,
 
-  THD_WAIT_LAST = 22,
+  /**
+    Used for global sid locks.
+  */
+  THD_WAIT_SID_LOCK_ACQUISITION = 22,
+
+  THD_WAIT_LAST = 23,
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
