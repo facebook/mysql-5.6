@@ -3791,7 +3791,10 @@ struct LEX : public Query_tables_list {
       Plugins_array;
   Plugins_array plugins;
 
-  char *gtid_string; /* For find gtid position */
+  char *gtid_string = nullptr;          /* For find gtid position */
+  char *gtid_executed_string = nullptr; /* For find gtid executed position */
+  char *opid_string = nullptr;          /* For find opid position */
+  char *log_position_string = nullptr;  /* For find opid position */
 
   /// Table being inserted into (may be a view)
   Table_ref *insert_table;

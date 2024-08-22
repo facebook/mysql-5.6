@@ -565,6 +565,7 @@ static const SYMBOL symbols[] = {
     {SYM("QUERY", QUERY_SYM)},
     {SYM("QUICK", QUICK)},
     {SYM("RAFT", RAFT_SYM)},
+    {SYM("RAFT_LOG_POSITION", RAFT_LOG_POSITION_SYM)},
     {SYM("RANDOM", RANDOM_SYM)},
     {SYM("RANK", RANK_SYM)},
     {SYM("RANGE", RANGE_SYM)},

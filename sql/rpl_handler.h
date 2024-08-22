@@ -471,6 +471,7 @@ class Raft_replication_delegate : public Delegate {
   int get_lwm_applied_opid(
       std::pair<int64_t, int64_t> *lwm,
       const std::optional<std::pair<int64_t, int64_t>> &committing_opid);
+  int get_raft_log_info(Raft_log_info_param *param);
 };
 
 int delegates_init();

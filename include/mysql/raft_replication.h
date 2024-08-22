@@ -69,6 +69,18 @@ typedef struct Raft_ingestion_param {
 } Raft_ingestion_param;
 
 /**
+  Get binlog info parameter
+*/
+typedef struct Raft_log_info_param {
+  std::string file_name = "";
+  uint64_t offset = 0;
+  std::pair<int64_t, int64_t> opid = {-1, -1};
+  std::string gtid = "";
+  std::string gtid_set = "";
+  std::string error_msg = "";
+} Binlog_info_param;
+
+/**
    Observe special events for Raft replication to work
 */
 typedef struct Raft_replication_observer {
@@ -292,6 +304,11 @@ typedef struct Raft_replication_observer {
   int (*get_lwm_applied_opid)(
       std::pair<int64_t, int64_t> *lwm,
       const std::optional<std::pair<int64_t, int64_t>> &committing_opid);
+
+   /**
+   * Callback to get the current binlog info
+   */
+  int (*get_raft_log_info)(Raft_log_info_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -58,6 +59,7 @@
 #include "mysql/service_thd_wait.h"  // THD_WAIT_BINLOG_SEND
 #include "mysqld_error.h"
 #include "rpl_source.h"
+#include "scope_guard.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // check_global_access
 #include "sql/binlog.h"            // mysql_bin_log
@@ -2034,4 +2036,113 @@ err:
   DBUG_PRINT("info", ("error: %u", error));
   my_error(error, MYF(0), "Unknown error occured while finding gtid position");
   DBUG_RETURN(true);
+}
+
+bool find_log_pos_info_raft(THD *thd) {
+  DBUG_ENTER("find_log_pos_info_raft");
+
+  Scope_guard cleanup_lex([&thd]() {
+    thd->lex->log_position_string = nullptr;
+    thd->lex->opid_string = nullptr;
+    thd->lex->gtid_string = nullptr;
+    thd->lex->gtid_executed_string = nullptr;
+  });
+
+  if (!enable_raft_plugin) {
+    my_error(ER_FIND_RAFT_LOG_NOT_FOUND, MYF(0), "Raft is not enabeld");
+    DBUG_RETURN(true);
+  }
+
+  Raft_log_info_param param;
+  if (thd->lex->log_position_string != nullptr) {
+    std::vector<std::string> token_vec;
+    boost::split(token_vec, std::string(thd->lex->log_position_string),
+                 boost::is_any_of(",: "));
+    if (token_vec.size() == 2) {
+      param.file_name = token_vec[0];
+      try {
+        param.offset = std::stoll(token_vec[1]);
+      } catch (const std::invalid_argument &e) {
+        my_error(ER_FIND_RAFT_LOG_INVALID_INPUT, MYF(0),
+                 "Please use 'LOG,offset'");
+        DBUG_RETURN(true);
+      }
+    } else {
+      my_error(ER_FIND_RAFT_LOG_INVALID_INPUT, MYF(0),
+               "Please use 'LOG,offset'");
+      DBUG_RETURN(true);
+    }
+  } else if (thd->lex->opid_string != nullptr) {
+    std::vector<std::string> token_vec;
+    boost::split(token_vec, std::string(thd->lex->opid_string),
+                 boost::is_any_of(",: "));
+    if (token_vec.size() == 2) {
+      try {
+        param.opid.first = std::stoll(token_vec[0]);
+        param.opid.second = std::stoll(token_vec[1]);
+      } catch (const std::invalid_argument &e) {
+        my_error(ER_FIND_RAFT_LOG_INVALID_INPUT, MYF(0),
+                 "Please use 'index:term'");
+        DBUG_RETURN(true);
+      }
+    } else {
+      my_error(ER_FIND_RAFT_LOG_INVALID_INPUT, MYF(0),
+               "Please use 'index:term'");
+      DBUG_RETURN(true);
+    }
+  } else if (thd->lex->gtid_string != nullptr) {
+    param.gtid = std::string(thd->lex->gtid_string);
+  } else if (thd->lex->gtid_executed_string != nullptr) {
+    param.gtid_set = std::string(thd->lex->gtid_executed_string);
+  }
+
+  int error = RUN_HOOK_STRICT(raft_replication, get_raft_log_info, (&param));
+  if (error) {
+    my_error(ER_FIND_RAFT_LOG_NOT_FOUND, MYF(0), param.error_msg.c_str());
+    DBUG_RETURN(true);
+  }
+
+  Protocol *protocol = thd->get_protocol();
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  field_list.push_back(new Item_empty_string("Log_name", 255));
+  field_list.push_back(
+      new Item_return_int("Position", 20, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_empty_string("Opid",
+                            0));  // max_size seems not to matter
+  field_list.push_back(
+      new Item_empty_string("Gtid",
+                            0));  // max_size seems not to matter
+  field_list.push_back(
+      new Item_empty_string("Gtid_set",
+                            0));  // max_size seems not to matter
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "FIND RAFT LOG",
+             "Protocol failed to send metadata");
+    return 1;
+  }
+  protocol->start_row();
+
+  // Strip driectory from the file path
+  std::filesystem::path binlog_path(param.file_name);
+  protocol->store_string(binlog_path.filename().c_str(),
+                         strlen(binlog_path.filename().c_str()),
+                         &my_charset_bin);
+  protocol->store((my_off_t)param.offset);
+  std::string opid = std::to_string(param.opid.first) + ":" +
+                     std::to_string(param.opid.second);
+  protocol->store_string(opid.c_str(), opid.length(), &my_charset_bin);
+  protocol->store_string(param.gtid.c_str(), param.gtid.length(),
+                         &my_charset_bin);
+  protocol->store_string(param.gtid_set.c_str(), param.gtid_set.length(),
+                         &my_charset_bin);
+
+  if (protocol->end_row()) {
+    DBUG_PRINT("info", ("protocol->write failed for find_gtid_position()"));
+    return 1;
+  }
+
+  my_eof(thd);
+  DBUG_RETURN(false);
 }

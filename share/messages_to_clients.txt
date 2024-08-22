@@ -10447,6 +10447,11 @@ ER_DB_DISCOVERY_FAILURE
 ER_RBR_BEFORE_IMAGE_INCONSISTENT
   eng "Slave before-image consistency check failed at position: %s (gtid: %s). Mismatch (table: %s, PK: %s): %s (source) vs. %s (local)"
 
+ER_FIND_RAFT_LOG_NOT_FOUND
+  eng "Failed to find Raft log position: %s."
+
+ER_FIND_RAFT_LOG_INVALID_INPUT
+  eng "Invalid find Raft log input: %s."
 #
 # End of new range for 5.6.35 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

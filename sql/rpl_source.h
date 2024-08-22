@@ -96,6 +96,7 @@ void kill_all_dump_threads();
 uint find_gtid_position_helper(const char *gtid_string, char *log_name,
                                my_off_t &gtid_pos);
 bool find_gtid_position(THD *thd);
+bool find_log_pos_info_raft(THD *thd);
 template <class BINLOG_FILE_READER>
 my_off_t find_gtid_pos_in_log(const char *log_name, const Gtid &gtid,
                               Sid_map *sid_map);

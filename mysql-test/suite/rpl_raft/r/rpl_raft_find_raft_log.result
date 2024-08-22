@@ -1,0 +1,112 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+reset master;
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+create table t1 (a int primary key);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+"Check leader: find by Log position"
+call mtr.add_suppression("Run function 'get_raft_log_info' in plugin 'RPL_RAFT' failed");
+find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002:1000";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	1137	1:5	uuid1:4	uuid1:1-4
+find raft logs RAFT_LOG_POSITION = "binary-logs-13001.000002:99999";
+ERROR HY000: Failed to find Raft log position: Not found: File not found: /data/users/chili/mysql/mysql80-fork/_build-8.0-Debug/mysql-test/var/mysqld.1/data/binary-logs-13001.000002.
+find raft logs RAFT_LOG_POSITION = "";
+ERROR HY000: Invalid find Raft log input: Please use 'LOG,offset'.
+find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002";
+ERROR HY000: Invalid find Raft log input: Please use 'LOG,offset'.
+find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002, 2, 3";
+ERROR HY000: Invalid find Raft log input: Please use 'LOG,offset'.
+find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002, a";
+ERROR HY000: Invalid find Raft log input: Please use 'LOG,offset'.
+"Check leader: find by OpID"
+find raft logs OPID = "1:15";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	4457	1:15	uuid1:14	uuid1:1-14
+find raft logs OPID = "30:100";
+ERROR HY000: Failed to find Raft log position: Not found: entry not found.
+find raft logs OPID = "";
+ERROR HY000: Invalid find Raft log input: Please use 'index:term'.
+find raft logs OPID = "123";
+ERROR HY000: Invalid find Raft log input: Please use 'index:term'.
+find raft logs OPID = "2:3:11";
+ERROR HY000: Invalid find Raft log input: Please use 'index:term'.
+find raft logs OPID = "a:b";
+ERROR HY000: Invalid find Raft log input: Please use 'index:term'.
+"Check leader: find by GTID"
+find raft logs GTID = "uuid1:16";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	5121	1:17	uuid1:16	uuid1:1-16
+find raft logs GTID = "uuid1:1000";
+ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+find raft logs GTID = "bb4854f8-6ef2-11ef-95cf-f40e6ae84fcf:15";
+ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+find raft logs GTID = "";
+ERROR HY000: Failed to find Raft log position: Invalid input.
+find raft logs GTID = "uuid1";
+ERROR HY000: Failed to find Raft log position: Invalid gtid: uuid1.
+find raft logs GTID = "1234";
+ERROR HY000: Failed to find Raft log position: Invalid gtid: 1234.
+find raft logs GTID = "uuid1:abc";
+ERROR HY000: Failed to find Raft log position: Invalid gtid: uuid1:abc.
+"Check leader: find by GTID set"
+find raft logs GTID_EXECUTED = "uuid1:1-16";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	5121	1:17	uuid1:16	uuid1:1-16
+find raft logs GTID_EXECUTED = "uuid1:1-1000";
+ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+find raft logs GTID_EXECUTED = "bb4854f8-6ef2-11ef-95cf-f40e6ae84fcf:1-16";
+ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+find raft logs GTID_EXECUTED = "";
+ERROR HY000: Failed to find Raft log position: Invalid input.
+find raft logs GTID_EXECUTED = "uuid1";
+ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+find raft logs GTID_EXECUTED = "1234";
+ERROR HY000: Failed to find Raft log position: Invalid gtid set: 1234.
+find raft logs GTID_EXECUTED = "uuid1:1-abc";
+ERROR HY000: Failed to find Raft log position: Invalid gtid set: uuid1:1-abc.
+"Check follower"
+connection server_2
+find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002:1000";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	1137	1:5	uuid1:4	uuid1:1-4
+find raft logs OPID = "1:15";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	4457	1:15	uuid1:14	uuid1:1-14
+find raft logs GTID = "uuid1:16";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	5121	1:17	uuid1:16	uuid1:1-16
+find raft logs GTID_EXECUTED = "uuid1:1-16";
+Log_name	Position	Opid	Gtid	Gtid_set
+binary-logs-13000.000002	5121	1:17	uuid1:16	uuid1:1-16
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

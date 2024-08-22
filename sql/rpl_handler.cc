@@ -1584,6 +1584,13 @@ int Raft_replication_delegate::ingestion(THD *thd,
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::get_raft_log_info(Raft_log_info_param *param) {
+  DBUG_ENTER("Raft_replication_delegate::get_raft_log_info");
+  int ret = 0;
+  FOREACH_OBSERVER_STRICT(ret, get_raft_log_info, (param));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }

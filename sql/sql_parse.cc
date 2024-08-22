@@ -5021,6 +5021,10 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       res = find_gtid_position(thd);
       break;
     }
+    case SQLCOM_FIND_RAFT_LOG_POSITION: {
+      res = find_log_pos_info_raft(thd);
+      break;
+    }
     case SQLCOM_KILL: {
       Item *it = lex->kill_value_list.head();
 

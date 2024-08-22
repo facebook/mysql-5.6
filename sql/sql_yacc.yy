@@ -1444,6 +1444,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> GB_SYM 10022              /* FB MYSQL */
 %token<lexer.keyword> OPID_SYM 10023              /* FB MYSQL */
 %token  LAST_INSERT_IDS_SYM 10024                /* FB MYSQL */
+%token<lexer.keyword> RAFT_LOG_POSITION_SYM 10025   /* FB MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -2420,6 +2421,7 @@ simple_statement:
         | explain_stmt
         | flush                         { $$= nullptr; }
         | find                          { $$= nullptr; }
+        | find_raft_log                 { $$= nullptr; }
         | get_diagnostics               { $$= nullptr; }
         | group_replication             { $$= nullptr; }
         | shardbeater                   { $$= nullptr; }
@@ -2638,6 +2640,37 @@ gtid_def:
           Lex->gtid_string = $3.str;
         }
       ;
+
+find_raft_log:
+          FIND RAFT_SYM LOGS_SYM
+         {
+           LEX *lex = Lex;
+           lex->sql_command = SQLCOM_FIND_RAFT_LOG_POSITION;
+         }
+         log_pos_def
+         {}
+      ;
+
+
+log_pos_def:
+        GTID_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->gtid_string = $3.str;
+        }
+        | GTID_EXECUTED EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->gtid_executed_string = $3.str;
+        }
+        | OPID_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->opid_string = $3.str;
+        }
+        | RAFT_LOG_POSITION_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->log_position_string = $3.str;
+        }
+      ;
+
 /* change master */
 
 change_replication_source:
