@@ -385,5 +385,30 @@ disconnect con1;
 connection default;
 
 DROP TABLE t1;
+
+--echo #
+--echo # Statement rollbacks should not expire additional rows in transactions
+--echo #
+
+CREATE TABLE t16 (pk INT PRIMARY KEY, a CHAR(8)) ENGINE=ROCKSDB
+       COMMENT='ttl_duration=5;';
+INSERT INTO t16 VALUES (1, 'a'), (2, 'b');
+
+BEGIN;
+SELECT * FROM t16;
+
+--sleep 6
+
+SELECT * FROM t16;
+
+--error ER_DUP_ENTRY
+UPDATE t16 SET pk = 100, a = 'updated' WHERE a IN ('a', 'b');
+
+SELECT * FROM t16;
+
+COMMIT;
+
+DROP TABLE t16;
+
 # Wait till we reached the initial number of concurrent sessions
 --source include/wait_until_count_sessions.inc
