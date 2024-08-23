@@ -1,4 +1,5 @@
 
+--source include/not_as_root.inc
 --disable_warnings
 drop database if exists `mysqltest1`;
 drop database if exists `mysqltest-1`;
