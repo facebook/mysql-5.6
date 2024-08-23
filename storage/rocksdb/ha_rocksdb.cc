@@ -8052,6 +8052,20 @@ static void move_wals_to_target_dir() {
   }
 }
 
+static bool rocksdb_bulk_load_start(THD *thd, const char *bulk_load_session_id,
+                                    Table_ref *tables) {
+  // just stubs for now
+  bool rtn = thd && bulk_load_session_id && tables;
+  return !rtn;
+}
+
+static bool rocksdb_bulk_load_rollback(THD *thd,
+                                       const char *bulk_load_session_id) {
+  // just stubs for now
+  bool rtn = thd && bulk_load_session_id;
+  return !rtn;
+}
+
 static bool rocksdb_notify_alter_table(THD *thd, const MDL_key *mdl_key,
                                        ha_notification_type notification_type) {
   DBUG_EXECUTE_IF("rocksdb_skip_bulk_load_notify_ddl", { return false; };);
@@ -8296,7 +8310,8 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->bypass_select_by_key = rocksdb_select_by_key;
   rocksdb_hton->notify_alter_table = rocksdb_notify_alter_table;
   rocksdb_hton->notify_drop_table = rocksdb_notify_drop_table;
-
+  rocksdb_hton->bulk_load_start = rocksdb_bulk_load_start;
+  rocksdb_hton->bulk_load_rollback = rocksdb_bulk_load_rollback;
   rocksdb_hton->clone_interface.clone_capability = rocksdb_clone_get_capability;
   rocksdb_hton->clone_interface.clone_begin = rocksdb_clone_begin;
   rocksdb_hton->clone_interface.clone_precopy = rocksdb_clone_precopy;

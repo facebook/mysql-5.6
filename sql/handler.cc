@@ -9002,6 +9002,20 @@ Temp_table_handle::~Temp_table_handle() {
   }
 }
 
+struct BULK_LOAD_PARAMS {
+  BULK_LOAD_PARAMS(THD *thd, ha_bulk_load_action_type bulk_load_action_type,
+                   const char *id, Table_ref *tables = nullptr)
+      : m_thd(thd),
+        m_bulk_load_type(bulk_load_action_type),
+        m_id(id),
+        m_tables(tables) {}
+
+  THD *m_thd;
+  const ha_bulk_load_action_type m_bulk_load_type;
+  const char *m_id;
+  Table_ref *m_tables;
+};
+
 /**
   Auxiliary structure for passing information to notify_*_helper()
   functions.
@@ -9095,6 +9109,28 @@ bool ha_notify_exclusive_mdl(THD *thd, const MDL_key *mdl_key,
     return true;
   }
   return false;
+}
+
+static bool bulk_load_action_helper(THD *thd, plugin_ref plugin, void *arg) {
+  handlerton *hton = plugin_data<handlerton *>(plugin);
+  BULK_LOAD_PARAMS *params = reinterpret_cast<BULK_LOAD_PARAMS *>(arg);
+  assert(params->m_bulk_load_type == BULK_LOAD_START ||
+         params->m_bulk_load_type == BULK_LOAD_ROLLBACK);
+  bool rtn = false;
+  if (params->m_bulk_load_type == BULK_LOAD_START) {
+    if (hton->bulk_load_start) {
+      rtn = hton->bulk_load_start(thd, params->m_id,
+                                  params->m_tables);
+    }
+  } else if (params->m_bulk_load_type == BULK_LOAD_ROLLBACK) {
+    if (hton->bulk_load_rollback) {
+      rtn = hton->bulk_load_rollback(thd, params->m_id);
+    }
+  } else {
+    assert(0);
+    rtn = true;
+  }
+  return rtn;
 }
 
 static bool notify_table_ddl_helper(THD *thd, plugin_ref plugin, void *arg) {
@@ -9197,6 +9233,17 @@ bool ha_notify_table_ddl(THD *thd, const MDL_key *mdl_key,
     }
     return true;
   }
+  return false;
+}
+
+bool ha_bulk_load_action(THD *thd,
+                         ha_bulk_load_action_type bulk_load_action_type,
+                         const char *id, Table_ref *tables) {
+  BULK_LOAD_PARAMS params(thd, bulk_load_action_type, id, tables);
+  if (plugin_foreach(thd, bulk_load_action_helper, MYSQL_STORAGE_ENGINE_PLUGIN,
+                     &params)) {
+    return true;
+  };
   return false;
 }
 

@@ -3,15 +3,15 @@ CREATE TABLE t1(c1 INT primary key);
 CREATE TABLE t2(c1 INT primary key);
 mysql does not crash with bulk load commands
 BULK_LOAD START "014d436b-6a23-474f-814d-fa31ac8f425a"
-TABLES=t1,t2,t3;
+TABLES=t1,t2;
 BULK_LOAD START "014d436b-6a23-474f-814d-fa31ac8f425a"
-TABLES=t1,t2,t3;
+TABLES=t1,t2;
 BULK_LOAD COMMIT "014d436b-6a23-474f-814d-fa31ac8f425a";
 BULK_LOAD ROLLBACK "014d436b-6a23-474f-814d-fa31ac8f425a";
 invalid id
 id length > 64
 BULK_LOAD START "014d436b-6a23-474f-814d-fa31ac8f425a014d436b-6a23-474f-814d-fa31ac8f425a"
-TABLES=t1,t2,t3;
+TABLES=t1,t2;
 ERROR HY000: Bulk load hits error: Valid ID should not include whitespace, length > 0 and < 64, not start with 'sys'
 id contains whitespace
 BULK_LOAD COMMIT "014d436b 6a23-474f-814d-fa31ac8f425";
@@ -21,9 +21,13 @@ BULK_LOAD ROLLBACK "sys123";
 ERROR HY000: Bulk load hits error: Valid ID should not include whitespace, length > 0 and < 64, not start with 'sys'
 no id
 BULK_LOAD START
-TABLES=t1,t2,t3;
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'TABLES=t1,t2,t3' at line 2
+TABLES=t1,t2;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'TABLES=t1,t2' at line 2
 tables not included
 BULK_LOAD START "014d436b-6a23-474f-814d-fa31ac8f425a014d436b-6a23-474f-814d-fa31ac8f425a";
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '' at line 1
+table not found
+BULK_LOAD START "job123"
+TABLES=t1,t2,t3;
+ERROR 42S02: Table 'test.t3' doesn't exist
 DROP TABLE IF EXISTS t1, t2;

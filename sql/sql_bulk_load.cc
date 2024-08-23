@@ -15,7 +15,9 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include "sql/sql_bulk_load.h"
+#include "dd/types/abstract_table.h"
 #include "sql/auth/auth_acls.h"
+#include "sql_base.h"
 
 bool Sql_cmd_bulk_load::is_valid_id(const char *id, size_t length) {
   if (length == 0 || length > 64) return false;
@@ -34,12 +36,18 @@ bool Sql_cmd_bulk_load_start::execute(THD *thd) {
              "start with 'sys'");
     return true;
   }
-  Table_ref *const all_tables = lex->query_block->get_table_list();
+  Table_ref *const all_tables = lex->query_tables;
   if (check_table_access(thd, INSERT_ACL, all_tables, true, UINT_MAX, false))
     return true;
-  // TODO: check there is no conflict of bulk load session for the table
-  // involved
-  // TODO: create new rdb and cf based on table definition
+  if (open_and_lock_tables(thd, all_tables, 0)) {
+    my_error(ER_DA_BULK_LOAD, MYF(0), thd->get_stmt_da()->message_text());
+    return true;
+  }
+  if (ha_bulk_load_action(thd, BULK_LOAD_START, m_bulk_load_session_id.str,
+                          all_tables)) {
+    my_error(ER_DA_BULK_LOAD, MYF(0), "Bulk load fails to start");
+    return true;
+  }
   my_ok(thd);
   return false;
 }
@@ -63,7 +71,11 @@ bool Sql_cmd_bulk_load_rollback::execute(THD *thd) {
              "start with 'sys'");
     return true;
   }
-  // TODO: clean up rdb and cf, update session status
+  if (ha_bulk_load_action(thd, BULK_LOAD_ROLLBACK,
+                          m_bulk_load_session_id.str)) {
+    my_error(ER_DA_BULK_LOAD, MYF(0), "Fail to drop bulk load");
+    return true;
+  }
   my_ok(thd);
   return false;
 }

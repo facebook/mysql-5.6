@@ -971,6 +971,10 @@ enum ha_ddl_type : int {
   HA_RENAME_DDL,
   HA_DROP_DDL
 };
+enum ha_bulk_load_action_type : int {
+  BULK_LOAD_START,
+  BULK_LOAD_ROLLBACK,
+};
 
 /** Clone start operation mode */
 enum Ha_clone_mode {
@@ -2728,6 +2732,11 @@ struct Page_track_t {
   page_track_get_status_t get_status;
 };
 
+typedef bool (*bulk_load_start_t)(THD *thd, const char *bulk_load_session_id,
+                                  Table_ref *tables);
+typedef bool (*bulk_load_rollback_t)(THD *thd,
+                                     const char *bulk_load_session_id);
+
 /**
   handlerton is a singleton structure - one instance per storage engine -
   to provide access to storage engine functionality that works on the
@@ -2824,6 +2833,8 @@ struct handlerton {
   is_reserved_db_name_t is_reserved_db_name;
   handle_single_table_select_t handle_single_table_select;
   bypass_select_by_key_t bypass_select_by_key;
+  bulk_load_start_t bulk_load_start;
+  bulk_load_rollback_t bulk_load_rollback;
 
   /** Global handler flags. */
   uint32 flags{0};
@@ -7651,6 +7662,10 @@ bool ha_notify_table_ddl(THD *thd, const MDL_key *mdl_key,
                          ha_ddl_type ddl_type, const char *old_db_name,
                          const char *old_table_name, const char *new_db_name,
                          const char *new_table_name);
+bool ha_bulk_load_action(THD *thd,
+                         ha_bulk_load_action_type bulk_load_action_type,
+                         const char *id,
+                         Table_ref *tables = nullptr);
 
 std::pair<int, bool> commit_owned_gtids(THD *thd, bool all);
 bool set_tx_isolation(THD *thd, enum_tx_isolation tx_isolation, bool one_shot);
