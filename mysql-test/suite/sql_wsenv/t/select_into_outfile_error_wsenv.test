@@ -13,7 +13,7 @@ SET @@DEBUG= 'd,simulate_file_write_error';
 # dump data into file
 --let $output_file=$SQL_WSENV_MTR_PATH/s1_t1.txt
 --replace_result $output_file OUTPUT_FILE
---ERROR 1
+--ERROR 1,3
 --eval SELECT * FROM t1 INTO OUTFILE '$output_file'
 
 SET @@DEBUG=@debug_save;

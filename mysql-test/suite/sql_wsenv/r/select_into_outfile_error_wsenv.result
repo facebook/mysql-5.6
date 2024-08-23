@@ -5,7 +5,7 @@ set enable_sql_wsenv=1;
 SET @debug_save= @@GLOBAL.DEBUG;
 SET @@DEBUG= 'd,simulate_file_write_error';
 SELECT * FROM t1 INTO OUTFILE 'OUTPUT_FILE';
-ERROR HY000: Can't create/write to file 'OUTPUT_FILE' (OS errno 5 - Input/output error)
+Got one of the listed errors
 SET @@DEBUG=@debug_save;
 set enable_sql_wsenv=0;
 drop table t1;

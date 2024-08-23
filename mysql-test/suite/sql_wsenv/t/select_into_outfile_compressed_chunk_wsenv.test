@@ -73,7 +73,7 @@ select count(*) from t4;
 --eval SELECT * FROM t4 INTO OUTFILE '$SQL_WSENV_MTR_PATH/t4.txt' COMPRESSED(1)
 
 # validate compressed output
---exec $MTR_WSENV_LS_CMD $SQL_WSENV_MTR_PATH | cut -f 1 -d " " | grep -i zst | xargs -I file $MTR_WSENV_COPYTOLOCAL_CMD file $tmp_dir/
+--exec $MTR_WSENV_LS_CMD $SQL_WSENV_MTR_PATH | cut -f 1 -d " " | grep -i zst | xargs -I file -P 10 $MTR_WSENV_COPYTOLOCAL_CMD file $tmp_dir/
 --exec zstd -dcq $tmp_dir/t1.txt.*.zst > $generated_input_file 
 --exec cat  $generated_input_file | wc
 --exec zstd -dcq $tmp_dir/t2.txt.*.zst | wc
