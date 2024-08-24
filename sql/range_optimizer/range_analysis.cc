@@ -1086,6 +1086,7 @@ static SEL_TREE *get_mm_parts(THD *thd, RANGE_OPT_PARAM *param,
   if (value && value->used_tables() & ~(prev_tables | read_tables))
     return nullptr;
   for (; key_part != end; key_part++) {
+    thd->check_yield();
     if (field->eq(key_part->field)) {
       /*
         Cannot do range access for spatial operators when a
