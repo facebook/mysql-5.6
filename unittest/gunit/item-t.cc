@@ -854,8 +854,41 @@ longlong fail_strntoll(const CHARSET_INFO *, const char *, size_t, int,
 class Mock_charset : public CHARSET_INFO {
  public:
   Mock_charset(const CHARSET_INFO &csi) {
-    CHARSET_INFO *this_as_cset = this;
-    *this_as_cset = csi;
+    // atomic don't allow copy constructor, so explicitly copy all fields
+    number = csi.number;
+    primary_number = csi.primary_number;
+    binary_number = csi.binary_number;
+    state = csi.state.load();
+    csname = csi.csname;
+    m_coll_name = csi.m_coll_name;
+    comment = csi.comment;
+    tailoring = csi.tailoring;
+    coll_param = csi.coll_param;
+    ctype = csi.ctype;
+    to_lower = csi.to_lower;
+    to_upper = csi.to_upper;
+    sort_order = csi.sort_order;
+    uca = csi.uca;
+    tab_to_uni = csi.tab_to_uni;
+    tab_from_uni = csi.tab_from_uni;
+    caseinfo = csi.caseinfo;
+    state_maps = csi.state_maps;
+    ident_map = csi.ident_map;
+    strxfrm_multiply = csi.strxfrm_multiply;
+    caseup_multiply = csi.caseup_multiply;
+    casedn_multiply = csi.casedn_multiply;
+    mbminlen = csi.mbminlen;
+    mbmaxlen = csi.mbmaxlen;
+    mbmaxlenlen = csi.mbmaxlenlen;
+    min_sort_char = csi.min_sort_char;
+    max_sort_char = csi.max_sort_char;
+    pad_char = csi.pad_char;
+    escape_with_backslash_is_dangerous = csi.escape_with_backslash_is_dangerous;
+    levels_for_compare = csi.levels_for_compare;
+
+    cset = csi.cset;
+    coll = csi.coll;
+    pad_attribute = csi.pad_attribute;
 
     number = 666;
     m_cset_handler = *(csi.cset);
