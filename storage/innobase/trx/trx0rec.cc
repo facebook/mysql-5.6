@@ -250,10 +250,11 @@ static byte *trx_undo_log_v_idx(page_t *undo_page, const dict_table_t *table,
 
   ut_ad(n_idx > 0);
 
-  /* Size to reserve, max 5 bytes for each index id and position, plus
+  /* Size to reserve, max 11 bytes for each index id, max 5 bytes for
+  each index position, plus
   5 bytes for num of indexes, 2 bytes for write total length.
   1 byte for undo log record format version marker */
-  ulint size = n_idx * (5 + 5) + 5 + 2 + (first_v_col ? 1 : 0);
+  ulint size = n_idx * (11 + 5) + 5 + 2 + (first_v_col ? 1 : 0);
 
   if (trx_undo_left(undo_page, ptr) < size) {
     return (nullptr);
@@ -277,7 +278,7 @@ static byte *trx_undo_log_v_idx(page_t *undo_page, const dict_table_t *table,
   for (it = vcol->v_indexes->begin(); it != vcol->v_indexes->end(); ++it) {
     dict_v_idx_t v_index = *it;
 
-    ptr += mach_write_compressed(ptr, static_cast<ulint>(v_index.index->id));
+    ptr += mach_u64_write_much_compressed(ptr, v_index.index->id);
 
     ptr += mach_write_compressed(ptr, v_index.nth_field);
   }
@@ -310,7 +311,7 @@ static const byte *trx_undo_read_v_idx_low(const dict_table_t *table,
   const dict_index_t *clust_index = table->first_index();
 
   for (ulint i = 0; i < num_idx; i++) {
-    space_index_t id = mach_read_next_compressed(&ptr);
+    space_index_t id = mach_read_next_much_compressed(&ptr);
     ulint pos = mach_read_next_compressed(&ptr);
     const dict_index_t *index = clust_index->next();
 

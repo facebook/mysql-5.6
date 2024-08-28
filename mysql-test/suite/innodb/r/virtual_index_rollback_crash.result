@@ -1,0 +1,49 @@
+set debug = "+d, simulate_index_id_exceed_uint32";
+CREATE TABLE t1 (
+id VARCHAR(50) NOT NULL primary key,
+val1 VARCHAR(128),
+val2 VARCHAR(128),
+key key1 ((LENGTH(val1))),
+key key2(val2)
+);
+
+select index with id greater than uint32
+
+select idx.name from
+information_schema.innodb_indexes idx
+left join information_schema.innodb_tables tbl
+on idx.table_id=tbl.table_id
+where idx.index_id > 4294967295 and idx.name !='PRIMARY' and tbl.name='test/t1';
+name
+key1
+key2
+SET autocommit=0;
+INSERT INTO t1 VALUES ('id1', 'val1', 'val2');
+rollback;
+
+would have crashed here without the vindex id undo log fix
+
+INSERT INTO t1 VALUES ('id1', 'val1', 'val2');
+commit;
+
+some simple sanity checks
+
+SET autocommit=1;
+INSERT INTO t1 VALUES ('id2', '2-1', '2-2'), ('id3', '3-1', '3-2');
+select * from t1;
+id	val1	val2
+id1	val1	val2
+id2	2-1	2-2
+id3	3-1	3-2
+select * from t1 where val2 = 'val2';
+id	val1	val2
+id1	val1	val2
+select * from t1 where LENGTH(val1) = 3;
+id	val1	val2
+id2	2-1	2-2
+id3	3-1	3-2
+delete from t1 where id>'id2';
+select * from t1 where LENGTH(val1) = 3;
+id	val1	val2
+id2	2-1	2-2
+drop table t1;

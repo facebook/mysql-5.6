@@ -5807,7 +5807,7 @@ bool dd_process_dd_indexes_rec(mem_heap_t *heap, const rec_t *rec,
 
   ulint len;
   const byte *field;
-  uint32_t index_id;
+  uint64_t index_id;
   uint32_t space_id;
   uint64_t table_id;
 
@@ -5964,7 +5964,7 @@ bool dd_process_dd_indexes_rec_simple(mem_heap_t *heap, const rec_t *rec,
 
   ulint len;
   const byte *field;
-  uint32_t idx_id;
+  uint64_t idx_id;
 
   ut_ad(!rec_get_deleted_flag(rec, dict_table_is_comp(dd_indexes)));
 
