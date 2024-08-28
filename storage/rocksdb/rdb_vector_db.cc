@@ -335,14 +335,9 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       }
 
       value.reserve(value_bytes);
-
-      for (uint i = 0; i < header_size; i++) {
-        value += value_slice.data()[i];
-      }
-
-      for (uint i = header_size; i < value_bytes; i++) {
-        value += value_slice.data()[i + m_code_size];
-      }
+      value.append(value_slice.data(), header_size);
+      value.append(value_slice.data() + header_size + m_code_size,
+                   value_bytes - header_size);
     }
     assert(value.size() == value_bytes);
 
