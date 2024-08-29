@@ -946,8 +946,8 @@ class Rows_event : public Binary_log_event {
     /**
       Flags for everything. Please update when you add new flags.
      */
-    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F | COMPLETE_ROWS_F |
-                BLIND_REPLACE_INTO_F
+    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F | RELAXED_UNIQUE_CHECKS_F |
+                COMPLETE_ROWS_F | BLIND_REPLACE_INTO_F
   };
 
   /**
