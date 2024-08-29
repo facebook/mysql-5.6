@@ -2860,9 +2860,8 @@ static bool check_if_system_table(const char *db, const char *table_name,
 }
 
 static bool yield_condition(TABLE *table) {
-  bool unused;
-  return !check_if_system_table(table->s->db.str, table->s->table_name.str,
-                                &unused);
+  return table->s->table_category != TABLE_CATEGORY_SYSTEM &&
+         table->s->table_category != TABLE_CATEGORY_DICTIONARY;
 }
 
 void handler::ha_statistic_increment(
