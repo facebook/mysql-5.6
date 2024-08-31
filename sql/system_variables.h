@@ -294,6 +294,7 @@ struct System_variables {
   ulong max_insert_delayed_threads;
   ulong min_examined_row_limit;
   ulong min_examined_row_limit_sql_stats;
+  ulong yield_check_frequency;
   ulong net_buffer_length;
   ulong net_interactive_timeout;
   ulong net_read_timeout;

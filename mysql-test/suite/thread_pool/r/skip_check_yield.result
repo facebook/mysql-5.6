@@ -1,0 +1,48 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+set @save_max_running_queries = @@thread_pool_max_running_queries;
+set @save_max_waiting_queries = @@thread_pool_max_waiting_queries;
+set @save_admission_control_wait_events = @@thread_pool_admission_control_wait_events;
+set @save_admission_control_filter = @@thread_pool_admission_control_filter;
+set @save_admission_control_yield_freq = @@thread_pool_admission_control_yield_freq;
+set global thread_pool_max_running_queries = 1;
+set global thread_pool_max_waiting_queries = 2000;
+set global thread_pool_admission_control_filter = 'SET';
+set global thread_pool_admission_control_yield_freq = 1;
+#
+# Test admission_control_wait_events = YIELD
+#
+use test_db;
+create table t1 (i int primary key) engine=rocksdb;
+set @@SESSION.yield_check_frequency=5;
+insert into t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+set @@SESSION.yield_check_frequency=5;
+show variables like '%yield_check_frequency%';
+Variable_name	Value
+yield_check_frequency	5
+SET @@global.DEBUG = "+d,yield_skipped";
+select * from t1 where i > 0;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+SET @@global.DEBUG = "-d,yield_skipped";
+show variables like '%yield_check_frequency%';
+Variable_name	Value
+yield_check_frequency	100000
+set global thread_pool_max_running_queries = @save_max_running_queries;
+set global thread_pool_max_waiting_queries = @save_max_waiting_queries;
+set global thread_pool_admission_control_wait_events = @save_admission_control_wait_events;
+set global thread_pool_admission_control_filter = @save_admission_control_filter;
+set global thread_pool_admission_control_yield_freq = @save_admission_control_yield_freq;
+drop database test_db;
+drop user test_user@localhost;

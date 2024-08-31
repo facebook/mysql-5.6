@@ -5341,6 +5341,7 @@ class THD : public MDL_context_owner,
 
   ulonglong last_yield_counter = 0;
   ulonglong yield_counter = 0;
+  ulonglong check_yield_counter = 0;
   ulonglong readmission_count = 0;
   std::function<bool()> yield_cond;
 

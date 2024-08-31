@@ -891,6 +891,8 @@ THD::THD(bool enable_plugins, bool is_slave)
   set_system_user(false);
   set_connection_admin(false);
   m_mem_cnt.set_thd(this);
+
+  check_yield_counter = 0;
 }
 
 /**
@@ -2850,10 +2852,29 @@ bool THD::always_yield() { return true; }
   @param cond A predicate that returns true if a yield should take place.
 */
 void THD::check_yield(std::function<bool()> cond) {
-  yield_cond = std::move(cond);
-  thd_wait_begin(this, THD_WAIT_YIELD);
-  thd_wait_end(this);
-  yield_cond = nullptr;
+  bool skip_yield_wait = false;
+
+  check_yield_counter++;
+
+  /**
+   * Adding more conditions before yields, as invoking them
+   * can become a bit expensive if called for a large number of times.
+   */
+  ulong yield_check_frequency = variables.yield_check_frequency;
+  if (yield_check_frequency > 0 &&
+      (check_yield_counter % yield_check_frequency != 0 || !cond())) {
+    skip_yield_wait = true;
+
+    // Alter the check frequency as a way to verify this path is executed.
+    DBUG_EXECUTE_IF("yield_skipped", variables.yield_check_frequency = 100000;);
+  }
+
+  if (!skip_yield_wait) {
+    yield_cond = std::move(cond);
+    thd_wait_begin(this, THD_WAIT_YIELD);
+    thd_wait_end(this);
+    yield_cond = nullptr;
+  }
 }
 
 void THD::check_limit_rows_examined() { ++m_accessed_rows_and_keys; }

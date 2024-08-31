@@ -277,5 +277,7 @@ wait_for_hlc_timeout_ms
 wait_for_hlc_timeout_ms
 xa_detach_on_prepare
 xa_detach_on_prepare
+yield_check_frequency
+yield_check_frequency
 drop table t1;
 drop table t2;

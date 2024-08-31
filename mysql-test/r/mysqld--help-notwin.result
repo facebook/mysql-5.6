@@ -3349,6 +3349,8 @@ The following options may be given as the first argument:
  same connection until the session disconnects. ON is the
  only safe choice for replication.
  (Defaults to on; use --skip-xa-detach-on-prepare to disable.)
+ --yield-check-frequency[=#] 
+ Frequency with which we want to check for yield 
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
  library is selected.
@@ -4270,6 +4272,7 @@ write-throttle-rate-step 100
 write-throttle-tag-only FALSE
 write-time-check-batch 0
 xa-detach-on-prepare TRUE
+yield-check-frequency 0
 zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type
