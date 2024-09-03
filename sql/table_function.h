@@ -432,6 +432,30 @@ class Table_function_json final : public Table_function {
   void do_cleanup() override;
 };
 
+class Table_function_last_insert_ids final : public Table_function {
+ public:
+  ~Table_function_last_insert_ids() override;
+
+  bool init() override { return false; }
+
+  bool fill_result_table() override;
+
+  const char *func_name() const override { return "last_insert_ids"; }
+
+  bool print(const THD *, String *str, enum_query_type) const override {
+    return !str->append(STRING_WITH_LEN("last_insert_ids()"));
+  }
+
+  bool walk(Item_processor, enum_walk, uchar *) override { return false; }
+
+ private:
+  List<Create_field> *get_field_list() override;
+
+  bool do_init_args() override { return false; }
+
+  List<Create_field> fields;
+};
+
 /**
   Print ON EMPTY or ON ERROR clauses.
 

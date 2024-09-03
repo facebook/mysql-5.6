@@ -1,0 +1,518 @@
+#
+# Tests for LAST_INSERT_IDS function
+#
+#
+# Should not be callable as a regular function
+#
+SELECT LAST_INSERT_IDS();
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'LAST_INSERT_IDS()' at line 1
+SELECT LAST_INSERT_IDS(10);
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'LAST_INSERT_IDS(10)' at line 1
+SELECT LAST_INSERT_IDS("foo", "bar");
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'LAST_INSERT_IDS("foo", "bar")' at line 1
+#
+# Table-returning functions must be aliased
+#
+SELECT * FROM LAST_INSERT_IDS();
+ERROR 42000: Every table function must have an alias
+#
+# When no rows have been inserted yet, should return an empty table
+#
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+#
+# EXPLAIN SELECT ... LAST_INSERT_IDS
+#
+EXPLAIN SELECT * FROM LAST_INSERT_IDS() AS ids;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	ids	NULL	ALL	NULL	NULL	NULL	NULL	2	100.00	Table function: last_insert_ids; Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `ids`.`insert_id` AS `insert_id` from last_insert_ids() `ids`
+#
+# In the case of a single insert, should match LAST_INSERT_ID
+#
+CREATE TABLE t1 (a INT AUTO_INCREMENT PRIMARY KEY);
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+TRUNCATE TABLE t1;
+#
+# Explicitly-provided value is ignored by LAST_INSERT_IDS
+#
+INSERT INTO t1 VALUES (5);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+#
+# Explicitly-provided duplicate value
+#
+INSERT INTO t1 VALUES (5);
+ERROR 23000: Duplicate entry '5' for key 't1.PRIMARY'
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+TRUNCATE TABLE t1;
+#
+# Multiple values returned by LAST_INSERT_IDS
+#
+INSERT INTO t1 VALUES (),(),(),(),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+3
+4
+5
+# Two-byte representation for the start value
+ALTER TABLE t1 AUTO_INCREMENT=100;
+INSERT INTO t1 VALUES (),(),(),(),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+100
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+100
+101
+102
+103
+104
+# Multiple byte representation for the start value
+ALTER TABLE t1 AUTO_INCREMENT=2147483640;
+INSERT INTO t1 VALUES (),(),(),(),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2147483640
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2147483640
+2147483641
+2147483642
+2147483643
+2147483644
+TRUNCATE TABLE t1;
+# Non-contiguous intervals
+INSERT INTO t1 VALUES (0),(0),(0),(8),(0),(0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+3
+9
+10
+TRUNCATE TABLE t1;
+#
+# CREATE TABLE ... SELECT FROM LAST_INSERT_IDS
+#
+INSERT INTO t1 VALUES (),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+CREATE TABLE t2 AS SELECT * FROM LAST_INSERT_IDS() AS ids;
+SELECT * FROM t2;
+insert_id
+1
+2
+DROP TABLE t2;
+#
+# INSERT ... SELECT LAST_INSERT_IDS
+#
+INSERT INTO t1 VALUES (),(),();
+TRUNCATE TABLE t1;
+INSERT INTO t1 SELECT * FROM LAST_INSERT_IDS() AS ids;
+SELECT * FROM t1;
+a
+3
+4
+5
+TRUNCATE TABLE t1;
+#
+# PREPARE / EXECUTE
+#
+PREPARE s1 FROM 'SELECT * FROM LAST_INSERT_IDS() AS ids';
+EXECUTE s1;
+insert_id
+3
+4
+5
+INSERT INTO t1 VALUES (),(),();
+EXECUTE s1;
+insert_id
+1
+2
+3
+DEALLOCATE PREPARE s1;
+TRUNCATE TABLE t1;
+#
+# Statement binlog format
+#
+SET SESSION binlog_format = 'STATEMENT';
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+3
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+INSERT INTO t1 VALUES (),(),(),(),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+3
+4
+5
+6
+#
+# Mixed binlog format
+#
+SET SESSION binlog_format = 'MIXED';
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+3
+4
+5
+6
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+7
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+7
+INSERT INTO t1 VALUES (),(),(),(),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+8
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+8
+9
+10
+11
+12
+TRUNCATE TABLE t1;
+SET SESSION binlog_format = 'ROW';
+#
+# LAST_INSERT_ID(arg) should ignore LAST_INSERT_IDS
+#
+SELECT LAST_INSERT_ID(100);
+LAST_INSERT_ID(100)
+100
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+8
+9
+10
+11
+12
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+100
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+8
+9
+10
+11
+12
+#
+# Multi-statement transactions
+#
+BEGIN;
+INSERT INTO t1 VALUES ();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+INSERT INTO t1 VALUES (),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+3
+COMMIT;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+SELECT * FROM LAST_INSERT_IDS() as ids;
+insert_id
+2
+3
+#
+# Rolled back multi-statement transactions
+#
+BEGIN;
+INSERT INTO t1 VALUES (),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+4
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+4
+5
+ROLLBACK;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+4
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+4
+5
+INSERT INTO t1 VALUES (),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+6
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+6
+7
+TRUNCATE TABLE t1;
+#
+# Failures to insert
+#
+CREATE TABLE t2 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+b INT NOT NULL UNIQUE);
+INSERT INTO t2 VALUES (NULL, 0), (NULL, 1);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+INSERT INTO t2 VALUES (NULL, 0);
+ERROR 23000: Duplicate entry '0' for key 't2.b'
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+DROP TABLE t2;
+#
+# Accessing LAST_INSERT_IDS in a triggger: only the 1st value is seen,
+# consistent with LAST_INSERT_ID behavior
+#
+CREATE TRIGGER trg1 AFTER INSERT ON t1 FOR EACH ROW
+BEGIN
+CREATE TABLE t2 SELECT * FROM LAST_INSERT_IDS() AS ids;
+END|
+ERROR HY000: Explicit or implicit commit is not allowed in stored function or trigger.
+CREATE TABLE t2 (a INT);
+INSERT INTO t2 VALUES (0);
+CREATE TABLE t3 (a INT);
+INSERT INTO t3 VALUES (0);
+INSERT INTO t1 VALUES ();
+CREATE TRIGGER trg1 AFTER INSERT ON t1 FOR EACH ROW
+BEGIN
+INSERT INTO t2 SELECT * FROM LAST_INSERT_IDS() AS ids;
+INSERT INTO t2 VALUES (NULL);
+END|
+CREATE TRIGGER trg2 AFTER INSERT ON t1 FOR EACH ROW
+BEGIN
+INSERT INTO t3 VALUES(LAST_INSERT_ID());
+INSERT INTO t3 VALUES (NULL);
+END|
+INSERT INTO t1 VALUES (),(),();
+SELECT * FROM t2;
+a
+0
+1
+NULL
+1
+NULL
+1
+NULL
+SELECT * FROM t3;
+a
+0
+1
+NULL
+1
+NULL
+1
+NULL
+# The triggers will not affect the outer LAST_INSERT_IDS
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+2
+3
+4
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+2
+TRUNCATE TABLE t1;
+DROP TRIGGER trg1;
+DROP TRIGGER trg2;
+DROP TABLE t2, t3;
+#
+# INSERT IGNORE
+#
+INSERT IGNORE INTO t1 VALUES (),();
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+INSERT IGNORE INTO t1 VALUES (2);
+Warnings:
+Warning	1062	Duplicate entry '2' for key 't1.PRIMARY'
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+DROP TABLE t1;
+#
+# REPLACE
+#
+CREATE TABLE t2 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+b INT NOT NULL UNIQUE,
+c INT);
+# REPLACE that only inserts
+REPLACE INTO t2 VALUES (NULL, 0, 0), (NULL, 1, 0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+# REPLACE that only replaces
+REPLACE INTO t2 VALUES (NULL, 0, 1), (NULL, 1, 1);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+3
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+3
+4
+# REPLACE that inserts, updates, & inserts
+REPLACE INTO t2 VALUES (NULL, 2, 0), (NULL, 0, 2), (NULL, 3, 0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+5
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+5
+6
+7
+TRUNCATE TABLE t2;
+#
+# INSERT ... ON DUPLICATE KEY UPDATE with some inserts and some updates
+#
+# Regular INSERT
+INSERT INTO t2 VALUES (NULL, 0, 0), (NULL, 1, 0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+# INSERT ODKU that inserts
+INSERT INTO t2 VALUES (NULL, 2, 0), (NULL, 3, 0)
+ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+3
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+3
+4
+# INSERT ODKU that updates
+INSERT INTO t2 VALUES (NULL, 0, 0), (NULL, 1, 0)
+ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+3
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+3
+4
+# INSERT ODKU that inserts, updates, & inserts
+INSERT INTO t2 VALUES (NULL, 4, 0), (NULL, 0, 0), (NULL, 5, 0)
+ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+7
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+7
+8
+# INSERT ODKU that updates, inserts, & updates
+INSERT INTO t2 VALUES (NULL, 0, 0), (NULL, 6, 0), (NULL, 1, 0)
+ON DUPLICATE KEY UPDATE c = c + 1;
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+10
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+10
+DROP TABLE t2;
+#
+# Composite primary key with an auto_increment part
+#
+CREATE TABLE t2 (
+a INT NOT NULL AUTO_INCREMENT,
+b INT,
+PRIMARY KEY (a, b));
+INSERT INTO t2 VALUES (NULL, 0), (NULL, 0);
+SELECT LAST_INSERT_ID();
+LAST_INSERT_ID()
+1
+SELECT * FROM LAST_INSERT_IDS() AS ids;
+insert_id
+1
+2
+DROP TABLE t2;

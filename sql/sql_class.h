@@ -107,6 +107,7 @@
 #include "rpl_source.h"
 #include "sql/auth/sql_security_ctx.h"  // Security_context
 #include "sql/column_statistics_dt.h"
+#include "sql/compressed_uint64_fifo.h"
 #include "sql/current_thd.h"
 #include "sql/dd/string_type.h"     // dd::string_type
 #include "sql/discrete_interval.h"  // Discrete_interval
@@ -2263,6 +2264,7 @@ class THD : public MDL_context_owner,
     It is returned by LAST_INSERT_ID().
   */
   ulonglong first_successful_insert_id_in_prev_stmt;
+  compressed_uint64_fifo successful_insert_ids_in_prev_stmt;
   /*
     Variant of the above, used for storing in statement-based binlog. The
     difference is that the one above can change as the execution of a stored
@@ -2276,6 +2278,7 @@ class THD : public MDL_context_owner,
     first_successful_insert_id_in_prev_stmt when statement ends.
   */
   ulonglong first_successful_insert_id_in_cur_stmt;
+  compressed_uint64_fifo successful_insert_ids_in_cur_stmt;
   /*
     We follow this logic:
     - when stmt starts, first_successful_insert_id_in_prev_stmt contains the
@@ -2361,6 +2364,13 @@ class THD : public MDL_context_owner,
   inline void record_first_successful_insert_id_in_cur_stmt(ulonglong id_arg) {
     if (first_successful_insert_id_in_cur_stmt == 0)
       first_successful_insert_id_in_cur_stmt = id_arg;
+    // This method will be called multiple times for the same inserted row. If
+    // the caller is ever refactored, change this to be called exactly once per
+    // row.
+    if (id_arg != 0 && (successful_insert_ids_in_cur_stmt.empty() ||
+                        id_arg != successful_insert_ids_in_cur_stmt.back())) {
+      successful_insert_ids_in_cur_stmt.push_back(id_arg);
+    }
   }
   inline ulonglong read_first_successful_insert_id_in_prev_stmt(void) {
     if (!stmt_depends_on_first_successful_insert_id_in_prev_stmt) {
