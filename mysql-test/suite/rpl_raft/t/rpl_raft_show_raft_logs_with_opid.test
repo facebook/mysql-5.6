@@ -27,7 +27,12 @@ while ($j <= 5)
   inc $j;
 }
 --enable_query_log
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
 
+connection server_1;
 echo "Test 1.1: Check leader";
 source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
 
@@ -50,7 +55,12 @@ while ($j <= 10)
   inc $j;
 }
 --enable_query_log
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
 
+connection server_1;
 echo "Test 2.1: Check leader";
 source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
 
@@ -72,7 +82,12 @@ while ($j <= 15)
   inc $j;
 }
 --enable_query_log
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
 
+connection server_1;
 echo "Test 3.1: Check leader";
 source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
 
@@ -101,6 +116,12 @@ while ($j <= 20)
   inc $j;
 }
 --enable_query_log
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_1;
 source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
 
 echo "Test 4.1: Restart with Raft OpID enabled";
@@ -123,10 +144,14 @@ while ($j <= 25)
   inc $j;
 }
 --enable_query_log
-
-source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
 
 connection server_1;
+source ../include/raft_show_binary_or_raft_logs_with_opid.inc;
+
 drop table t1;
 
 let $sync_slave_connection= server_2;

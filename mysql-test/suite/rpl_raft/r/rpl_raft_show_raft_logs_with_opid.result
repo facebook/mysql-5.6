@@ -31,6 +31,8 @@ Variable_name	Value
 Rpl_raft_role	FOLLOWER
 create table t1 (a int);
 "Test 1: Before enabling index OpID"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 "Test 1.1: Check leader"
 include/raft_show_binary_or_raft_logs_with_opid.inc
 show raft logs with opid;
@@ -100,6 +102,8 @@ apply-logs-13001.000002	#	No	# [empty]
 "Test 2: After enabling index OpID"
 set @@global.enable_raft_opid_in_index = ON;
 set @@global.enable_raft_opid_in_index = ON;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 "Test 2.1: Check leader"
 include/raft_show_binary_or_raft_logs_with_opid.inc
 show raft logs with opid;
@@ -199,6 +203,8 @@ apply-logs-13001.000002	#	No	# [empty]
 "Test 3: After disabling index OpID"
 set @@global.enable_raft_opid_in_index = OFF;
 set @@global.enable_raft_opid_in_index = OFF;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 "Test 3.1: Check leader"
 include/raft_show_binary_or_raft_logs_with_opid.inc
 show raft logs with opid;
@@ -332,6 +338,8 @@ include/raft_promote_to_leader.inc
 select @@global.enable_raft_opid_in_index;
 @@global.enable_raft_opid_in_index
 0
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 include/raft_show_binary_or_raft_logs_with_opid.inc
 show raft logs with opid;
 Log_name	File_size	Encrypted	Prev_opid
@@ -443,6 +451,8 @@ include/raft_promote_to_leader.inc
 select @@global.enable_raft_opid_in_index;
 @@global.enable_raft_opid_in_index
 1
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 include/raft_show_binary_or_raft_logs_with_opid.inc
 show raft logs with opid;
 Log_name	File_size	Encrypted	Prev_opid
