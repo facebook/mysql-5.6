@@ -50,15 +50,12 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   void calculate_expiration_timestamp() const {
     assert(!m_expiration_timestamp.has_value());
 
-    uint64_t oldest_snapshot_timestamp = 0;
-    rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-    if (!rdb->GetIntProperty(rocksdb::DB::Properties::kOldestSnapshotTime,
-                             &oldest_snapshot_timestamp) ||
-        oldest_snapshot_timestamp == 0) {
-      oldest_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
+    auto oldest_transaction_ts = oldest_transaction_timestamp();
+    if (oldest_transaction_ts == 0) {
+      oldest_transaction_ts = static_cast<uint64_t>(std::time(nullptr));
     }
 
-    m_expiration_timestamp = oldest_snapshot_timestamp;
+    m_expiration_timestamp = oldest_transaction_ts;
 
     if (rdb_is_binlog_ttl_enabled()) {
       m_expiration_timestamp =

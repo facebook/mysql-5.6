@@ -97,6 +97,8 @@ bool rdb_has_wsenv();
 /* Whether SyncWAL is supported in current scenario */
 bool rdb_sync_wal_supported();
 
+[[nodiscard]] std::uint64_t oldest_transaction_timestamp();
+
 enum operation_type : int;
 void rdb_update_global_stats(const operation_type &type, uint count,
                              Rdb_tbl_def *td = nullptr);

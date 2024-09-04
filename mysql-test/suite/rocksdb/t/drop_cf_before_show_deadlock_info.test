@@ -1,6 +1,9 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+# Different output with different DDSEs. OK to re-record with either one.
+--source include/have_innodb_ddse.inc
+
 --source include/count_sessions.inc
 
 --disable_query_log
@@ -68,8 +71,8 @@ set global rocksdb_deadlock_detect = @prior_deadlock_detect;
 set global rocksdb_max_latest_deadlocks = 0;
 --echo # Clears deadlock buffer of any existent deadlocks.
 set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
---replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /WAITING KEY: [0-9a-f]{16}/KEY/ /TRANSACTION ID: [0-9]*/TXN_ID/ /INDEX_ID: [0-9a-f]*/IDX_ID/ /TIMESTAMP: [0-9]*/TSTAMP/
-show engine rocksdb transaction status;
+
+--source ../include/show_transaction_status.inc
 
 set @@global.debug = @old_debug;
 

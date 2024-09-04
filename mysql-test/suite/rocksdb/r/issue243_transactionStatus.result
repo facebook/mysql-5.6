@@ -25,6 +25,12 @@ TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 SNAPSHOTS
 ---------
 LIST OF SNAPSHOTS FOR EACH SESSION:
+---NO ACTIVE SNAPSHOT
+MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot never created
+lock count 0, write count 0
+insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
@@ -60,6 +66,7 @@ LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot created NUM sec ago
 lock count 4, write count 4
 insert count 2, update count 1, delete count 1
 ----------LATEST DETECTED DEADLOCKS----------
@@ -78,6 +85,12 @@ TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 SNAPSHOTS
 ---------
 LIST OF SNAPSHOTS FOR EACH SESSION:
+---NO ACTIVE SNAPSHOT
+MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot never created
+lock count 0, write count 0
+insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
@@ -98,6 +111,7 @@ LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot created NUM sec ago
 lock count 1, write count 1
 insert count 1, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
@@ -116,6 +130,12 @@ TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 SNAPSHOTS
 ---------
 LIST OF SNAPSHOTS FOR EACH SESSION:
+---NO ACTIVE SNAPSHOT
+MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
+SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot never created
+lock count 0, write count 0
+insert count 0, update count 0, delete count 0
 ----------LATEST DETECTED DEADLOCKS----------
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
@@ -149,6 +169,7 @@ LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot created NUM sec ago
 lock count 4, write count 7
 insert count 2, update count 1, delete count 1
 ----------LATEST DETECTED DEADLOCKS----------
@@ -185,6 +206,7 @@ LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE ROCKSDB TRANSACTION STATUS
+earliest snapshot created NUM sec ago
 lock count 4, write count 7
 insert count 2, update count 1, delete count 1
 ----------LATEST DETECTED DEADLOCKS----------
