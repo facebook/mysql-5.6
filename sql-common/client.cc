@@ -1223,6 +1223,9 @@ net_async_status cli_safe_read_with_ok_nonblocking(MYSQL *mysql, bool parse_ok,
   if (NET_ASYNC_NOT_READY == my_net_read_nonblocking(net, &len)) {
     return NET_ASYNC_NOT_READY;
   }
+  // Note: If my_net_read_nonblocking failed, and len is packet_error
+  // cli_safe_read_with_ok_complete below will process the error and 
+  // set client visible error correctly and return packet_error.
 
   DBUG_PRINT("info",
              ("total nb read: %lu,  net->where_b: %lu", len, net->where_b));
@@ -5843,8 +5846,9 @@ static net_async_status client_mpvio_read_packet_nonblocking(
     if (status == NET_ASYNC_NOT_READY) {
       return NET_ASYNC_NOT_READY;
     }
-    if (error) {
-      *result = (int)packet_error;
+    // If error set result to packet error
+    if (error < 0) {
+      *result = error;
       return NET_ASYNC_COMPLETE;
     }
   }
@@ -5859,6 +5863,11 @@ static net_async_status client_mpvio_read_packet_nonblocking(
       mysql->methods->read_change_user_result_nonblocking(mysql, &pkt_len);
   if (status == NET_ASYNC_NOT_READY) {
     return NET_ASYNC_NOT_READY;
+  }
+  // Return if change user failed
+  if (pkt_len == packet_error || status == NET_ASYNC_ERROR) {
+    *result = (int)packet_error;
+    return NET_ASYNC_COMPLETE;
   }
 
   mpvio->last_read_packet_len = pkt_len;
@@ -5935,6 +5944,17 @@ static int client_mpvio_write_packet(MYSQL_PLUGIN_VIO *mpv, const uchar *pkt,
 /**
   vio->write_packet() nonblocking callback method for client authentication
   plugins
+
+	
+  @param mpv The MYSQL_PLUGIN_VIO structure representing the plugin.
+  @param pkt The data to be sent to the server.
+  @param pkt_len The length of the data to be sent.
+  @param result A pointer to an integer that will be set to the result of the
+  operation. 0 on success, -1 on error.
+
+  @return A net_async_status value indicating the status of the operation.
+  NET_ASYNC_COMPLETE if the operation is complete, NET_ASYNC_NOT_READY if the
+  operation is not ready to be completed.
 */
 static net_async_status client_mpvio_write_packet_nonblocking(
     struct MYSQL_PLUGIN_VIO *mpv, const uchar *pkt, int pkt_len, int *result) {
@@ -5944,20 +5964,21 @@ static net_async_status client_mpvio_write_packet_nonblocking(
 
   if (mpvio->packets_written == 0) {
     net_async_status status;
-    if (mpvio->mysql_change_user)
+    if (mpvio->mysql_change_user) {
       status = send_change_user_packet_nonblocking(mpvio, pkt, pkt_len);
-    else
+      if (status == NET_ASYNC_ERROR) error = true;
+    } else {
       status =
           send_client_reply_packet_nonblocking(mpvio, pkt, pkt_len, &error);
+    }
     if (status == NET_ASYNC_NOT_READY) return NET_ASYNC_NOT_READY;
   } else {
     NET *net = &mpvio->mysql->net;
 
     MYSQL_TRACE(SEND_AUTH_DATA, mpvio->mysql, ((size_t)pkt_len, pkt));
 
-    if (mpvio->mysql->thd)
-      *result = 1; /* no chit-chat in embedded */
-    else {
+    /* no chit-chat in embedded */
+    if (!mpvio->mysql->thd) {
       net_async_status status =
           my_net_write_nonblocking(net, pkt, pkt_len, &error);
       if (status == NET_ASYNC_NOT_READY) {

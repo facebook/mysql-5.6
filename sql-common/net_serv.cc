@@ -2045,8 +2045,13 @@ static net_async_status net_read_compressed_nonblocking(NET *net,
                                                         ulong *len_ptr) {
   DBUG_TRACE;
   NET_ASYNC *net_async = NET_ASYNC_DATA(net);
-  assert(net->compress);
   ulong &len = *len_ptr;
+
+  if (!net_async || net->vio == nullptr) {
+    len = packet_error;
+    return NET_ASYNC_COMPLETE;
+  }
+  assert(net->compress);
 
   if (net_async->mp_status != NET_ASYNC_NOT_READY)
     net_read_init_offsets(
@@ -2100,8 +2105,13 @@ static net_async_status net_read_uncompressed_nonblocking(NET *net,
                                                           ulong *len_ptr) {
   DBUG_TRACE;
   NET_ASYNC *net_async = NET_ASYNC_DATA(net);
-  assert(!net->compress);
   ulong &len = *len_ptr;
+
+  if (!net_async || net->vio == nullptr) {
+    len = packet_error;
+    return NET_ASYNC_COMPLETE;
+  }
+  assert(!net->compress);
 
   // Initialize the states
   if (net_async->mp_status == NET_ASYNC_COMPLETE) {
