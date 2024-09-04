@@ -768,6 +768,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
     return recovery_binlog_max_gtid;
   }
 
+  std::pair<int64_t, int64_t> recovered_lwm_opid = {-1, -1};
+  std::pair<int64_t, int64_t> recovered_max_opid = {-1, -1};
+
   // copy of Relay_log_info::last_master_timestamp
   std::atomic<time_t> last_master_timestamp;
 

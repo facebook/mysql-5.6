@@ -216,8 +216,11 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
     global_sid_lock->unlock();
   }
 
-  sql_print_information("Plugin '%s': binlog position (%s,%llu), max gtid %s",
-                        plugin_name, binlog_file, binlog_pos, gtid_buf);
+  sql_print_information(
+      "Plugin '%s': binlog position (%s,%llu), max gtid %s, lwm opid: "
+      "%lld:%lld, max opid: %lld:%lld",
+      plugin_name, binlog_file, binlog_pos, gtid_buf, lwm_opid.first,
+      lwm_opid.second, max_opid.first, max_opid.second);
 
   if (info->binlog_file[0] == 0) {
     assert(info->binlog_max_gtid->is_empty());
@@ -226,6 +229,16 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
     *(info->binlog_smallest_max_gtid) = max_gtid;
     memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
     *info->binlog_pos = binlog_pos;
+
+    // Track the smallest low watermark opid and the largest max opid
+    if (info->smallest_lwm_opid == std::make_pair(-1L, -1L) ||
+        info->smallest_lwm_opid > lwm_opid) {
+      info->smallest_lwm_opid = lwm_opid;
+    }
+    if (info->largest_max_opid == std::make_pair(-1L, -1L) ||
+        info->largest_max_opid < max_opid) {
+      info->largest_max_opid = max_opid;
+    }
 
     return;
   }

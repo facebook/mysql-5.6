@@ -455,7 +455,9 @@ class Raft_replication_delegate : public Delegate {
                      const std::string &wal_dir_parent,
                      const std::string &log_dir_parent,
                      const std::string &raft_log_path_prefix,
-                     const std::string &s_hostname, uint64_t port);
+                     const std::string &s_hostname, uint64_t port,
+                     const std::pair<int64_t, int64_t> &recovered_lwm_opid,
+                     const std::pair<int64_t, int64_t> &recovered_max_opid);
   int after_commit(THD *thd);
   int purge_logs(THD *thd, uint64_t file_ext);
   int show_raft_status(

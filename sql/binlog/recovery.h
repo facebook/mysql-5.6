@@ -146,6 +146,8 @@ class Binlog_recovery {
    */
   Binlog_recovery &recover(Gtid *binlog_max_gtid, char *engine_binlog_file,
                            my_off_t *engine_binlog_pos,
+                           std::pair<int64_t, int64_t> *engine_lwm_opid,
+                           std::pair<int64_t, int64_t> *engine_max_opid,
                            const std::string &cur_binlog_file,
                            my_off_t *first_gtid_start_pos);
 

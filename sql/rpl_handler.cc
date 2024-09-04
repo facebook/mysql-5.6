@@ -1460,7 +1460,8 @@ int Raft_replication_delegate::register_paths(
     THD * /* thd */, const std::string &s_uuid, uint32_t server_id,
     const std::string &wal_dir_parent, const std::string &log_dir_parent,
     const std::string &raft_log_path_prefix, const std::string &s_hostname,
-    uint64_t port) {
+    uint64_t port, const std::pair<int64_t, int64_t> &recovered_lwm_opid,
+    const std::pair<int64_t, int64_t> &recovered_max_opid) {
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   Raft_replication_param param;
   // set the pshard index to route to the proper ring
@@ -1471,7 +1472,8 @@ int Raft_replication_delegate::register_paths(
   FOREACH_OBSERVER_STRICT(
       ret, register_paths,
       (&param, &raft_listener_queue, s_uuid, server_id, wal_dir_parent,
-       log_dir_parent, raft_log_path_prefix, s_hostname, port));
+       log_dir_parent, raft_log_path_prefix, s_hostname, port,
+       recovered_lwm_opid, recovered_max_opid));
 
   DBUG_RETURN(ret);
 }

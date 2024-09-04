@@ -179,6 +179,8 @@ typedef struct Raft_replication_observer {
    * @param s_hostname - the proper hostname of server which can be used in
    * plugin
    * @param port - the port of the server
+   * @param recovered_lwm_opid - recovered lwm opid from engine
+   * @param recovered_max_opid - recovered max opid from engine
    * raft where to find raft binlogs.
    */
   int (*register_paths)(Raft_replication_param *param,
@@ -187,7 +189,9 @@ typedef struct Raft_replication_observer {
                         const std::string &wal_dir_parent,
                         const std::string &log_dir_parent,
                         const std::string &raft_log_path_prefix,
-                        const std::string &s_hostname, uint64_t port);
+                        const std::string &s_hostname, uint64_t port,
+                        const std::pair<int64_t, int64_t> &recovered_lwm_opid,
+                        const std::pair<int64_t, int64_t> &recovered_max_opid);
 
   /**
      This callback is called after transaction commit to engine

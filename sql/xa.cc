@@ -265,7 +265,9 @@ bool Recovered_xa_transactions::recover_prepared_xa_transactions() {
 }
 
 int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
-               Gtid *binlog_max_gtid, char *binlog_file, my_off_t *binlog_pos) {
+               Gtid *binlog_max_gtid, char *binlog_file, my_off_t *binlog_pos,
+               std::pair<int64_t, int64_t> *lwm_opid,
+               std::pair<int64_t, int64_t> *max_opid) {
   xarecover_st info;
   DBUG_TRACE;
   info.found_foreign_xids = info.found_my_xids = 0;
@@ -375,6 +377,14 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
   }
 
   info.binlog_smallest_max_gtid = nullptr;
+
+  if (lwm_opid) {
+    *lwm_opid = info.smallest_lwm_opid;
+  }
+
+  if (max_opid) {
+    *max_opid = info.largest_max_opid;
+  }
 
   fprintf(stderr,
           "Opid recovery info: Smallest low watermark Opid %ld:%ld, "

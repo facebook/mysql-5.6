@@ -7565,7 +7565,9 @@ int ha_rollback_trans(THD *thd, bool all);
 int ha_recover(xid_to_gtid_container *commit_list = nullptr,
                Xa_state_list *xa_state_list = nullptr,
                Gtid *binlog_max_gtid = nullptr, char *binlog_file = nullptr,
-               my_off_t *binlog_pos = nullptr);
+               my_off_t *binlog_pos = nullptr,
+               std::pair<int64_t, int64_t> *lwm_opid = nullptr,
+               std::pair<int64_t, int64_t> *max_opid = nullptr);
 
 /**
   Perform SE-specific cleanup after recovery of transactions.
