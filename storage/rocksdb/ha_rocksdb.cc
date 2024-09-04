@@ -919,12 +919,7 @@ static bool rocksdb_debug_skip_bloom_filter_check_on_iterator_bounds = 0;
 bool rocksdb_enable_autoinc_compact_mode = false;
 char max_timestamp_uint64[ROCKSDB_SIZEOF_TTL_RECORD];
 
-enum file_checksums_type {
-  CHECKSUMS_OFF = 0,
-  CHECKSUMS_WRITE_ONLY,
-  CHECKSUMS_WRITE_AND_VERIFY
-};
-static ulong rocksdb_file_checksums = file_checksums_type::CHECKSUMS_OFF;
+ulong rocksdb_file_checksums = file_checksums_type::CHECKSUMS_OFF;
 static std::time_t last_binlog_ttl_compaction_ts = std::time(nullptr);
 
 static std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
@@ -1171,7 +1166,7 @@ static TYPELIB read_free_rpl_typelib = {array_elements(read_free_rpl_names) - 1,
  * myrocks::rocksdb_file_checksum_type */
 static const char *file_checksums_names[] = {
     "CHECKSUMS_OFF", "CHECKSUMS_WRITE_ONLY", "CHECKSUMS_WRITE_AND_VERIFY",
-    NullS};
+    "CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE", NullS};
 
 static TYPELIB file_checksums_typelib = {
     array_elements(file_checksums_names) - 1, "file_checksums_typelib",
@@ -8414,7 +8409,7 @@ static int rocksdb_init_internal(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  if (rocksdb_file_checksums >=
+  if (rocksdb_file_checksums ==
       file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY) {
     LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "Verifying file checksums...");

@@ -1,0 +1,58 @@
+--source include/have_rocksdb.inc
+
+--let $HOST = 127.0.0.1
+--let $PORT =`select @@port`
+--let $USER = root
+--let remote_clone = 1
+
+--let MYSQLD_LOG1=$MYSQL_TMP_DIR/restart_after_clone.log
+--let MYSQLD_LOG2=$MYSQL_TMP_DIR/regular_restart.log
+--let CLONE_DATADIR = $MYSQL_TMP_DIR/data_new
+
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+
+INSERT INTO t1 VALUES(1, "string 1");
+INSERT INTO t1 VALUES(2, "string 2");
+INSERT INTO t1 VALUES(3, "string 3");
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--source ../../clone/include/clone_command.inc
+
+--connection default
+# Restart server on cloned data directory
+--replace_result $CLONE_DATADIR CLONE_DATADIR $MYSQLD_LOG1 MYSQLD_LOG1
+--let restart_parameters="restart: --rocksdb-file-checksums=CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE --datadir=$CLONE_DATADIR --log-error=$MYSQLD_LOG1"
+--source include/restart_mysqld.inc
+
+--let $assert_file = $MYSQLD_LOG1
+--let $assert_count = 1
+
+--let $assert_text = Check checksum verification
+--let $assert_select = Verifying file checksums...
+--source include/assert_grep.inc
+	
+--remove_file $MYSQLD_LOG1
+
+--replace_result $CLONE_DATADIR CLONE_DATADIR $MYSQLD_LOG2 MYSQLD_LOG2
+--let restart_parameters="restart: --rocksdb-file-checksums=CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE --datadir=$CLONE_DATADIR --log-error=$MYSQLD_LOG2"
+--source include/restart_mysqld.inc
+
+--let $assert_file = $MYSQLD_LOG2
+--let $assert_count = 0
+
+--let $assert_text = Check checksum verification
+--let $assert_select = Verifying file checksums...
+--source include/assert_grep.inc
+	
+--remove_file $MYSQLD_LOG2
+
+# clean up
+--let restart_parameters="restart:"
+--source include/restart_mysqld.inc
+
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;
+
+--force-rmdir $CLONE_DATADIR

@@ -235,6 +235,16 @@ void fixup_on_startup() {
   if (path_exists(current_datadir_in_progress_marker_path))
     rdb_fatal_error("In-progress clone marker found in the MyRocks datadir");
 
+  // Enable sst file checksum verification if
+  // CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE flag is enabled and this restart is
+  // after a clone.
+  if (myrocks::rocksdb_file_checksums ==
+          myrocks::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE &&
+      temp_dir_exists_abort_if_not_dir(in_place_temp_datadir)) {
+    myrocks::rocksdb_file_checksums =
+        myrocks::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY;
+  }
+
   move_temp_dir_to_destination(in_place_temp_datadir, in_place_old_datadir,
                                rocksdb_datadir);
 
