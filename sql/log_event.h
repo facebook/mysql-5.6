@@ -1061,89 +1061,7 @@ class Log_event {
      @retval EVENT_EXEC_SYNC      if event is executed by Coordinator
                                   with synchronization against the Workers
   */
-  enum enum_mts_event_exec_mode get_mts_execution_mode(bool mts_in_group) {
-    /*
-      Slave workers are unable to handle Format_description_log_event,
-      Rotate_log_event and Previous_gtids_log_event correctly.
-      However, when a transaction spans multiple relay logs, these
-      events occur in the middle of a transaction. The way we handle
-      this is by marking the events as 'ASYNC', meaning that the
-      coordinator thread will handle the events without stopping the
-      worker threads.
-
-      @todo Refactor this: make Log_event::get_slave_worker handle
-      transaction boundaries in a more robust way, so that it is able
-      to process Format_description_log_event, Rotate_log_event, and
-      Previous_gtids_log_event.  Then, when these events occur in the
-      middle of a transaction, make them part of the transaction so
-      that the worker that handles the transaction handles these
-      events too. /Sven
-    */
-    // Case: If we're not in a middle of a group (aka trx) and this is a
-    // metadata event, then this must be a free floating metadata event and
-    // should be executed in sync mode
-    if (get_type_code() == binary_log::METADATA_EVENT && !mts_in_group)
-      return EVENT_EXEC_SYNC;
-
-    // Case: In the raft world we won't check server_id like the if condition
-    // below because some events can be written in the relay log by the plugin.
-    // The logic here is that for format desc event and rotate event if the
-    // end_log_pos is 0 or they come in the middle of a trx we execute them in
-    // ASYNC mode, meaning that the coordinator thread will apply these events
-    // without waiting for worker threads to finish every thing before this
-    // event. We cannot wait for worker threads to finish because we are in the
-    // middle of a trx and the worker does not have all events to complete the
-    // trx. This should never happen in raft mode because it means that we've
-    // split a trx across two raft logs.
-    if (enable_raft_plugin &&
-        (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
-         get_type_code() == binary_log::ROTATE_EVENT)) {
-      if (common_header->log_pos == 0 || mts_in_group) {
-        LogErr(ERROR_LEVEL, ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX,
-               get_type_str());
-        return EVENT_EXEC_ASYNC;
-      } else
-        return EVENT_EXEC_SYNC;
-    }
-
-    if (
-        /*
-          When a Format_description_log_event occurs in the middle of
-          a transaction, it either has the slave's server_id, or has
-          end_log_pos==0.
-
-          @todo This does not work when master and slave have the same
-          server_id and replicate-same-server-id is enabled, since
-          events that are not in the middle of a transaction will be
-          executed in ASYNC mode in that case.
-        */
-        (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT &&
-         ((server_id == (uint32)::server_id) ||
-          (common_header->log_pos == 0))) ||
-        /*
-          All Previous_gtids_log_events in the relay log are generated
-          by the slave. They don't have any meaning to the applier, so
-          they can always be ignored by the applier. So we can process
-          them asynchronously by the coordinator. It is also important
-          to not feed them to workers because that confuses
-          get_slave_worker.
-        */
-        (get_type_code() == binary_log::PREVIOUS_GTIDS_LOG_EVENT) ||
-        /*
-          Rotate_log_event can occur in the middle of a transaction.
-          When this happens, either it is a Rotate event generated on
-          the slave which has the slave's server_id, or it is a Rotate
-          event that originates from a master but has end_log_pos==0.
-        */
-        (get_type_code() == binary_log::ROTATE_EVENT &&
-         ((server_id == (uint32)::server_id) ||
-          (common_header->log_pos == 0 && mts_in_group))))
-      return EVENT_EXEC_ASYNC;
-    else if (is_mts_sequential_exec())
-      return EVENT_EXEC_SYNC;
-    else
-      return EVENT_EXEC_PARALLEL;
-  }
+  enum enum_mts_event_exec_mode get_mts_execution_mode(bool mts_in_group);
 
   /**
      @return index  in [0, M] range to indicate
@@ -4038,38 +3956,11 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   Metadata_log_event(THD *thd_arg, bool using_trans);
 
   /**
-   * Create a new metadata event which contains HLC timestamp
-   *
-   * @param thd_arg - The thread creating this event
-   * @param using_trans - Should use transaction cache?
-   * @param hlc_time_ns - The HLC timestamp in nanosecond
-   */
-  Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
-
-  /**
    * Use this constructor to create a Metadata Log Event which
    * will have multiple type's from below and you will use multiple
    * set operations to populate the guts.
    */
   Metadata_log_event();
-
-  /**
-   * Create a new metadata event which contains a generic raft provided string
-   * @param raft_str - the string that is understood by raft and
-   *                   to be serialized in metadata event
-   */
-  explicit Metadata_log_event(const std::string &raft_str);
-
-  /**
-   * Create a new metadata event which contains Previous HLC. Previous HLC is
-   * max HLC that could have been potentially stored in all the previous binlog
-   * for the instance. This can be easily extended later if we decide to
-   * support per-shard HLC. Metadata_log_event containing prev_hlc_time will be
-   * written immediately after Previous_gtid_log_event
-   *
-   * @param prev_hlc_time_ns - The previous HLC timestamp in nanosecond
-   */
-  Metadata_log_event(uint64_t prev_hlc_time_ns);
 
 #endif
 
@@ -4092,6 +3983,8 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
 #ifdef MYSQL_SERVER
   bool write_data_body(Basic_ostream *ostream) override;
   int pack_info(Protocol *) override;
+  void prepare_dep(Relay_log_info *rli,
+                   std::shared_ptr<Log_event_wrapper> &ev) override;
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *) override;
@@ -4223,6 +4116,15 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - 0 on success, 1 on false
    */
   bool write_prev_dbtids(Basic_ostream *ostream);
+
+  /**
+   * Write transaction flag
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_is_in_transaction(Basic_ostream *ostream);
 
   /**
    * Write type and length to file

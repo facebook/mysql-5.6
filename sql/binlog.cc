@@ -1713,6 +1713,8 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
                                          binlog_cache_data *cache_data,
                                          Basic_ostream *ostream) {
   Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache());
+  metadata_ev.set_is_in_transaction(true);
+
   bool write_event = false;
   bool wrote_hlc = false;
 

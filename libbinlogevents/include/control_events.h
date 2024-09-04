@@ -691,7 +691,10 @@ class Metadata_event : public Binary_log_event {
   /**
    * Create a new Metadata event object
    */
-  Metadata_event() : Binary_log_event(METADATA_EVENT) {}
+  Metadata_event(bool for_transaction = false)
+      : Binary_log_event(METADATA_EVENT) {
+    set_is_in_transaction(for_transaction);
+  }
 
   /**
    * Create a new metadata event by deserializing buffer
@@ -939,6 +942,20 @@ class Metadata_event : public Binary_log_event {
   std::unordered_map<std::string, uint64_t> get_prev_dbtids() const;
 
   /**
+   * Sets is_in_tranasction flag
+   *
+   * @param flag
+   */
+  void set_is_in_transaction(bool is_in_trx);
+
+  /**
+   * Get is_in_transaction flag
+   *
+   * @return flag
+   */
+  std::optional<bool> get_is_in_transaction() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -977,6 +994,8 @@ class Metadata_event : public Binary_log_event {
     DBTIDS_TYPE = 13,
     /* Prev DB trx id */
     PREV_DBTIDS_TYPE = 14,
+    /* Flag that tells us if this metadata event is part of a trx */
+    IS_IN_TRANSACTION_TYPE = 15,
 
     METADATA_EVENT_TYPE_MAX,
   };
@@ -1073,9 +1092,13 @@ class Metadata_event : public Binary_log_event {
   static const uint32_t ENCODED_RAFT_INGESTION_PREV_UPPER_BOUND_SIZE =
       sizeof(raft_ingestion_prev_upper_bound_);
 
+  static const uint32_t ENCODED_IS_IN_TRANSACTION_SIZE = sizeof(uint16_t);
+
   std::unordered_map<std::string, uint64_t> dbtids_;
 
   std::unordered_map<std::string, uint64_t> prev_dbtids_;
+
+  std::optional<bool> is_in_transaction_;
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;

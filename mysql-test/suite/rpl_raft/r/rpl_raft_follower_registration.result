@@ -84,12 +84,12 @@ Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_stat
 "SERVER 2"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 873
 SHOW REPLICAS WITH RAFT;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status
 1	HOST	PORT	2	UUID	0	RAFT
 3	HOST	PORT	2	UUID	0	RAFT
-5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 853
+5	HOST	PORT	2	UUID	0	Async slave offset: binary-logs-13001.000002 873
 "SERVER 3"
 SHOW REPLICAS;
 Server_Id	Host	Port	Source_Id	Replica_UUID	Is_Semi_Sync_Replica	Replication_status

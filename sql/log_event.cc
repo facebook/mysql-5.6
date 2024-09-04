@@ -3295,6 +3295,94 @@ bool Log_event::is_row_log_event() const noexcept {
   return false;
 }
 
+enum Log_event::enum_mts_event_exec_mode Log_event::get_mts_execution_mode(
+    bool mts_in_group) {
+  /*
+    Slave workers are unable to handle Format_description_log_event,
+    Rotate_log_event and Previous_gtids_log_event correctly.
+    However, when a transaction spans multiple relay logs, these
+    events occur in the middle of a transaction. The way we handle
+    this is by marking the events as 'ASYNC', meaning that the
+    coordinator thread will handle the events without stopping the
+    worker threads.
+
+    @todo Refactor this: make Log_event::get_slave_worker handle
+    transaction boundaries in a more robust way, so that it is able
+    to process Format_description_log_event, Rotate_log_event, and
+    Previous_gtids_log_event.  Then, when these events occur in the
+    middle of a transaction, make them part of the transaction so
+    that the worker that handles the transaction handles these
+    events too. /Sven
+  */
+  // Case: If we're not in a middle of a group (aka trx) and this is a
+  // metadata event, then this must be a free floating metadata event and
+  // should be executed in sync mode
+  if (get_type_code() == binary_log::METADATA_EVENT && !mts_in_group) {
+    auto me = static_cast<Metadata_log_event *>(this);
+    if (!me->get_is_in_transaction().has_value() ||
+        !me->get_is_in_transaction().value()) {
+      return EVENT_EXEC_SYNC;
+    }
+  }
+
+  // Case: In the raft world we won't check server_id like the if condition
+  // below because some events can be written in the relay log by the plugin.
+  // The logic here is that for format desc event and rotate event if the
+  // end_log_pos is 0 or they come in the middle of a trx we execute them in
+  // ASYNC mode, meaning that the coordinator thread will apply these events
+  // without waiting for worker threads to finish every thing before this
+  // event. We cannot wait for worker threads to finish because we are in the
+  // middle of a trx and the worker does not have all events to complete the
+  // trx. This should never happen in raft mode because it means that we've
+  // split a trx across two raft logs.
+  if (enable_raft_plugin &&
+      (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
+       get_type_code() == binary_log::ROTATE_EVENT)) {
+    if (common_header->log_pos == 0 || mts_in_group) {
+      LogErr(ERROR_LEVEL, ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX, get_type_str());
+      return EVENT_EXEC_ASYNC;
+    } else
+      return EVENT_EXEC_SYNC;
+  }
+
+  if (
+      /*
+        When a Format_description_log_event occurs in the middle of
+        a transaction, it either has the slave's server_id, or has
+        end_log_pos==0.
+
+        @todo This does not work when master and slave have the same
+        server_id and replicate-same-server-id is enabled, since
+        events that are not in the middle of a transaction will be
+        executed in ASYNC mode in that case.
+      */
+      (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT &&
+       ((server_id == (uint32)::server_id) || (common_header->log_pos == 0))) ||
+      /*
+        All Previous_gtids_log_events in the relay log are generated
+        by the slave. They don't have any meaning to the applier, so
+        they can always be ignored by the applier. So we can process
+        them asynchronously by the coordinator. It is also important
+        to not feed them to workers because that confuses
+        get_slave_worker.
+      */
+      (get_type_code() == binary_log::PREVIOUS_GTIDS_LOG_EVENT) ||
+      /*
+        Rotate_log_event can occur in the middle of a transaction.
+        When this happens, either it is a Rotate event generated on
+        the slave which has the slave's server_id, or it is a Rotate
+        event that originates from a master but has end_log_pos==0.
+      */
+      (get_type_code() == binary_log::ROTATE_EVENT &&
+       ((server_id == (uint32)::server_id) ||
+        (common_header->log_pos == 0 && mts_in_group))))
+    return EVENT_EXEC_ASYNC;
+  else if (is_mts_sequential_exec())
+    return EVENT_EXEC_SYNC;
+  else
+    return EVENT_EXEC_PARALLEL;
+}
+
 /**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
@@ -15100,29 +15188,10 @@ Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans)
                             : Log_event::EVENT_STMT_CACHE,
                 Log_event::EVENT_NORMAL_LOGGING, header(), footer()) {}
 
-Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans,
-                                       uint64_t hlc_time_ns)
-    : Metadata_log_event(thd_arg, using_trans) {
-  set_hlc_time(hlc_time_ns);
-}
-
 Metadata_log_event::Metadata_log_event()
     : binary_log::Metadata_event(),
       Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
                 Log_event::EVENT_IMMEDIATE_LOGGING) {}
-
-Metadata_log_event::Metadata_log_event(const std::string &raft_str)
-    : Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
-                Log_event::EVENT_IMMEDIATE_LOGGING) {
-  set_raft_str(raft_str);
-}
-
-Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
-    : binary_log::Metadata_event(),
-      Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
-                Log_event::EVENT_IMMEDIATE_LOGGING) {
-  set_prev_hlc_time(prev_hlc_time_ns);
-}
 #endif
 
 Metadata_log_event::Metadata_log_event(
@@ -15166,6 +15235,8 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
   if (write_dbtids(ostream)) DBUG_RETURN(1);
 
   if (write_prev_dbtids(ostream)) DBUG_RETURN(1);
+
+  if (write_is_in_transaction(ostream)) DBUG_RETURN(1);
 
   DBUG_RETURN(0);
 }
@@ -15527,6 +15598,32 @@ bool Metadata_log_event::write_prev_dbtids(Basic_ostream *ostream) {
   DBUG_RETURN(error);
 }
 
+bool Metadata_log_event::write_is_in_transaction(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_is_in_transaction");
+
+  if (!does_exist(Metadata_event_types::IS_IN_TRANSACTION_TYPE) ||
+      !is_in_transaction_.has_value()) {
+    DBUG_RETURN(false);
+  }
+
+  if (write_type_and_length(ostream,
+                            Metadata_event_types::IS_IN_TRANSACTION_TYPE,
+                            ENCODED_IS_IN_TRANSACTION_SIZE)) {
+    DBUG_RETURN(true);
+  }
+
+  char buffer[ENCODED_IS_IN_TRANSACTION_SIZE];
+  char *ptr_buffer = buffer;
+
+  int2store(ptr_buffer, is_in_transaction_.value());
+  ptr_buffer += sizeof(uint16_t);
+
+  assert(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
 bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
                                                Metadata_event_types type,
                                                uint16_t length) {
@@ -15742,6 +15839,23 @@ void Metadata_log_event::print(FILE * /* file */,
 #endif
 
 #if defined(MYSQL_SERVER)
+void Metadata_log_event::prepare_dep(Relay_log_info *rli,
+                                     std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Metadata_log_event::prepare_dep");
+
+  assert(is_mts_parallel_type_dependency(rli));
+  auto submode =
+      static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+
+  if (!submode->current_begin_event && get_is_in_transaction().has_value() &&
+      get_is_in_transaction().value()) {
+    assert(ev->begin_event() == nullptr);
+    ev->is_begin_event = true;
+  }
+
+  DBUG_VOID_RETURN;
+}
+
 int Metadata_log_event::do_apply_event(
     Relay_log_info const *rli MY_ATTRIBUTE((unused))) {
   DBUG_ENTER("Metadata_log_event::do_apply_event");

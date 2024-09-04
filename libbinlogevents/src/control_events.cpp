@@ -452,6 +452,7 @@ void Metadata_event::set_exist(Metadata_event_types type) {
   assert(index < existing_types_.size());
   assert(type == Metadata_event_types::DBTIDS_TYPE ||
          type == Metadata_event_types::PREV_DBTIDS_TYPE ||
+         type == Metadata_event_types::IS_IN_TRANSACTION_TYPE ||
          !existing_types_[index]);
   existing_types_[index] = true;
 }
@@ -640,6 +641,21 @@ std::unordered_map<std::string, uint64_t> Metadata_event::get_prev_dbtids()
   return prev_dbtids_;
 }
 
+void Metadata_event::set_is_in_transaction(bool is_in_trx) {
+  is_in_transaction_ = is_in_trx;
+  if (does_exist(Metadata_event_types::IS_IN_TRANSACTION_TYPE)) {
+    return;
+  }
+  set_exist(Metadata_event_types::IS_IN_TRANSACTION_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE +
+            ENCODED_IS_IN_TRANSACTION_SIZE);
+}
+
+std::optional<bool> Metadata_event::get_is_in_transaction() const {
+  return is_in_transaction_;
+}
+
 std::string Metadata_event::get_rotate_tag_string() const {
   switch (raft_rotate_tag_) {
     case RRET_SIMPLE_ROTATE:
@@ -674,6 +690,7 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   uint64_t raft_ingestion_upper_bound = 0;
   const char *ptr_db_name = nullptr;
   uint64_t dbid = 0;
+  uint16_t is_in_transaction = 0;
 
   READER_TRY_SET(value_length, read<uint16_t>);
 
@@ -754,6 +771,11 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       READER_TRY_SET(dbid, read<uint64_t>);
       ptr_db_name = READER_TRY_CALL(ptr, value_length - sizeof(uint64_t));
       set_prev_dbtid(ptr_db_name, dbid);
+      break;
+    case MET::IS_IN_TRANSACTION_TYPE:
+      assert(value_length == 2);
+      READER_TRY_SET(is_in_transaction, read<uint16_t>);
+      set_is_in_transaction(is_in_transaction);
       break;
 
     default:
