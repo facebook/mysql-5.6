@@ -429,6 +429,7 @@ static inline void mysql_statement_set_secondary_engine(
 #endif /* HAVE_PSI_STATEMENT_INTERFACE */
 }
 
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
 static inline unsigned long long inline_mysql_get_statement_cpu_time(
     PSI_statement_locker *locker) {
   unsigned long long cpu_time = 0;
@@ -438,6 +439,7 @@ static inline unsigned long long inline_mysql_get_statement_cpu_time(
   }
   return cpu_time;
 }
+#endif /* HAVE_PSI_STATEMENT_INTERFACE */
 
 /** @} (end of group psi_api_statement) */
 
