@@ -201,7 +201,8 @@ static inline void mysql_thread_set_secondary_engine(bool secondary
   @param max_count Max size of held_lock_names array.
 */
 static inline int inline_mysql_thread_get_held_locks(
-    const char **held_lock_names, int max_count) {
+    const char **held_lock_names [[maybe_unused]],
+    int max_count [[maybe_unused]]) {
   int result = 0;
 #ifdef HAVE_PSI_THREAD_INTERFACE
   struct PSI_thread *psi = PSI_THREAD_CALL(get_thread)();
