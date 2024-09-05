@@ -705,6 +705,13 @@ struct System_variables {
   ulong fb_vector_search_type;
 
   /**
+    This parameter allows the optimizer to push the PK range tree down to the
+    storage engine. This can enable the storage engine to read vectors from
+    RocksDB using iterator bounds based approach, which is fast!
+  */
+  bool fb_vector_use_iterator_bounds;
+
+  /**
     This session var can be used to control whether index conditions are pushed
     down to the storage engine (ICP) for ORDER BY ... DESC statements that end
     up using the REF plan. This is not applicable to Range plans. This was

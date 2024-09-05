@@ -1062,6 +1062,20 @@ AccessPath *get_key_scans_params(THD *thd, RANGE_OPT_PARAM *param,
       false;  // May be changed by make_reverse() later.
   DBUG_PRINT("info", ("Returning range plan for key %s, cost %g, records %g",
                       used_key->name, path->cost, path->num_output_rows()));
+
+  /*
+     Currently vector index works best by itself, and gets picked by favorable
+     costing. With multiple indexes, one costing option is to choose vector
+     index in conjunction with the best range plan. If another range plan is
+     better than PK, then it may be better to pick THAT index instead. This
+     area needs more testing and code changes
+   */
+  if (thd->variables.fb_vector_use_iterator_bounds && best_idx == 0) {
+    thd->set_pk_range_path(path);
+  } else {
+    thd->set_pk_range_path(nullptr);
+  }
+
   return path;
 }
 

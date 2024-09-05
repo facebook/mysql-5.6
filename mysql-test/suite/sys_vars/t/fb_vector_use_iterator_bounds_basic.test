@@ -1,0 +1,87 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 10
+####
+--echo Default value of fb_vector_use_iterator_bounds is true
+SELECT @@session.fb_vector_use_iterator_bounds;
+
+show session variables like 'fb_vector_use_iterator_bounds';
+
+select * from performance_schema.session_variables
+   where variable_name='fb_vector_use_iterator_bounds';
+
+####
+## Verify that the variable is dynamic
+####
+--echo fb_vector_use_iterator_bounds is a dynamic variable (change to false)
+set @@session.fb_vector_use_iterator_bounds = false;
+SELECT @@session.fb_vector_use_iterator_bounds;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@session.fb_vector_use_iterator_bounds = true;
+SELECT @@session.fb_vector_use_iterator_bounds;
+
+####
+## Verify other accepted values 
+####
+--echo Verify other accepted values
+SET @@session.fb_vector_use_iterator_bounds = 1;
+SELECT @@session.fb_vector_use_iterator_bounds;
+SET @@session.fb_vector_use_iterator_bounds = 0;
+SELECT @@session.fb_vector_use_iterator_bounds;
+SET @@session.fb_vector_use_iterator_bounds = on;
+SELECT @@session.fb_vector_use_iterator_bounds;
+SET @@session.fb_vector_use_iterator_bounds = off;
+SELECT @@session.fb_vector_use_iterator_bounds;
+SET @@session.fb_vector_use_iterator_bounds = "off";
+SELECT @@session.fb_vector_use_iterator_bounds;
+SET @@session.fb_vector_use_iterator_bounds = "on";
+SELECT @@session.fb_vector_use_iterator_bounds;
+
+####
+## Try changing the value to invalid values
+####
+--echo Attempt setting invalid values
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_use_iterator_bounds = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_use_iterator_bounds = 2;
+--Error ER_WRONG_VALUE_FOR_VAR 
+SET @@session.fb_vector_use_iterator_bounds = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_use_iterator_bounds = "";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_use_iterator_bounds = '';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.fb_vector_use_iterator_bounds = ' ';
+
+
+####
+## Other negative test cases 
+####
+--Error ER_PARSE_ERROR
+SET local.fb_vector_use_iterator_bounds = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.fb_vector_use_iterator_bounds;
+--Error ER_UNKNOWN_TABLE
+SELECT session.fb_vector_use_iterator_bounds;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (false)
+--let $restart_parameters = restart: --fb_vector_use_iterator_bounds=false
+--source include/restart_mysqld.inc
+
+SELECT @@session.fb_vector_use_iterator_bounds;
+
+--echo restart the server with the default value (true)
+--let $restart_parameters =
+--source include/restart_mysqld.inc
+
+# check value is default (true)
+SELECT @@session.fb_vector_use_iterator_bounds;

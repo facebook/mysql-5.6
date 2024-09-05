@@ -2638,6 +2638,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->m_statement_psi = nullptr;
         thd->m_digest = nullptr;
 
+        thd->set_pk_range_path(nullptr);
+
         if (thd->variables.clean_parser_memory_per_statement) {
           thd->clean_parser_memory();
         }
@@ -3081,6 +3083,8 @@ done:
   thd->set_command(COM_SLEEP);
   thd->set_proc_info(nullptr);
   thd->lex->sql_command = SQLCOM_END;
+
+  thd->set_pk_range_path(nullptr);
 
   /* Propagate remaining disk usage to global status after the command so
      that session and global status vars agree with each other. */
@@ -6053,6 +6057,9 @@ void THD::reset_for_next_command() {
   thd->security_context()->checkout_access_maps();
 #ifndef NDEBUG
   thd->set_tmp_table_seq_id(1);
+
+  thd->set_pk_range_path(nullptr);
+
 #endif
 }
 

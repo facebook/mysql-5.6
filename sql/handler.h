@@ -7244,7 +7244,8 @@ class handler {
     @return false to indicate success
             true if the storage engine encounters an error
     */
-  virtual int vector_index_init(Item *distance_func [[maybe_unused]]) {
+  virtual int vector_index_init(Item *distance_func [[maybe_unused]],
+                                AccessPath *rangePath [[maybe_unused]]) {
     return HA_ERR_WRONG_COMMAND;
   }
 

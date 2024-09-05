@@ -436,7 +436,8 @@ unique_ptr_destroy_only<RowIterator> CreateIteratorFromAccessPath(
               path->num_output_rows(), examined_rows);
         }
         if (param.table->key_info[param.idx].is_fb_vector_index()) {
-          param.table->file->vector_index_init(*join->order.order->item);
+          param.table->file->vector_index_init(*join->order.order->item,
+                                               thd->get_pk_range_path());
         }
         break;
       }

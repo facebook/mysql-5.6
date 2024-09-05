@@ -907,7 +907,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int index_init(uint idx, bool sorted) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() override MY_ATTRIBUTE((__warn_unused_result__));
-  int vector_index_init(Item *distance_func) override;
+  int vector_index_init(Item *distance_func, AccessPath *rangePath) override;
   void vector_index_end();
 
   void unlock_row() override;

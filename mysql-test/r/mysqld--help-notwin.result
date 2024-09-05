@@ -662,6 +662,15 @@ The following options may be given as the first argument:
  KNN search will be done in SQL layer. When set to AUTO,
  the best vector access method will be used depending on
  query conditions. Default: AUTO. 
+ --fb-vector-use-iterator-bounds 
+ This flag can be used to turn on/off iterator bounds
+ based pre-filtering of embeddings, based on PK range
+ conditions, before vector search in FAISS is triggered.
+ This speeds up vector search. This session default can be
+ superceded by a query level override: 'SELECT /*+
+ SET_VAR(fb_vector_use_iterator_bounds = off) */ ... '.
+ Default: ON
+ (Defaults to on; use --skip-fb-vector-use-iterator-bounds to disable.)
  --filesort-max-file-size=# 
  The max size of a file to use for filesort. Raise an
  error when this is exceeded. 0 means no limit.
@@ -3527,6 +3536,7 @@ fb-vector-min-dimension 3
 fb-vector-search-limit-multiplier 10
 fb-vector-search-nprobe 16
 fb-vector-search-type AUTO
+fb-vector-use-iterator-bounds TRUE
 filesort-max-file-size 0
 flush FALSE
 flush-only-old-table-cache-entries FALSE

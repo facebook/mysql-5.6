@@ -27,6 +27,7 @@
 #include "rdb_global.h"
 #include "rdb_iterator.h"
 #include "rdb_utils.h"
+#include "sql/range_optimizer/range_optimizer.h"
 #ifdef WITH_FB_VECTORDB
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
@@ -61,7 +62,8 @@ static void write_inverted_list_item_key(Rdb_string_writer &writer,
                                          const size_t list_id,
                                          const rocksdb::Slice &pk) {
   write_inverted_list_key(writer, index_id, list_id);
-  assert(pk.size() > INDEX_NUMBER_SIZE);
+  /* support the case when PK slice is empty */
+  if (pk.size() <= INDEX_NUMBER_SIZE) return;
   rocksdb::Slice pk_without_index_id{pk};
   pk_without_index_id.remove_prefix(INDEX_NUMBER_SIZE);
   writer.write_slice(pk_without_index_id);
@@ -108,16 +110,28 @@ static uint read_inverted_list_key(Rdb_string_reader &reader,
 */
 class Rdb_faiss_inverted_list_context {
  public:
-  explicit Rdb_faiss_inverted_list_context(THD *thd, const TABLE *const tbl,
-                                           Item *pk_index_cond,
-                                           const Rdb_key_def *sk_descr)
+  explicit Rdb_faiss_inverted_list_context(
+      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+      AccessPath *rangePath, uchar *const pack_buffer,
+      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+      const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr)
       : m_thd(thd),
         m_tbl(tbl),
         m_pk_index_cond(pk_index_cond),
+        m_rangePath(rangePath),
+        m_pack_buffer(pack_buffer),
+        m_sk_packed_tuple(sk_packed_tuple),
+        m_end_key_packed_tuple(end_key_packed_tuple),
+        m_pk_descr(pk_descr),
         m_sk_descr(sk_descr) {}
   THD *m_thd;
   const TABLE *const m_tbl;
   Item *m_pk_index_cond;
+  AccessPath *m_rangePath;
+  uchar *const m_pack_buffer;
+  uchar *const m_sk_packed_tuple;
+  uchar *const m_end_key_packed_tuple;
+  const Rdb_key_def *m_pk_descr;
   const Rdb_key_def *m_sk_descr;
   uint m_error = HA_EXIT_SUCCESS;
   std::size_t m_current_list_size = 0;
@@ -190,19 +204,194 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       : m_context(context),
         m_index_id(index_id),
         m_list_id(list_id),
-        m_code_size(code_size) {
-    Rdb_string_writer lower_key_writer;
-    write_inverted_list_key(lower_key_writer, index_id, list_id);
+        m_code_size(code_size),
+        m_cf(cf) {
+    /* Setup iterator bounds for the first range */
+    m_context->m_error = setup_iterator_bounds_for_next_range();
+  }
+
+  enum range_next_flags {
+    RANGE_NEXT_FOUND,
+    RANGE_NEXT_EOF,
+    RANGE_NEXT_NOT_PRESENT
+  };
+
+  range_next_flags get_next_range() const {
+    if (m_context->m_rangePath) {
+      /* if one or more ranges were pushed down */
+      const auto &param = m_context->m_rangePath->index_range_scan();
+      const int num_ranges = param.num_ranges;
+      if (m_cur_range < num_ranges - 1) {
+        m_cur_range++;
+        return RANGE_NEXT_FOUND;
+      } else {
+        /* all ranges have been exhausted  */
+        return RANGE_NEXT_EOF;
+      }
+    } else {
+      /* no ranges were pushed down */
+      if (!m_default_range_iterated) {
+        /* a single range is still needed to cover the entire list */
+        m_default_range_iterated = true;
+        return RANGE_NEXT_NOT_PRESENT;
+      } else {
+        /* single range to cover entire list has already been iterated through
+         */
+        return RANGE_NEXT_EOF;
+      }
+    }
+  }
+
+  /*
+     This function sets up the iterator bounds for the first range and
+     all subsequent ranges when ranges were pushed down. It also sets
+     up iterator bounds for the default case, when ranges were not
+     pushed down (due to range conditions not being present, or due to
+     fb_vector_use_iterator_bounds = off)
+
+     Note:
+
+       The following key flags are explicitly being handled:
+
+          HA_READ_KEY_EXACT: for equality condition in min range key
+          HA_READ_AFTER_KEY: when <= is used with max range key
+
+      The following key flags are being handled implicitly:
+
+          HA_READ_AFTER_KEY: when > is used with min range key
+          HA_READ_KEY_OR_NEXT: when >= is used with min range key
+          HA_READ_BEFORE_KEY: when < is used with max range key
+
+      The following key flags are not needed (because DESC range scans - in the
+          case of fb_vector_ip() - are not executed by running a traditional
+          descending iterator)
+
+          HA_READ_PREFIX_LAST
+          HA_READ_PREFIX_LAST_OR_PREV
+   */
+
+  int setup_iterator_bounds_for_next_range() const {
+    Rdb_string_writer lower_key_writer, upper_key_writer;
+    key_range min_key, max_key;
+    rocksdb::Slice min_key_slice, max_key_slice;
+    /*
+       If the last range is open ended, the next (contiguous) list should
+       be used as the as upper iterator bound. This will be true in two
+       scenarios, see usage below.
+     */
+    bool last_range_open_ended = false;
+
+    auto is_range_available = get_next_range();
+
+    if (is_range_available == RANGE_NEXT_FOUND) {
+      const auto &param = m_context->m_rangePath->index_range_scan();
+      const auto ranges = param.ranges;
+
+      const auto cur_range = ranges[m_cur_range];
+      cur_range->make_min_endpoint(&min_key);
+      cur_range->make_max_endpoint(&max_key);
+
+      if (min_key.length) {
+        /*
+           Use the primary key parts in min range key to construct lower bound
+           prefix in mem-comparable format
+         */
+        const auto min_key_packed_size =
+            m_context->m_pk_descr->pack_index_tuple(
+                const_cast<TABLE *>(m_context->m_tbl), m_context->m_pack_buffer,
+                m_context->m_sk_packed_tuple, min_key.key, min_key.keypart_map);
+
+        min_key_slice = rocksdb::Slice((char *)m_context->m_sk_packed_tuple,
+                                       min_key_packed_size);
+      }
+      /*
+         if min range key is not present, then the min_key_slice will stay
+         as a zero length string, and that is okay
+       */
+
+      if (max_key.length) {
+        /*
+           Use the primary key parts in max range key to construct upper bound
+           prefix in mem-comparable format
+         */
+        const auto max_key_packed_size =
+            m_context->m_pk_descr->pack_index_tuple(
+                const_cast<TABLE *>(m_context->m_tbl), m_context->m_pack_buffer,
+                m_context->m_end_key_packed_tuple, max_key.key,
+                max_key.keypart_map);
+
+        if ((min_key.flag == HA_READ_KEY_EXACT) ||
+            (max_key.flag == HA_READ_AFTER_KEY)) {
+          /*
+             HA_READ_KEY_EXACT covers equality conditions like:
+
+                   WHERE pk_key_part = val
+                   WHERE pk_key_part IN (val1, val2,..)
+
+             HA_READ_AFTER_KEY covers situations like:
+
+                   WHERE pk_key_part <= val
+
+             In both cases, we need the successor key to make sure the
+             upper bound includes all valid keys in the range provided
+           */
+          m_context->m_pk_descr->successor(m_context->m_end_key_packed_tuple,
+                                           max_key_packed_size);
+        }
+
+        max_key_slice = rocksdb::Slice(
+            (char *)m_context->m_end_key_packed_tuple, max_key_packed_size);
+      } else {
+        /*
+           if max range key is not present, then the max_key_slice will stay
+           as a zero length string, and this is handled.
+          */
+        last_range_open_ended = true;
+        /* this ensures that (list_id + 1) is used for the case of an
+         * open ended last range */
+      }
+    } else if (is_range_available == RANGE_NEXT_EOF) {
+      /*
+         This covers both cases: (1) ranges were pushed down and are all
+         exhausted (2) ranges were not present, and the single range for
+         the entire list has already run through
+       */
+      return HA_ERR_END_OF_FILE;
+
+    } else if (is_range_available == RANGE_NEXT_NOT_PRESENT) {
+      /*
+        Cover the case when no ranges were pushed down, and we need
+        to create a single range for the entire list
+       */
+      last_range_open_ended = true;
+      /* this will ensure (list_id + 1) is used for the case of a single range
+         for the entire list
+       */
+    } else {
+      /* Not expected */
+      assert(0);
+      return HA_EXIT_FAILURE;
+    }
+
+    /* create lower iterator bound using min range key, if available */
+    write_inverted_list_item_key(lower_key_writer, m_index_id, m_list_id,
+                                 min_key_slice);
     m_iterator_lower_bound_key.PinSelf(lower_key_writer.to_slice());
 
-    Rdb_string_writer upper_key_writer;
-    write_inverted_list_key(upper_key_writer, index_id, list_id + 1);
+    /* create upper iterator bound using max range key, if available */
+    write_inverted_list_item_key(upper_key_writer, m_index_id,
+                                 m_list_id + last_range_open_ended,
+                                 max_key_slice);
     m_iterator_upper_bound_key.PinSelf(upper_key_writer.to_slice());
+
+    /* set up a new RocksDB iterator using the newly minted bounds */
     m_iterator = rdb_tx_get_iterator(
-        context->m_thd, cf, /* skip_bloom_filter */ true,
+        m_context->m_thd, m_cf, /* skip_bloom_filter */ true,
         m_iterator_lower_bound_key, m_iterator_upper_bound_key,
         /* snapshot */ nullptr, TABLE_TYPE::USER_TABLE);
     m_iterator->SeekToFirst();
+
+    return HA_EXIT_SUCCESS;
   }
 
   void next() override { m_iterator->Next(); }
@@ -213,6 +402,8 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     std::string sk_value;
     rocksdb::Slice key_slice;
     rocksdb::Slice value_slice;
+
+  next_range:
 
     while (m_iterator->Valid() && !m_context->m_error) {
       /* if the thread is killed, set error in context and break */
@@ -262,11 +453,20 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       m_iterator->Next();
     }
 
+    if (!m_iterator->Valid() && !m_context->m_error) {
+      m_context->m_error = setup_iterator_bounds_for_next_range();
+
+      if (!m_context->m_error) goto next_range;
+    }
+
     bool available = !m_context->m_error && m_iterator->Valid();
+
+    if (m_context->m_error == HA_ERR_END_OF_FILE) m_context->m_error = 0;
 
     if (!available) {
       m_context->on_iterator_end(m_list_id);
     }
+
     return available;
   }
 
@@ -427,10 +627,13 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
   Index_id m_index_id;
   size_t m_list_id;
   uint m_code_size;
-  std::unique_ptr<rocksdb::Iterator> m_iterator;
-  rocksdb::PinnableSlice m_iterator_lower_bound_key;
-  rocksdb::PinnableSlice m_iterator_upper_bound_key;
+  rocksdb::ColumnFamilyHandle &m_cf;
+  mutable std::unique_ptr<rocksdb::Iterator> m_iterator;
+  mutable rocksdb::PinnableSlice m_iterator_lower_bound_key;
+  mutable rocksdb::PinnableSlice m_iterator_upper_bound_key;
   std::vector<uint8_t> m_codes_buffer;
+  mutable int m_cur_range{-1};
+  mutable bool m_default_range_iterated{false};
 };
 
 class Rdb_vector_list_iterator : public Rdb_vector_db_iterator {
@@ -590,6 +793,10 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
   }
 
   virtual uint index_scan(THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+                          AccessPath *rangePath, uchar *const pack_buffer,
+                          uchar *const sk_packed_tuple,
+                          uchar *const end_key_packed_tuple,
+                          const Rdb_key_def *pk_descr,
                           const Rdb_key_def *sk_descr,
                           std::vector<float> &query_vector, uint nprobe,
                           std::unique_ptr<Rdb_vector_db_iterator>
@@ -603,7 +810,9 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     m_quantizer->search(vector_count, query_vector.data(), nprobe,
                         distances.data(), vector_ids.data());
 
-    Rdb_faiss_inverted_list_context context(thd, tbl, pk_index_cond, sk_descr);
+    Rdb_faiss_inverted_list_context context(
+        thd, tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
+        end_key_packed_tuple, pk_descr, sk_descr);
     index_scan_result_iter.reset(new Rdb_vector_list_iterator(
         std::move(context), m_index_id, m_cf_handle.get(),
         m_index_l2->code_size, std::move(vector_ids)));
@@ -613,8 +822,10 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
   virtual uint knn_search(
       THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      const Rdb_key_def *sk_descr, std::vector<float> &query_vector,
-      Rdb_vector_search_params &params,
+      AccessPath *rangePath, uchar *const pack_buffer,
+      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+      const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+      std::vector<float> &query_vector, Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) override {
     m_hit++;
     faiss::IndexIVF *index = m_index_l2.get();
@@ -628,7 +839,9 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     faiss::IVFSearchParameters search_params;
 
     search_params.nprobe = params.m_nprobe;
-    Rdb_faiss_inverted_list_context context(thd, tbl, pk_index_cond, sk_descr);
+    Rdb_faiss_inverted_list_context context(
+        thd, tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
+        end_key_packed_tuple, pk_descr, sk_descr);
     search_params.inverted_list_context = &context;
     index->search(vector_count, query_vector.data(), k, distances.data(),
                   vector_ids.data(), &search_params);
@@ -655,7 +868,9 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     uint64_t ntotal = 0;
     for (std::size_t i = 0; i < m_list_size_stats.size(); i++) {
       std::size_t list_size = 0;
-      Rdb_faiss_inverted_list_context context(thd, nullptr, nullptr, nullptr);
+      Rdb_faiss_inverted_list_context context(thd, nullptr, nullptr, nullptr,
+                                              nullptr, nullptr, nullptr,
+                                              nullptr, nullptr);
       Rdb_vector_iterator vector_iter(&context, m_index_id, *m_cf_handle,
                                       m_index_l2->code_size, i);
       while (vector_iter.is_available()) {
@@ -910,24 +1125,26 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]],
 
 #endif
 
-Rdb_vector_db_handler::Rdb_vector_db_handler() {}
+// Rdb_vector_db_handler::Rdb_vector_db_handler() {}
 
 uint Rdb_vector_db_handler::search(THD *thd, const TABLE *const tbl,
                                    Rdb_vector_index *index,
+                                   const Rdb_key_def *pk_descr,
                                    const Rdb_key_def *sk_descr,
                                    Item *pk_index_cond) {
   assert((m_search_type == FB_VECTOR_SEARCH_INDEX_SCAN) ||
          (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST));
 
   if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
-    return knn_search(thd, tbl, index, sk_descr, pk_index_cond);
+    return knn_search(thd, tbl, index, pk_descr, sk_descr, pk_index_cond);
   } else {
-    return index_scan(thd, tbl, index, sk_descr, pk_index_cond);
+    return index_scan(thd, tbl, index, pk_descr, sk_descr, pk_index_cond);
   }
 }
 
 uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE *const tbl,
                                        Rdb_vector_index *index,
+                                       const Rdb_key_def *pk_descr,
                                        const Rdb_key_def *sk_descr,
                                        Item *pk_index_cond) {
   if (!m_buffer.size()) return HA_ERR_END_OF_FILE;
@@ -940,12 +1157,15 @@ uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE *const tbl,
     return HA_EXIT_FAILURE;
   }
 
-  return index->index_scan(thd, tbl, pk_index_cond, sk_descr, m_buffer,
-                           m_nprobe, m_index_scan_result_iter);
+  return index->index_scan(thd, tbl, pk_index_cond, m_rangePath, m_pack_buffer,
+                           m_sk_packed_tuple, m_end_key_packed_tuple, pk_descr,
+                           sk_descr, m_buffer, m_nprobe,
+                           m_index_scan_result_iter);
 }
 
 uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
                                        Rdb_vector_index *index,
+                                       const Rdb_key_def *pk_descr,
                                        const Rdb_key_def *sk_descr,
                                        Item *pk_index_cond) {
   m_search_result.clear();
@@ -964,8 +1184,10 @@ uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
 
   Rdb_vector_search_params params{
       .m_metric = m_metric, .m_k = m_limit, .m_nprobe = m_nprobe};
-  uint rtn = index->knn_search(thd, tbl, pk_index_cond, sk_descr, m_buffer,
-                               params, m_search_result);
+  uint rtn =
+      index->knn_search(thd, tbl, pk_index_cond, m_rangePath, m_pack_buffer,
+                        m_sk_packed_tuple, m_end_key_packed_tuple, pk_descr,
+                        sk_descr, m_buffer, params, m_search_result);
   if (rtn) {
     return rtn;
   }

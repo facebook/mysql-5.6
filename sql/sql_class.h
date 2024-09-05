@@ -5553,6 +5553,9 @@ class THD : public MDL_context_owner,
   bool m_plan_capture_ongoing{false};
   ulong m_plan_format_modifiers{0};
 
+  /* range_path for primary key for vector search PK filtering */
+  AccessPath *m_pk_range_path{nullptr};
+
  public:
   /**
    * This is the parsed session variable 'binlog_db_rewrite_map'.
@@ -5560,6 +5563,10 @@ class THD : public MDL_context_owner,
    * while rewriting the DB. This is reset at the end of a session.
    */
   std::map<std::string, std::string, std::less<>> binlog_db_rewrite_map;
+
+  void set_pk_range_path(AccessPath *path) { m_pk_range_path = path; }
+
+  AccessPath *get_pk_range_path() { return m_pk_range_path; }
 };
 
 /**

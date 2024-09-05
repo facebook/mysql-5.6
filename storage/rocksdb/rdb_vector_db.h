@@ -26,6 +26,7 @@
 #include "rdb_utils.h"
 #include "sql/item_fb_vector_func.h"
 #include "sql/item_json_func.h"
+#include "sql/join_optimizer/access_path.h"
 #include "sql/sql_class.h"
 
 namespace myrocks {
@@ -98,18 +99,21 @@ class Rdb_vector_index {
   virtual void assign_vector(const float *data,
                              Rdb_vector_index_assignment &assignment) = 0;
 
-  virtual uint knn_search(
-      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      const Rdb_key_def *sk_descr, std::vector<float> &query_vector,
-      Rdb_vector_search_params &params,
-      std::vector<std::pair<std::string, float>> &result) = 0;
-
   virtual uint index_scan(
       THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      const Rdb_key_def *sk_descr, std::vector<float> &query_vector,
-      uint nprobe,
+      AccessPath *rangePath, uchar *const pack_buffer,
+      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+      const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+      std::vector<float> &query_vector, uint nprobe,
       std::unique_ptr<Rdb_vector_db_iterator> &index_scan_result_iter) = 0;
 
+  virtual uint knn_search(
+      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+      AccessPath *rangePath, uchar *const pack_buffer,
+      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+      const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+      std::vector<float> &query_vector, Rdb_vector_search_params &params,
+      std::vector<std::pair<std::string, float>> &result) = 0;
   /**
     scans all vectors in index and populate counters
   */
@@ -139,7 +143,11 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper,
  */
 class Rdb_vector_db_handler {
  public:
-  Rdb_vector_db_handler();
+  Rdb_vector_db_handler(uchar *const pack_buffer, uchar *const sk_packed_tuple,
+                        uchar *const end_key_packed_tuple)
+      : m_pack_buffer(pack_buffer),
+        m_sk_packed_tuple(sk_packed_tuple),
+        m_end_key_packed_tuple(end_key_packed_tuple) {}
 
   bool has_more_results() {
     if (m_search_type == FB_VECTOR_SEARCH_KNN_FIRST) {
@@ -164,19 +172,31 @@ class Rdb_vector_db_handler {
   uint current_key(std::string &key) const;
 
   uint search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-              const Rdb_key_def *sk_descr, Item *pk_index_cond);
+              const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+              Item *pk_index_cond);
 
   uint index_scan(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-                  const Rdb_key_def *sk_descr, Item *pk_index_cond);
+                  const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+                  Item *pk_index_cond);
 
   uint knn_search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-                  const Rdb_key_def *sk_descr, Item *pk_index_cond);
+                  const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
+                  Item *pk_index_cond);
 
-  int vector_index_orderby_init(Item *sort_func) {
+  int vector_index_orderby_init(Item *sort_func, AccessPath *rangePath) {
     auto *distance_func = down_cast<Item_func_fb_vector_distance *>(sort_func);
     m_limit = distance_func->m_limit;
     m_search_type = distance_func->m_search_type;
     m_nprobe = distance_func->m_nprobe;
+
+    if (rangePath && rangePath->type != AccessPath::INDEX_RANGE_SCAN) {
+      /* This should not happen */
+      assert(false);
+      /* No need to error out. Can still proceed with vector search,
+       * albeit without the benefit of range tree based iterator bounds */
+    } else {
+      m_rangePath = rangePath;
+    }
 
     auto functype = distance_func->functype();
     if (functype == Item_func::FB_VECTOR_L2) {
@@ -202,6 +222,7 @@ class Rdb_vector_db_handler {
     m_limit = 0;
     m_nprobe = 0;
     m_buffer.clear();
+    m_rangePath = nullptr;
 
     if (m_index_scan_result_iter) {
       m_index_scan_result_iter = nullptr;
@@ -219,6 +240,10 @@ class Rdb_vector_db_handler {
   // LIMIT associated with the ORDER BY clause
   uint m_limit;
   uint m_nprobe;
+  AccessPath *m_rangePath = nullptr;
+  uchar *const m_pack_buffer;
+  uchar *const m_sk_packed_tuple;
+  uchar *const m_end_key_packed_tuple;
 
   uint decode_value_to_buffer(Field *field, FB_vector_dimension dimension,
                               std::vector<float> &buffer);
