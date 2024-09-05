@@ -834,6 +834,9 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
     auto err = handle_any_error(thd);
     if (err != 0) return err;
 
+    // This loop can take a long time so make sure to yield.
+    thd_check_yield(nullptr);
+
 #ifdef __APPLE__
     if (use_direct_io && fcntl(fd, F_NOCACHE, 1) == -1) {
       const auto errn = my_errno();
@@ -889,6 +892,9 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
         mysql_file_close(fd, MYF(MY_WME));
         return err;
       }
+
+      // This loop can take a long time so make sure to yield.
+      thd_check_yield(nullptr);
 
       const auto chunk_size = metadata.chunk_size(buf_size);
       donor_chunk_metadata chunk{metadata.get_id(), chunk_size};
