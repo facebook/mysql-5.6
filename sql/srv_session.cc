@@ -895,6 +895,15 @@ bool Srv_session::open() {
   const st_plugin_int *plugin = THR_srv_session_thread;
   m_thd->set_plugin(plugin);
 
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  PSI_thread *psi;
+  uint psi_seqnum = 0;
+  psi = PSI_THREAD_CALL(new_thread)(key_thread_one_connection, psi_seqnum,
+                                    m_thd, m_thd->thread_id());
+  PSI_THREAD_CALL(set_thread_THD)(psi, m_thd);
+  m_thd->set_psi(psi);
+#endif /* HAVE_PSI_THREAD_INTERFACE */
+
   server_session_list.add(m_thd, plugin, this);
 
   m_state = SRV_SESSION_OPENED;
@@ -1077,11 +1086,16 @@ bool Srv_session::close() {
                    true /* generate_event */);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
+  PSI_thread *psi = m_thd->get_psi();
+  PSI_THREAD_CALL(set_thread_THD)(psi, nullptr);
+  PSI_THREAD_CALL(delete_thread)(psi);
+  if (PSI_THREAD_CALL(get_thread)() == psi) {
+    PSI_THREAD_CALL(set_thread)(nullptr);
+  }
   set_psi(nullptr);
 #endif
 
   m_thd->release_resources();
-
   Global_THD_manager::get_instance()->remove_thd(m_thd);
 
   mysql_mutex_lock(&m_thd->LOCK_thd_protocol);
