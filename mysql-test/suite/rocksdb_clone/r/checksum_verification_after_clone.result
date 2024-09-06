@@ -1,0 +1,29 @@
+CREATE TABLE t1(col1 INT PRIMARY KEY, col2 CHAR(64));
+INSERT INTO t1 VALUES(1, "string 1");
+INSERT INTO t1 VALUES(2, "string 2");
+INSERT INTO t1 VALUES(3, "string 3");
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+SET GLOBAL clone_autotune_concurrency = OFF;
+SET GLOBAL clone_max_concurrency = 8;
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' DATA DIRECTORY = 'CLONE_DATADIR';
+select ID, STATE, ERROR_NO from performance_schema.clone_status;
+ID	STATE	ERROR_NO
+1	Completed	0
+select ID, STAGE, STATE from performance_schema.clone_progress;
+ID	STAGE	STATE
+1	DROP DATA	Completed
+1	FILE COPY	Completed
+1	PAGE COPY	Completed
+1	SST COPY	Completed
+1	REDO COPY	Completed
+1	FILE SYNC	Completed
+1	RESTART	Not Started
+1	RECOVERY	Not Started
+# restart: --rocksdb-file-checksums=CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE --datadir=CLONE_DATADIR --log-error=MYSQLD_LOG1
+include/assert_grep.inc [Check checksum verification]
+# restart: --rocksdb-file-checksums=CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE --datadir=CLONE_DATADIR --log-error=MYSQLD_LOG2
+include/assert_grep.inc [Check checksum verification]
+# restart:
+DROP TABLE t1;
+UNINSTALL PLUGIN clone;

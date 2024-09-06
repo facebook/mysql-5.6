@@ -127,6 +127,13 @@ enum TABLE_TYPE {
   USER_TABLE = 1,
 };
 
+enum file_checksums_type {
+  CHECKSUMS_OFF = 0,
+  CHECKSUMS_WRITE_ONLY,
+  CHECKSUMS_WRITE_AND_VERIFY,
+  CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE,
+};
+
 class Mrr_rowid_source;
 
 uint32_t rocksdb_perf_context_level(THD *const thd);
@@ -1303,6 +1310,8 @@ extern char *rocksdb_datadir;
 
 extern uint rocksdb_clone_checkpoint_max_age;
 extern uint rocksdb_clone_checkpoint_max_count;
+
+extern ulong rocksdb_file_checksums;
 
 extern unsigned long long rocksdb_converter_record_cached_length;
 
