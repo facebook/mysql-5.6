@@ -283,8 +283,7 @@ int Rdb_cf_manager::remove_dropped_cf(Rdb_dict_manager *const dict_manager,
                                       const uint32 &cf_id) {
   dict_manager->assert_lock_held();
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   const auto it = m_cf_id_map.find(cf_id);
   if (it == m_cf_id_map.end()) {
@@ -443,8 +442,7 @@ int Rdb_cf_manager::drop_cf(Rdb_ddl_manager *const ddl_manager,
   // we don't delete handle object. Here we mark the column family
   // as dropped.
 
-  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   dict_manager->add_dropped_cf(batch, cf_id);
   dict_manager->commit(batch);
@@ -483,8 +481,7 @@ int Rdb_cf_manager::create_cf_flags_if_needed(
       return HA_EXIT_FAILURE;
     }
   } else {
-    const auto wb = dict_manager.begin();
-    rocksdb::WriteBatch *const batch = wb.get();
+    auto batch = Rdb_dict_manager::begin();
 
     dict_manager.add_cf_flags(batch, cf_id, flags);
     dict_manager.commit(batch);

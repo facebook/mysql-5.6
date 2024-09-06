@@ -3626,7 +3626,7 @@ class Rdb_transaction {
   rocksdb::ReadOptions m_read_opts[2];
 
   // This should be used only when updating binlog information.
-  virtual rocksdb::WriteBatchBase *get_write_batch() = 0;
+  [[nodiscard]] virtual rocksdb::WriteBatchBase &get_write_batch() = 0;
   virtual bool commit_no_binlog(
       TABLE_TYPE table_type = TABLE_TYPE::USER_TABLE) = 0;
 
@@ -3638,7 +3638,8 @@ class Rdb_transaction {
 
     @param wb
    */
-  rocksdb::Status merge_auto_incr_map(rocksdb::WriteBatchBase *const wb) {
+  [[nodiscard]] rocksdb::Status merge_auto_incr_map(
+      rocksdb::WriteBatchBase &wb) {
     // Iterate through the merge map merging all keys into data dictionary.
     rocksdb::Status s;
     for (auto &it : m_auto_incr_map) {
@@ -4735,7 +4736,7 @@ class Rdb_transaction {
 
   virtual bool has_modifications() const = 0;
 
-  virtual rocksdb::WriteBatchBase *get_indexed_write_batch(
+  [[nodiscard]] virtual rocksdb::WriteBatchBase &get_indexed_write_batch(
       TABLE_TYPE table_type) = 0;
 
   [[nodiscard]] virtual rocksdb::Status get(
@@ -5061,8 +5062,9 @@ class Rdb_transaction_impl : public Rdb_transaction {
   bool prepare() override {
     rocksdb::Status s;
 
-    s = merge_auto_incr_map(
-        m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetWriteBatch()->GetWriteBatch());
+    s = merge_auto_incr_map(*m_rocksdb_tx[TABLE_TYPE::USER_TABLE]
+                                 ->GetWriteBatch()
+                                 ->GetWriteBatch());
 #ifndef NDEBUG
     DBUG_EXECUTE_IF("myrocks_prepare_io_error",
                     dbug_change_status_to_io_error(&s););
@@ -5092,7 +5094,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     rocksdb::Status s;
 
     s = merge_auto_incr_map(
-        m_rocksdb_tx[table_type]->GetWriteBatch()->GetWriteBatch());
+        *m_rocksdb_tx[table_type]->GetWriteBatch()->GetWriteBatch());
 #ifndef DBUG_OFF
     DBUG_EXECUTE_IF("myrocks_commit_merge_io_error",
                     dbug_change_status_to_io_error(&s););
@@ -5269,25 +5271,25 @@ class Rdb_transaction_impl : public Rdb_transaction {
                    ->Count() > 0;
   }
 
-  rocksdb::WriteBatchBase *get_write_batch() override {
+  [[nodiscard]] rocksdb::WriteBatchBase &get_write_batch() override {
     if (is_two_phase()) {
-      return m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetCommitTimeWriteBatch();
+      return *m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetCommitTimeWriteBatch();
     }
-    return m_rocksdb_tx[TABLE_TYPE::USER_TABLE]
-        ->GetWriteBatch()
-        ->GetWriteBatch();
+    return *m_rocksdb_tx[TABLE_TYPE::USER_TABLE]
+                ->GetWriteBatch()
+                ->GetWriteBatch();
   }
 
   /*
     Return a WriteBatch that one can write to. The writes will skip any
     transaction locking. The writes WILL be visible to the transaction.
   */
-  rocksdb::WriteBatchBase *get_indexed_write_batch(
+  [[nodiscard]] rocksdb::WriteBatchBase &get_indexed_write_batch(
       TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    return m_rocksdb_tx[table_type]->GetWriteBatch();
+    return *m_rocksdb_tx[table_type]->GetWriteBatch();
   }
 
   [[nodiscard]] rocksdb::Status get(rocksdb::ColumnFamilyHandle &column_family,
@@ -5563,11 +5565,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
    be thought thoroughly.
 */
 class Rdb_writebatch_impl : public Rdb_transaction {
-  rocksdb::WriteBatchWithIndex *m_batch;
+  mutable rocksdb::WriteBatchWithIndex m_batch;
   rocksdb::WriteOptions write_opts;
   // Called after commit/rollback.
   void reset() {
-    m_batch->Clear();
+    m_batch.Clear();
     m_read_opts[USER_TABLE] = rocksdb::ReadOptions();
     m_read_opts[USER_TABLE].ignore_range_deletions =
         !rocksdb_enable_delete_range_for_drop_index;
@@ -5588,7 +5590,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     rocksdb::TransactionDBWriteOptimizations optimize;
     optimize.skip_concurrency_control = true;
 
-    s = merge_auto_incr_map(m_batch->GetWriteBatch());
+    s = merge_auto_incr_map(*m_batch.GetWriteBatch());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
@@ -5596,7 +5598,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
     release_snapshot(table_type);
 
-    s = rdb->Write(write_opts, optimize, m_batch->GetWriteBatch());
+    s = rdb->Write(write_opts, optimize, m_batch.GetWriteBatch());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
@@ -5617,13 +5619,11 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   /* Implementations of do_*savepoint based on rocksdB::WriteBatch savepoints */
-  void do_set_savepoint() override { m_batch->SetSavePoint(); }
+  void do_set_savepoint() override { m_batch.SetSavePoint(); }
 
-  rocksdb::Status do_pop_savepoint() override {
-    return m_batch->PopSavePoint();
-  }
+  rocksdb::Status do_pop_savepoint() override { return m_batch.PopSavePoint(); }
 
-  void do_rollback_to_savepoint() override { m_batch->RollbackToSavePoint(); }
+  void do_rollback_to_savepoint() override { m_batch.RollbackToSavePoint(); }
 
  public:
   bool is_writebatch_trx() const override { return true; }
@@ -5692,7 +5692,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     assert(!is_ac_nl_ro_rc_transaction());
 
     ++m_write_count[table_type];
-    m_batch->Put(&column_family, key, value);
+    m_batch.Put(&column_family, key, value);
     // Note Put/Delete in write batch doesn't return any error code. We simply
     // return OK here.
     return rocksdb::Status::OK();
@@ -5710,7 +5710,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     ++m_write_count[table_type];
-    m_batch->Delete(&column_family, key);
+    m_batch.Delete(&column_family, key);
     return rocksdb::Status::OK();
   }
 
@@ -5726,22 +5726,21 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     ++m_write_count[table_type];
-    return m_batch->SingleDelete(&column_family, key);
+    return m_batch.SingleDelete(&column_family, key);
   }
 
   bool has_modifications() const override {
-    return m_batch->GetWriteBatch()->Count() > 0;
+    return m_batch.GetWriteBatch()->Count() > 0;
   }
 
-  rocksdb::WriteBatchBase *get_write_batch() override { return m_batch; }
+  [[nodiscard]] rocksdb::WriteBatchBase &get_write_batch() override {
+    return m_batch;
+  }
 
-  rocksdb::WriteBatchBase *get_indexed_write_batch(
+  [[nodiscard]] rocksdb::WriteBatchBase &get_indexed_write_batch(
       TABLE_TYPE table_type) override {
+    assert(table_type != TABLE_TYPE::INTRINSIC_TMP);
     assert(!is_ac_nl_ro_rc_transaction());
-    if (table_type == TABLE_TYPE::INTRINSIC_TMP) {
-      assert(false);
-      return nullptr;
-    }
 
     ++m_write_count[table_type];
     return m_batch;
@@ -5757,8 +5756,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
           "Not supported for intrinsic tmp tables");
     }
     value->Reset();
-    return m_batch->GetFromBatchAndDB(rdb, m_read_opts[table_type],
-                                      &column_family, key, value);
+    return m_batch.GetFromBatchAndDB(rdb, m_read_opts[table_type],
+                                    &column_family, key, value);
   }
 
   void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,
@@ -5769,9 +5768,9 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       assert(false);
       return;
     }
-    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts[table_type],
-                                    &column_family, num_keys, keys, values,
-                                    statuses, sorted_input);
+    m_batch.MultiGetFromBatchAndDB(rdb, m_read_opts[table_type], &column_family,
+                                   num_keys, keys, values, statuses,
+                                   sorted_input);
   }
 
   rocksdb::Status get_for_update(const Rdb_key_def &key_descr,
@@ -5806,15 +5805,12 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       return nullptr;
     }
     const auto it = rdb->NewIterator(options);
-    return std::unique_ptr<rocksdb::Iterator>(m_batch->NewIteratorWithBase(it));
+    return std::unique_ptr<rocksdb::Iterator>(m_batch.NewIteratorWithBase(it));
   }
 
-  bool is_tx_started(TABLE_TYPE table_type) const override {
-    if (table_type == INTRINSIC_TMP) {
-      assert(false);
-      return false;
-    }
-    return (m_batch != nullptr);
+  bool is_tx_started(TABLE_TYPE table_type [[maybe_unused]]) const override {
+    assert(table_type != INTRINSIC_TMP);
+    return true;
   }
 
   void start_tx(TABLE_TYPE table_type) override {
@@ -5839,14 +5835,11 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   void start_stmt() override {}
 
   void rollback_stmt() override {
-    if (m_batch) rollback_to_stmt_savepoint();
+    rollback_to_stmt_savepoint();
   }
 
   explicit Rdb_writebatch_impl(THD *const thd)
-      : Rdb_transaction(thd), m_batch(nullptr) {
-    m_batch = new rocksdb::WriteBatchWithIndex(rocksdb::BytewiseComparator(), 0,
-                                               true);
-  }
+      : Rdb_transaction(thd), m_batch(rocksdb::BytewiseComparator(), 0, true) {}
 
   virtual ~Rdb_writebatch_impl() override {
     rollback();
@@ -5854,8 +5847,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     // Remove from the global list before all other processing is started.
     // Otherwise, information_schema.rocksdb_trx can crash on this object.
     Rdb_transaction::remove_from_global_trx_list();
-
-    delete m_batch;
   }
 };
 
@@ -10896,8 +10887,7 @@ int ha_rocksdb::create_table(const std::string &table_name,
       db_name, table_arg.s->table_name.str);
   auto local_dict_manager = dict_manager.get_dict_manager_selector_non_const(
       is_tmp_table(table_name));
-  const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   /* Create table/key descriptions and put them into the data dictionary */
   m_tbl_def = new Rdb_tbl_def(table_name, table_type);
@@ -13364,7 +13354,7 @@ int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
       inserted doesn't violate any unique keys.
     */
     row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-        ->Put(&cf, row_info.new_pk_slice, value_slice);
+        .Put(&cf, row_info.new_pk_slice, value_slice);
   } else {
     const bool assume_tracked = can_assume_tracked(ha_thd());
     const auto s =
@@ -13539,7 +13529,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
       if (!rc) {
         const auto s =
             row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-                ->SingleDelete(&kd.get_cf(), old_key_slice);
+                .SingleDelete(&kd.get_cf(), old_key_slice);
         if (!s.ok()) {
           return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                                m_table_handler);
@@ -13552,7 +13542,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
       // Unconditionally issue SD if rocksdb_partial_index_blind_delete.
       const auto s =
           row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-              ->SingleDelete(&kd.get_cf(), old_key_slice);
+              .SingleDelete(&kd.get_cf(), old_key_slice);
       if (!s.ok()) {
         return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                              m_table_handler);
@@ -13596,7 +13586,7 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
     rc = bulk_load_key(row_info.tx, kd, new_key_slice, new_value_slice, true);
   } else {
     row_info.tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-        ->Put(&kd.get_cf(), new_key_slice, new_value_slice);
+        .Put(&kd.get_cf(), new_key_slice, new_value_slice);
   }
 
   bytes_written += new_key_slice.size() + new_value_slice.size();
@@ -14176,7 +14166,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
       rocksdb::Slice secondary_key_slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
       s = tx->get_indexed_write_batch(m_tbl_def->get_table_type())
-              ->SingleDelete(&kd.get_cf(), secondary_key_slice);
+              .SingleDelete(&kd.get_cf(), secondary_key_slice);
       if (!s.ok()) {
         DBUG_RETURN(rdb_error_to_mysql(s));
       }
@@ -15235,8 +15225,7 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
   uint table_default_cf_id = tbl->m_key_descr_arr[0]->get_gl_index_id().cf_id;
   auto local_dict_manager =
       dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
-  const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   DBUG_EXECUTE_IF("rocksdb_before_delete_table", {
     const char act[] =
@@ -15409,8 +15398,7 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to,
   auto local_dict_manager =
       dict_manager.get_dict_manager_selector_non_const(is_tmp_table(from_str));
 
-  const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   // rename table is under dict_manager lock, and the cfs used
   // by indices of this table cannot be dropped during the process.
@@ -16949,8 +16937,7 @@ int ha_rocksdb::inplace_populate_sk(
   const auto table_default_cf_id = (*indexes.begin())->get_cf().GetID();
   auto local_dict_manager =
       dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
-  const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-  rocksdb::WriteBatch *const batch = wb.get();
+  auto batch = Rdb_dict_manager::begin();
 
   DBUG_EXECUTE_IF("rocksdb_inplace_populate_sk", {
     const char act[] =
@@ -17257,8 +17244,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) {
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
-    const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-    rocksdb::WriteBatch *const batch = wb.get();
+    auto batch = Rdb_dict_manager::begin();
     std::unordered_set<GL_INDEX_ID> create_index_ids;
 
     m_tbl_def = ctx0->m_new_tdef;
@@ -17345,8 +17331,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
       (ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
-    const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-    rocksdb::WriteBatch *const batch = wb.get();
+    auto batch = Rdb_dict_manager::begin();
     std::unordered_set<GL_INDEX_ID> create_index_ids;
 
     ulonglong auto_incr_val = ha_alter_info->create_info->auto_increment_value;
@@ -17374,10 +17359,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
       (is_instant(ha_alter_info) &&
        ha_alter_info->handler_trivial_ctx !=
            (uint)Instant_Type::INSTANT_DROP_INDEX)) {
-    auto local_dict_manager =
-        dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
-    const std::unique_ptr<rocksdb::WriteBatch> wb = local_dict_manager->begin();
-    rocksdb::WriteBatch *const batch = wb.get();
+    auto batch = Rdb_dict_manager::begin();
 
     // for instant DDL, during alter table, write is still running
     ctx0->m_new_tdef->m_hidden_pk_val =
