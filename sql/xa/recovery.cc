@@ -283,11 +283,13 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
   }
 
   // Track the smallest low watermark opid and the largest max opid
-  if (info->smallest_lwm_opid == std::make_pair(-1L, -1L) ||
+  if (info->smallest_lwm_opid ==
+          std::make_pair<std::int64_t, std::int64_t>(-1, -1) ||
       info->smallest_lwm_opid > lwm_opid) {
     info->smallest_lwm_opid = lwm_opid;
   }
-  if (info->largest_max_opid == std::make_pair(-1L, -1L) ||
+  if (info->largest_max_opid ==
+          std::make_pair<std::int64_t, std::int64_t>(-1, -1) ||
       info->largest_max_opid < max_opid) {
     info->largest_max_opid = max_opid;
   }

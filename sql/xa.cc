@@ -22,6 +22,7 @@
 
 #include "sql/xa.h"
 
+#include <cstdint>
 #include <memory>
 #include <new>
 #include <string>
@@ -387,8 +388,8 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
   }
 
   fprintf(stderr,
-          "Opid recovery info: Smallest low watermark Opid %ld:%ld, "
-          "Largest max Opid %ld:%ld\n",
+          "Opid recovery info: Smallest low watermark Opid %" PRId64 ":%" PRId64
+          ", Largest max Opid %" PRId64 ":%" PRId64 "\n",
           info.smallest_lwm_opid.first, info.smallest_lwm_opid.second,
           info.largest_max_opid.first, info.largest_max_opid.second);
 
