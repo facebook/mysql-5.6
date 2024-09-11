@@ -102,7 +102,7 @@ class Rdb_bulk_load_manager {
     } else {
       assert(false);
       LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
-                      "unexpected bulk load type %d", type);
+                      "unexpected bulk load type %d", static_cast<int>(type));
       return HA_EXIT_FAILURE;
     }
 
