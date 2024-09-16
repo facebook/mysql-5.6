@@ -15575,27 +15575,13 @@ bool Metadata_log_event::write_prev_dbtids(Basic_ostream *ostream) {
     DBUG_RETURN(false);
   }
 
-  bool error = false;
-
-  for (const auto &elem : prev_dbtids_) {
-    const uint64_t size = sizeof(uint64_t) + elem.first.size() + 1;
-    auto buffer = std::make_unique<uchar[]>(size);
-    uchar *ptr_buffer = buffer.get();
-
-    if (write_type_and_length(ostream, Metadata_event_types::PREV_DBTIDS_TYPE,
-                              size)) {
-      DBUG_RETURN(true);
-    }
-
-    int8store(ptr_buffer, elem.second);
-    ptr_buffer += sizeof(elem.second);
-    std::strcpy((char *)ptr_buffer, elem.first.c_str());
-    ptr_buffer += elem.first.size() + 1;
-    error = wrapper_my_b_safe_write(ostream, buffer.get(), size);
-    if (error) break;
+  if (write_type_and_length(ostream, Metadata_event_types::PREV_DBTIDS_TYPE,
+                            prev_dbtids_.size())) {
+    DBUG_RETURN(false);
   }
 
-  DBUG_RETURN(error);
+  DBUG_RETURN(wrapper_my_b_safe_write(
+      ostream, (const uchar *)prev_dbtids_.c_str(), prev_dbtids_.size()));
 }
 
 bool Metadata_log_event::write_is_in_transaction(Basic_ostream *ostream) {
@@ -15743,10 +15729,7 @@ int Metadata_log_event::pack_info(Protocol *protocol) {
   }
 
   if (does_exist(Metadata_event_types::PREV_DBTIDS_TYPE)) {
-    for (const auto &elem : prev_dbtids_) {
-      buffer.append("\tPREV_DBTIDS: " + elem.first + ":" +
-                    std::to_string(elem.second));
-    }
+    buffer.append("\tPREV_DBTIDS: " + prev_dbtids_);
     field_added = true;
   }
 
@@ -15823,10 +15806,7 @@ void Metadata_log_event::print(FILE * /* file */,
     }
 
     if (does_exist(Metadata_event_types::PREV_DBTIDS_TYPE)) {
-      for (const auto &elem : prev_dbtids_) {
-        buffer.append("\tPREV_DBTIDS: " + elem.first + ":" +
-                      std::to_string(elem.second));
-      }
+      buffer.append("\tPREV_DBTIDS: " + prev_dbtids_);
     }
 
     print_header(head, print_event_info, false);

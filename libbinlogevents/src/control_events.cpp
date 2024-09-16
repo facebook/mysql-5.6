@@ -451,7 +451,6 @@ void Metadata_event::set_exist(Metadata_event_types type) {
   std::size_t index = static_cast<std::size_t>(type);
   assert(index < existing_types_.size());
   assert(type == Metadata_event_types::DBTIDS_TYPE ||
-         type == Metadata_event_types::PREV_DBTIDS_TYPE ||
          type == Metadata_event_types::IS_IN_TRANSACTION_TYPE ||
          !existing_types_[index]);
   existing_types_[index] = true;
@@ -628,18 +627,14 @@ std::unordered_map<std::string, uint64_t> Metadata_event::get_dbtids() const {
   return dbtids_;
 }
 
-void Metadata_event::set_prev_dbtid(const std::string &db, const uint64_t &id) {
-  prev_dbtids_[db] = id;
+void Metadata_event::set_prev_dbtid(const std::string &dbtid_str) {
+  prev_dbtids_ = dbtid_str;
   set_exist(Metadata_event_types::PREV_DBTIDS_TYPE);
   // Update the size of the event when it gets serialized into the stream.
-  size_ +=
-      (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + sizeof(id) + db.size() + 1);
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + prev_dbtids_.size());
 }
 
-std::unordered_map<std::string, uint64_t> Metadata_event::get_prev_dbtids()
-    const {
-  return prev_dbtids_;
-}
+std::string Metadata_event::get_prev_dbtids() const { return prev_dbtids_; }
 
 void Metadata_event::set_is_in_transaction(bool is_in_trx) {
   is_in_transaction_ = is_in_trx;
@@ -688,6 +683,7 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   std::pair<int64_t, int64_t> raft_ingestion_checkpoint = {-1, -1};
   std::pair<int64_t, int64_t> raft_ingestion_prev_checkpoint = {-1, -1};
   uint64_t raft_ingestion_upper_bound = 0;
+  const char *ptr_prev_dbtid_str = nullptr;
   const char *ptr_db_name = nullptr;
   uint64_t dbid = 0;
   uint16_t is_in_transaction = 0;
@@ -768,9 +764,8 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       break;
     case MET::PREV_DBTIDS_TYPE:
       // Prev DB trx ID
-      READER_TRY_SET(dbid, read<uint64_t>);
-      ptr_db_name = READER_TRY_CALL(ptr, value_length - sizeof(uint64_t));
-      set_prev_dbtid(ptr_db_name, dbid);
+      ptr_prev_dbtid_str = READER_TRY_CALL(ptr, value_length);
+      set_prev_dbtid(std::string(ptr_prev_dbtid_str, value_length));
       break;
     case MET::IS_IN_TRANSACTION_TYPE:
       assert(value_length == 2);

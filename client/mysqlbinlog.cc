@@ -67,6 +67,7 @@
 #include "sql/log_event.h"
 #include "sql/my_decimal.h"
 #include "sql/rpl_constants.h"
+#include "sql/rpl_dbtid.h"
 #include "sql/rpl_gtid.h"
 #include "sql_common.h"
 #include "sql_string.h"
@@ -774,6 +775,7 @@ Sid_map *global_sid_map = nullptr;
 Checkable_rwlock *global_sid_lock = nullptr;
 Gtid_set *gtid_set_included = nullptr;
 Gtid_set *gtid_set_excluded = nullptr;
+Dbtid_set dbtid_set_excluded;
 static uint opt_zstd_compress_level = default_zstd_compression_level;
 static char *opt_compress_algorithm = nullptr;
 Gtid_set *gtid_set_stop = nullptr;
@@ -821,6 +823,7 @@ static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
             *opt_exclude_gtids_from_file_str = nullptr,
             *opt_start_gtid_str = nullptr, *opt_find_gtid_str = nullptr,
             *opt_stop_gtid_str = nullptr;
+static char *opt_exclude_dbtids_str = nullptr;
 static char *opt_index_file_str = nullptr;
 Gtid_set_map previous_gtid_set_map;
 static bool opt_skip_gtids = false;
@@ -829,6 +832,7 @@ static bool opt_skip_rows_query =
 static bool opt_skip_empty_trans = 0;
 static bool opt_read_from_binlog_server = 0;
 static bool filter_based_on_gtids = false;
+static bool filter_based_on_dbtids = false;
 static bool opt_require_row_format = false;
 
 /* It is set to true when BEGIN is found, and false when the transaction ends.
@@ -1222,13 +1226,13 @@ static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
       though they should.
     */
     case binary_log::XID_EVENT:
-      filtered = filter_based_on_gtids;
-      filter_based_on_gtids = false;
+      filtered = filter_based_on_gtids || filter_based_on_dbtids;
+      filter_based_on_gtids = filter_based_on_dbtids = false;
       break;
     case binary_log::QUERY_EVENT:
-      filtered = filter_based_on_gtids;
+      filtered = filter_based_on_gtids || filter_based_on_dbtids;
       if (down_cast<const Query_log_event *>(ev)->ends_group())
-        filter_based_on_gtids = false;
+        filter_based_on_gtids = filter_based_on_dbtids = false;
       break;
 
     /*
@@ -1254,17 +1258,26 @@ static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
     case binary_log::INCIDENT_EVENT:
       filtered = false;
       break;
-    case binary_log::METADATA_EVENT:
-      filtered = filter_based_on_gtids;
-      if (((const Metadata_log_event *)ev)
-              ->does_exist(
-                  Metadata_log_event::Metadata_event_types::PREV_HLC_TYPE)) {
+    case binary_log::METADATA_EVENT: {
+      Metadata_log_event *mdle = const_cast<Metadata_log_event *>(
+          down_cast<const Metadata_log_event *>(ev));
+
+      if (mdle->does_exist(
+              Metadata_log_event::Metadata_event_types::PREV_HLC_TYPE)) {
         /* Filter metadata event if it contains prev hlc timestamp */
         filtered = true;
       }
-      break;
+
+      if (opt_exclude_dbtids_str != nullptr) {
+        filter_based_on_dbtids =
+            dbtid_set_excluded.contains(mdle->get_dbtids());
+      }
+
+      filtered = filtered || filter_based_on_dbtids || filter_based_on_gtids;
+
+    } break;
     default:
-      filtered = filter_based_on_gtids;
+      filtered = filter_based_on_gtids || filter_based_on_dbtids;
       break;
   }
 
@@ -2455,6 +2468,11 @@ static struct my_option my_long_options[] = {
      "Identifiers were provided.",
      &opt_exclude_gtids_from_file_str, &opt_exclude_gtids_from_file_str,
      nullptr, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"exclude-dbtids", OPT_MYSQLBINLOG_EXCLUDE_DBTIDS,
+     "Print all events but those whose DB Transaction "
+     "Identifiers were provided.",
+     &opt_exclude_dbtids_str, &opt_exclude_dbtids_str, nullptr, GET_STR_ALLOC,
+     REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"print-table-metadata", OPT_PRINT_TABLE_METADATA,
      "Print metadata stored in Table_map_log_event", &opt_print_table_metadata,
      &opt_print_table_metadata, nullptr, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0,
@@ -3739,6 +3757,13 @@ static int args_post_process(void) {
   }
 
   global_sid_lock->unlock();
+
+  if (opt_exclude_dbtids_str != nullptr) {
+    if (!dbtid_set_excluded.from_string(opt_exclude_dbtids_str)) {
+      error("Could not configure --exclude-dbtids%s", opt_exclude_dbtids_str);
+      return ERROR_STOP;
+    }
+  }
 
   if (opt_skip_empty_trans != 0 && (database == NULL || opt_skip_gtids == 0)) {
     error(

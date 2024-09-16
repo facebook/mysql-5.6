@@ -3104,12 +3104,12 @@ class Sys_var_dbtids : public sys_var {
   void session_save_default(THD *, set_var *) override { assert(false); }
 
   bool global_update(THD * /*thd*/, set_var *var) override {
-    std::unordered_map<std::string, uint64_t> tids;
-    if (!MYSQL_BIN_LOG::dbtids_from_str(var->save_result.string_value.str,
-                                        &tids)) {
+    Dbtid_set dbtid_set;
+    if (!dbtid_set.from_string(var->save_result.string_value.str)) {
       return true;
     }
-    return !mysql_bin_log.update_dbtids(tids, true);
+    mysql_bin_log.update_dbtids(dbtid_set, true);
+    return false;
   }
 
   void global_save_default(THD *, set_var *) override {
@@ -3142,7 +3142,7 @@ class Sys_var_dbtids : public sys_var {
   }
 
   const uchar *global_value_ptr(THD *thd, std::string_view) override {
-    const std::string &tids_str = mysql_bin_log.get_dbtids_str();
+    const std::string &tids_str = mysql_bin_log.get_dbtid_set_str();
     char *buf = (char *)thd->alloc(tids_str.size() + 1);
     if (buf == nullptr) {
       my_error(ER_OUT_OF_RESOURCES, MYF(0));

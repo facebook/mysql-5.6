@@ -216,6 +216,8 @@ SET(MYSQLBINLOG_SOURCES
   mysqlbinlog.cc
   ${CMAKE_SOURCE_DIR}/sql/log_event.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_utility.cc
+  ${CMAKE_SOURCE_DIR}/sql/rpl_dbtid.cc
+  ${CMAKE_SOURCE_DIR}/sql/sequence_tracker.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_gtid_sid_map.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_gtid_misc.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_gtid_set.cc

@@ -53,6 +53,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"  // Item_result
+#include "rpl_dbtid.h"
 #include "rpl_gtid.h"
 #include "sql/mysqld.h"  // key_hlc_wait_cond + key_hlc_wait_mutex
 #include "sql/rpl_commit_stage_manager.h"
@@ -1028,36 +1029,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool set_applied_opid_set(const std::string &opid_set);
 
   /**
-   * Returns the current dbtid for a given database
-   */
-  uint64_t get_current_dbtid(const std::string &db, bool should_lock = true) {
-    std::unique_lock<std::mutex> lock(dbtids_lock, std::defer_lock);
-    if (should_lock) {
-      lock.lock();
-    }
-    const auto &itr = dbtids.find(db);
-    if (itr == dbtids.end()) {
-      return 0;
-    }
-    return itr->second;
-  }
-
-  /**
    * Returns the next dbtid for a given database and updates the dbtids map with
    * the new value
    */
-  uint64_t get_next_dbtid(const std::string &db, bool should_lock = true) {
-    std::unique_lock<std::mutex> lock(dbtids_lock, std::defer_lock);
-    if (should_lock) {
-      lock.lock();
-    }
-    const auto &itr = dbtids.find(db);
-    if (itr == dbtids.end()) {
-      dbtids[db] = 1;
-      return 1;
-    }
-    ++itr->second;
-    return itr->second;
+  uint64_t get_next_dbtid(const std::string &db) {
+    return dbtid_set_.get_next_tid(db);
   }
 
   /**
@@ -1066,26 +1042,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * If @force is set then we set dbtid forcefully to whatever value is provided
    * in @tids (we don't touch dbs that are not present in @tids)
    */
-  bool update_dbtids(const std::unordered_map<std::string, uint64_t> &tids,
+  void update_dbtids(const std::unordered_map<std::string, uint64_t> &tids,
                      bool force = false) {
-    std::unique_lock<std::mutex> lock(dbtids_lock);
-    if (force && tids.empty()) {
-      dbtids.clear();
-      return true;
-    }
-    for (const auto &elem : tids) {
-      if (!force && elem.second <= get_current_dbtid(elem.first, false)) {
-        continue;
-      }
-      dbtids[elem.first] = elem.second;
-    }
-    return true;
+    dbtid_set_.update(tids, force);
   }
 
-  void rm_db_from_dbtids(const std::string &db) {
-    std::unique_lock<std::mutex> lock(dbtids_lock);
-    dbtids.erase(db);
+  void update_dbtids(const Dbtid_set &dbtid_set, bool force = false) {
+    dbtid_set_.update(dbtid_set, force);
   }
+
+  void rm_db_from_dbtids(const std::string &db) { dbtid_set_.rm_db(db); }
 
   /**
    * Rolls back the THD's dbtids (THD::dbtids). If the thd's dbtids are greater
@@ -1094,48 +1060,14 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * tracking holes in dbtids seq the implicit assumption here is that if a trx
    * rolls back, all trxs after that trx in the group commit will also rollback.
    */
-  void rollback_dbtids(THD *thd) {
-    std::unique_lock<std::mutex> lock(dbtids_lock);
-    for (const auto &elem : thd->dbtids) {
-      if (elem.second > get_current_dbtid(elem.first, false)) {
-        continue;
-      }
-      dbtids[elem.first] = elem.second - 1;
-    }
-  }
+  void rollback_dbtids(THD *thd) { dbtid_set_.rollback(thd->dbtids); }
 
-  std::unordered_map<std::string, uint64_t> get_dbtids() const {
-    std::unique_lock<std::mutex> lock(dbtids_lock);
-    return dbtids;
-  }
-
-  std::string get_dbtids_str() const {
-    std::unique_lock<std::mutex> lock(dbtids_lock);
-    return dbtids_to_str(dbtids);
-  }
+  std::string get_dbtid_set_str() const { return dbtid_set_.to_string(); }
 
   /**
    * Check if all dbs present in @tids_str are valid databases
    */
   static bool validate_dbtids(THD *thd, const std::string &tids_str);
-
-  static std::string dbtids_to_str(
-      const std::unordered_map<std::string, uint64_t> &tids) {
-    std::stringstream ss;
-    for (const auto &elem : tids) {
-      ss << elem.first << ":" << elem.second << ",\n";
-    }
-    std::string ret = ss.str();
-    if (!ret.empty()) {
-      ret.pop_back();
-      ret.pop_back();
-    }
-    return ret;
-  }
-
-  static bool dbtids_from_str(
-      const std::string &tids_str,
-      std::unordered_map<std::string, uint64_t> *tids_ptr);
 
   bool get_lwm_applied_opid(
       std::pair<int64_t, int64_t> *lwm,
@@ -1156,8 +1088,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   // Max HLC timestamp written to the binlog
   std::atomic<uint64_t> max_write_hlc_ts{0};
 
-  mutable std::mutex dbtids_lock;
-  std::unordered_map<std::string, uint64_t> dbtids;
+  Dbtid_set dbtid_set_;
 
   // Used by raft log only
   // Log file name: binary-logs-{port}.####

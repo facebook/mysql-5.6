@@ -110,13 +110,43 @@ connection slave;
 select @@global.dbtids;
 
 
+echo Case 5: Check if mysqlbinlog dbtid filter works correctly;
+connection master;
+let $MYSQLD_DATADIR= `select @@datadir`;
+let $MYSQLBINLOG_OUTFILE=$MYSQLTEST_VARDIR/tmp/dbtid_mysqlbinlog.sql;
+let $mysqlbinlog_parameters= -vvv --skip-gtids --exclude-dbtids='db1:2-3' --result-file=$MYSQLBINLOG_OUTFILE --local-load=$MYSQLTEST_VARDIR/tmp/ $MYSQLD_DATADIR/master-bin.00000*;
+source include/mysqlbinlog.inc;
+exec grep -c "DBTIDS: db1:1" $MYSQLBINLOG_OUTFILE || true;
+exec grep -c "DBTIDS: db1:2" $MYSQLBINLOG_OUTFILE || true;
+exec grep -c "DBTIDS: db1:3" $MYSQLBINLOG_OUTFILE || true;
+exec grep -c "DBTIDS: db1:4" $MYSQLBINLOG_OUTFILE || true;
+remove_file $MYSQLBINLOG_OUTFILE;
+
+
+echo Case 6: Test different kinds of dbtid strings;
+set @save.dbtids = @@global.dbtids;
+set @@global.dbtids = "db1:1-10:15-20:25,db2:1";
+select @@global.dbtids;
+set @@global.dbtids = "db1:1-10:15:16-20:25,db2:1-10";
+select @@global.dbtids;
+set @@global.dbtids = "db1:1-10:15-20:14";
+select @@global.dbtids;
+set @@global.dbtids = "db1:5-10:15-20:25,db2:100";
+select @@global.dbtids;
+set @@global.dbtids = @save.dbtids;
+
+
 echo Cleanup;
 connection master;
 drop database db1;
-drop database db2;
+select @@global.dbtids;
 
+drop database db2;
 select @@global.dbtids;
 
 source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+select @@global.dbtids;
 
 source include/rpl_end.inc;

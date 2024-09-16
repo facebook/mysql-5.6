@@ -1047,6 +1047,8 @@ SET(BINLOG_SOURCE
   changestreams/misc/column_filters/column_filter_outbound_func_indexes.cc
   log_event.cc
   rpl_commit_stage_manager.cc
+  sequence_tracker.cc
+  rpl_dbtid.cc
   rpl_filter.cc
   rpl_gtid_execution.cc
   rpl_gtid_misc.cc

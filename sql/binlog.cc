@@ -1798,10 +1798,7 @@ bool MYSQL_BIN_LOG::write_metadata_event(THD *thd,
       thd->dbtids = metadata_ev.get_dbtids();
     } else {
       assert(!thd->dbtids.empty());
-      if (!update_dbtids(thd->dbtids)) {
-        assert(false);
-        return true;
-      }
+      update_dbtids(thd->dbtids);
       for (const auto &elem : thd->dbtids) {
         metadata_ev.set_dbtid(elem.first, elem.second);
         write_event = true;
@@ -5843,7 +5840,15 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
         }
         if (enable_dbtids) {
           update_dbtids(mdle->get_dbtids());
-          update_dbtids(mdle->get_prev_dbtids());
+          Dbtid_set prev;
+          if (!prev.from_string(mdle->get_prev_dbtids())) {
+            my_printf_error(ER_BINLOG_LOGICAL_CORRUPTION,
+                            "Could not parse prev dbtid from %s, dbtid: %s",
+                            MYF(0), filename, mdle->get_prev_dbtids().c_str());
+            ret = ERROR, done = true;
+          } else {
+            update_dbtids(prev);
+          }
         }
         break;
       }
@@ -6812,9 +6817,7 @@ bool MYSQL_BIN_LOG::open_binlog(
       }
 
       if (enable_dbtids) {
-        for (const auto &elem : dbtids) {
-          metadata_ev.set_prev_dbtid(elem.first, elem.second);
-        }
+        metadata_ev.set_prev_dbtid(dbtid_set_.to_string());
         should_write_metadata_event = true;
       }
     }
@@ -9850,7 +9853,7 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
     }
   }
 
-  ss_info->dbtids = get_dbtids_str();
+  ss_info->dbtid_set = get_dbtid_set_str();
 }
 
 void MYSQL_BIN_LOG::unlock_commits(snapshot_info_st *ss_info
@@ -15952,43 +15955,17 @@ bool MYSQL_BIN_LOG::validate_dbtids(THD *thd, const std::string &tids_str) {
     all_dbs.insert(schema->name().c_str());
   }
 
-  std::unordered_map<std::string, uint64_t> tids;
-  if (!MYSQL_BIN_LOG::dbtids_from_str(tids_str, &tids)) {
+  Dbtid_set dbtid_set;
+  if (!dbtid_set.from_string(tids_str)) {
     return false;
   }
-  for (const auto &elem : tids) {
-    if (all_dbs.find(elem.first) == all_dbs.end()) {
+
+  for (const auto &db : dbtid_set.dbs()) {
+    if (all_dbs.find(db) == all_dbs.end()) {
       return false;
     }
   }
 
-  return true;
-}
-
-bool MYSQL_BIN_LOG::dbtids_from_str(
-    const std::string &tids_str,
-    std::unordered_map<std::string, uint64_t> *tids_ptr) {
-  if (!tids_ptr) {
-    return false;
-  }
-  if (tids_str.empty()) {
-    tids_ptr->clear();
-    return true;
-  }
-  std::vector<std::string> kvs;
-  boost::split(kvs, tids_str, boost::is_any_of(","));
-  for (const auto &kv : kvs) {
-    std::vector<std::string> parts;
-    boost::split(parts, kv, boost::is_any_of(":"));
-    if (parts.size() != 2) {
-      return false;
-    }
-    boost::trim(parts[0]);
-    boost::trim(parts[1]);
-    const std::string &key = parts[0];
-    const uint64_t &value = std::stoull(parts[1]);
-    (*tids_ptr)[key] = value;
-  }
   return true;
 }
 

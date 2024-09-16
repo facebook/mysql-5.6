@@ -253,7 +253,7 @@ bool seen_views = false;
 
 collation_unordered_set<string> *ignore_table;
 
-static std::unordered_map<std::string, uint64_t> dbtids;
+static std::unordered_map<std::string, std::string> dbtids;
 
 #define FBOBJ_FBTYPE_FIELD 1
 #define ASSOC_TYPE_FIELD 4
@@ -6365,7 +6365,7 @@ static bool process_dbtids(const char *dbtids_str) {
     boost::trim(parts[0]);
     boost::trim(parts[1]);
     const std::string &key = parts[0];
-    const uint64_t &value = std::stoull(parts[1]);
+    const std::string &value = parts[1];
     dbtids[key] = value;
   }
   return false;
@@ -6374,8 +6374,8 @@ static bool process_dbtids(const char *dbtids_str) {
 static void print_dbtids(const char *db) {
   auto itr = dbtids.find(db);
   if (!opt_set_dbtids || itr == dbtids.end()) return;
-  fprintf(md_result_file, "SET @@GLOBAL.DBTIDS='%s:%" PRIu64 "';\n",
-          itr->first.c_str(), itr->second);
+  fprintf(md_result_file, "SET @@GLOBAL.DBTIDS='%s:%s';\n", itr->first.c_str(),
+          itr->second.c_str());
 }
 
 /*

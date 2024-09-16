@@ -930,16 +930,16 @@ class Metadata_event : public Binary_log_event {
   /**
    * Sets prev dbtids
    *
-   * @param dbtids
+   * @param dbtid_str
    */
-  void set_prev_dbtid(const std::string &db, const uint64_t &id);
+  void set_prev_dbtid(const std::string &dbtid_str);
 
   /**
    * Get prev dbtids
    *
    * @return dbtids
    */
-  std::unordered_map<std::string, uint64_t> get_prev_dbtids() const;
+  std::string get_prev_dbtids() const;
 
   /**
    * Sets is_in_tranasction flag
@@ -1096,7 +1096,7 @@ class Metadata_event : public Binary_log_event {
 
   std::unordered_map<std::string, uint64_t> dbtids_;
 
-  std::unordered_map<std::string, uint64_t> prev_dbtids_;
+  std::string prev_dbtids_;
 
   std::optional<bool> is_in_transaction_;
 

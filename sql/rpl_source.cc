@@ -1655,9 +1655,9 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok) {
         "Applied_opid_set", ss_info.applied_opid_set.length()));
   }
 
-  if (!ss_info.dbtids.empty()) {
+  if (!ss_info.dbtid_set.empty()) {
     field_list.push_back(
-        new Item_empty_string("DBTID", ss_info.dbtids.length()));
+        new Item_empty_string("DBTID", ss_info.dbtid_set.length()));
   }
 
   if (thd->send_result_metadata(field_list,
@@ -1685,8 +1685,8 @@ bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok) {
     protocol->store(ss_info.applied_opid_set.c_str(), &my_charset_bin);
   }
 
-  if (!ss_info.dbtids.empty()) {
-    protocol->store(ss_info.dbtids.c_str(), &my_charset_bin);
+  if (!ss_info.dbtid_set.empty()) {
+    protocol->store(ss_info.dbtid_set.c_str(), &my_charset_bin);
   }
 
   if (protocol->end_row()) DBUG_RETURN(true);
