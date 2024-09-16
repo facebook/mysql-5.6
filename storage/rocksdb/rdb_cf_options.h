@@ -1,5 +1,6 @@
 /*
-   Copyright (c) 2014, SkySQL Ab
+   Portions Copyright (c) 2016-Present, Facebook, Inc.
+   Portions Copyright (c) 2014, SkySQL Ab
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

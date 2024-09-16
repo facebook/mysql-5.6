@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 if [ -z "$PATH" ]; then
     export PATH="/sbin:/usr/sbin:/bin:/usr/bin"
 fi

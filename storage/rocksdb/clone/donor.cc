@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2022, 2023, Laurynas Biveinis
+  Copyright (c) Meta Platforms, Inc. and affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
