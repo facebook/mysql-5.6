@@ -151,77 +151,6 @@ static Rdb_exec_time st_rdb_exec_time;
 static int mysql_value_to_bool(struct st_mysql_value *value,
                                bool *return_value);
 
-class Rdb_explicit_snapshot : public explicit_snapshot {
- public:
-  static std::shared_ptr<Rdb_explicit_snapshot> create(
-      snapshot_info_st *ssinfo, rocksdb::DB *db,
-      const rocksdb::Snapshot *snapshot) {
-    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
-    auto s = std::unique_ptr<rocksdb::ManagedSnapshot>(
-        new rocksdb::ManagedSnapshot(db, snapshot));
-    if (!s) {
-      return nullptr;
-    }
-    ssinfo->snapshot_id = ++explicit_snapshot_counter;
-    auto ret = std::make_shared<Rdb_explicit_snapshot>(*ssinfo, std::move(s));
-    if (!ret) {
-      return nullptr;
-    }
-    explicit_snapshots[ssinfo->snapshot_id] = ret;
-    return ret;
-  }
-
-  static std::string dump_snapshots() {
-    std::string str;
-    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
-    for (const auto &elem : explicit_snapshots) {
-      const auto &ss = elem.second.lock();
-      assert(ss != nullptr);
-      const auto &info = ss->ss_info;
-      str += "\nSnapshot ID: " + std::to_string(info.snapshot_id) +
-             "\nBinlog File: " + info.binlog_file +
-             "\nBinlog Pos: " + std::to_string(info.binlog_pos) +
-             "\nGtid Executed: " + info.gtid_executed + "\n";
-    }
-
-    return str;
-  }
-
-  static std::shared_ptr<Rdb_explicit_snapshot> get(
-      const ulonglong snapshot_id) {
-    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
-    auto elem = explicit_snapshots.find(snapshot_id);
-    if (elem == explicit_snapshots.end()) {
-      return nullptr;
-    }
-    return elem->second.lock();
-  }
-
-  rocksdb::ManagedSnapshot *get_snapshot() { return snapshot.get(); }
-
-  Rdb_explicit_snapshot(snapshot_info_st ssinfo,
-                        std::unique_ptr<rocksdb::ManagedSnapshot> &&snapshot)
-      : explicit_snapshot(ssinfo), snapshot(std::move(snapshot)) {}
-
-  virtual ~Rdb_explicit_snapshot() {
-    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
-    explicit_snapshots.erase(ss_info.snapshot_id);
-  }
-
- private:
-  std::unique_ptr<rocksdb::ManagedSnapshot> snapshot;
-
-  static std::mutex explicit_snapshot_mutex;
-  static ulonglong explicit_snapshot_counter;
-  static std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
-      explicit_snapshots;
-};
-
-std::mutex Rdb_explicit_snapshot::explicit_snapshot_mutex;
-ulonglong Rdb_explicit_snapshot::explicit_snapshot_counter = 0;
-std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
-    Rdb_explicit_snapshot::explicit_snapshots;
-
 /**
   Updates row counters based on the table type and operation type.
 */
@@ -1378,6 +1307,8 @@ static int rocksdb_compact_column_family(THD *const thd,
                                          void *const var_ptr,
                                          struct st_mysql_value *const value);
 
+static uint64_t rdb_get_min_binlog_ttl_read_filtering_ts();
+
 static const char *index_type_names[] = {"kBinarySearch", "kHashSearch", NullS};
 
 static TYPELIB index_type_typelib = {array_elements(index_type_names) - 1,
@@ -2498,6 +2429,14 @@ static MYSQL_SYSVAR_INT(debug_binlog_ttl_compaction_ts_delta,
                         /* min */ INT_MIN,
                         /* max */ INT_MAX, 0);
 
+static MYSQL_THDVAR_ULONGLONG(
+    consistent_snapshot_ttl_read_filtering_ts_nsec, PLUGIN_VAR_RQCMDARG,
+    "User specified read filtering time for consistent snapshots", nullptr,
+    nullptr,
+    /* default (0ns) */ 0,
+    /* min (0ns) */ 0,
+    /* max */ SIZE_T_MAX, 1);
+
 static MYSQL_SYSVAR_UINT(
     max_manual_compactions, rocksdb_max_manual_compactions, PLUGIN_VAR_RQCMDARG,
     "Maximum number of pending + ongoing number of manual compactions.",
@@ -3161,6 +3100,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(binlog_ttl_compaction_ts_interval_secs),
     MYSQL_SYSVAR(binlog_ttl_compaction_ts_offset_secs),
     MYSQL_SYSVAR(debug_binlog_ttl_compaction_ts_delta),
+    MYSQL_SYSVAR(consistent_snapshot_ttl_read_filtering_ts_nsec),
     MYSQL_SYSVAR(reset_stats),
     MYSQL_SYSVAR(io_write_timeout),
     MYSQL_SYSVAR(seconds_between_stat_computes),
@@ -3242,6 +3182,91 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_skip_bloom_filter_check_on_iterator_bounds),
     MYSQL_SYSVAR(enable_autoinc_compat_mode),
     nullptr};
+
+class Rdb_explicit_snapshot : public explicit_snapshot {
+ public:
+  static std::shared_ptr<Rdb_explicit_snapshot> create(
+      THD *thd, snapshot_info_st *ssinfo, rocksdb::DB *db,
+      const rocksdb::Snapshot *snapshot) {
+    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
+    auto s = std::unique_ptr<rocksdb::ManagedSnapshot>(
+        new rocksdb::ManagedSnapshot(db, snapshot));
+    if (!s) {
+      return nullptr;
+    }
+    ssinfo->snapshot_id = ++explicit_snapshot_counter;
+    const uint64_t client_provided_read_filtering_ts =
+        THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
+        1000000000UL;
+    // NOTE: We need to set read filtering ts to min of all active trxs and not
+    // the current hlc because some active trxs can commit to binlog later with
+    // a lower read filtering ts and that can cause failures when we try to use
+    // the snapshot to perform dump & load and then replay binlogs because some
+    // trxs in the binlog may access rows that have been expired according to
+    // current hlc.
+    ssinfo->read_filtering_ts =
+        client_provided_read_filtering_ts
+            ? client_provided_read_filtering_ts
+            : rdb_get_min_binlog_ttl_read_filtering_ts();
+
+    auto ret = std::make_shared<Rdb_explicit_snapshot>(*ssinfo, std::move(s));
+    if (!ret) {
+      return nullptr;
+    }
+    explicit_snapshots[ssinfo->snapshot_id] = ret;
+    return ret;
+  }
+
+  static std::string dump_snapshots() {
+    std::string str;
+    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
+    for (const auto &elem : explicit_snapshots) {
+      const auto &ss = elem.second.lock();
+      assert(ss != nullptr);
+      const auto &info = ss->ss_info;
+      str += "\nSnapshot ID: " + std::to_string(info.snapshot_id) +
+             "\nBinlog File: " + info.binlog_file +
+             "\nBinlog Pos: " + std::to_string(info.binlog_pos) +
+             "\nGtid Executed: " + info.gtid_executed + "\n";
+    }
+
+    return str;
+  }
+
+  static std::shared_ptr<Rdb_explicit_snapshot> get(
+      const ulonglong snapshot_id) {
+    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
+    auto elem = explicit_snapshots.find(snapshot_id);
+    if (elem == explicit_snapshots.end()) {
+      return nullptr;
+    }
+    return elem->second.lock();
+  }
+
+  rocksdb::ManagedSnapshot *get_snapshot() { return snapshot.get(); }
+
+  Rdb_explicit_snapshot(snapshot_info_st ssinfo,
+                        std::unique_ptr<rocksdb::ManagedSnapshot> &&snapshot)
+      : explicit_snapshot(ssinfo), snapshot(std::move(snapshot)) {}
+
+  virtual ~Rdb_explicit_snapshot() {
+    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
+    explicit_snapshots.erase(ss_info.snapshot_id);
+  }
+
+ private:
+  std::unique_ptr<rocksdb::ManagedSnapshot> snapshot;
+
+  static std::mutex explicit_snapshot_mutex;
+  static ulonglong explicit_snapshot_counter;
+  static std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
+      explicit_snapshots;
+};
+
+std::mutex Rdb_explicit_snapshot::explicit_snapshot_mutex;
+ulonglong Rdb_explicit_snapshot::explicit_snapshot_counter = 0;
+std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
+    Rdb_explicit_snapshot::explicit_snapshots;
 
 static bool is_tmp_table(const std::string &tablename) {
   if (tablename.find(TMP_SCHEMA_NAME) == 0) {
@@ -4002,7 +4027,7 @@ class Rdb_transaction {
 
   void create_explicit_snapshot(snapshot_info_st *ss_info) {
     m_explicit_snapshot = Rdb_explicit_snapshot::create(
-        ss_info, rdb, m_read_opts[TABLE_TYPE::USER_TABLE].snapshot);
+        m_thd, ss_info, rdb, m_read_opts[TABLE_TYPE::USER_TABLE].snapshot);
   }
 
  private:
@@ -4851,8 +4876,8 @@ class Rdb_transaction {
       assert(thd_is_executing_binlog_events(m_thd));
       m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts;
     } else if (m_explicit_snapshot) {
-      set_ttl_read_filtering_ts(m_explicit_snapshot->ss_info.snapshot_hlc /
-                                1000000000UL);
+      assert(m_explicit_snapshot->ss_info.read_filtering_ts);
+      set_ttl_read_filtering_ts(m_explicit_snapshot->ss_info.read_filtering_ts);
     } else {
       set_ttl_read_filtering_ts(mysql_bin_log.get_max_write_hlc_nsec() /
                                 1000000000UL);
@@ -7162,26 +7187,6 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker {
   }
 };
 
-class Rdb_min_binlog_ttl_read_filtering_ts_calculator
-    : public Rdb_tx_list_walker {
- private:
-  uint64_t min_ts = 0;
-
- public:
-  explicit Rdb_min_binlog_ttl_read_filtering_ts_calculator() {
-    min_ts = mysql_bin_log.get_max_write_hlc_nsec() / 1000000000UL;
-  }
-
-  void process_tran(const Rdb_transaction *const tx) override {
-    const uint64_t ts = tx->get_ttl_read_filtering_ts();
-    if (ts && ts < min_ts) {
-      min_ts = ts;
-    }
-  }
-
-  uint64_t get() const { return min_ts; }
-};
-
 /*
   returns a vector of info for all non-replication threads
   for use by information_schema.rocksdb_trx
@@ -7207,10 +7212,11 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
   returns the min binlog ttl read filtering ts among all active trxs
   used during compaction and binlog rotation with binlog ttl is enabled
 */
-uint64_t rdb_get_min_binlog_ttl_read_filtering_ts() {
-  Rdb_min_binlog_ttl_read_filtering_ts_calculator calc;
-  Rdb_transaction_list::for_each(calc);
-  return calc.get();
+static uint64_t rdb_get_min_binlog_ttl_read_filtering_ts() {
+  uint64_t oldest_snapshot_ts = oldest_transaction_timestamp();
+  return oldest_snapshot_ts
+             ? oldest_snapshot_ts
+             : mysql_bin_log.get_max_write_hlc_nsec() / 1000000000UL;
 }
 
 /* Performs atomic CAS operation to update the binlog TTL compaction timestamp
@@ -7634,7 +7640,8 @@ static int rocksdb_explicit_snapshot(
       if (mysql_bin_log_is_open()) {
         mysql_bin_log_lock_commits(ss_info);
       }
-      auto s = Rdb_explicit_snapshot::create(ss_info, rdb, rdb->GetSnapshot());
+      auto s =
+          Rdb_explicit_snapshot::create(thd, ss_info, rdb, rdb->GetSnapshot());
       if (mysql_bin_log_is_open()) {
         mysql_bin_log_unlock_commits(ss_info);
       }
@@ -7693,7 +7700,7 @@ static int rocksdb_start_tx_and_assign_read_view(
                              user for whom the transaction should
                              be committed */
     snapshot_info_st *ss_info /*!< in: Snapshot info like binlog file, pos,
-                               gtid executed and HLC */
+                              gtid executed and HLC */
 ) {
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -7709,11 +7716,24 @@ static int rocksdb_start_tx_and_assign_read_view(
   tx->set_tx_read_only(true);
   rocksdb_register_tx(hton, thd, tx);
   tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
-  if (!ss_info) {
-    (void)tx->get_or_create_ttl_read_filtering_ts();
-  } else {
-    tx->set_ttl_read_filtering_ts(ss_info->snapshot_hlc / 1000000000UL);
+
+  const uint64_t client_provided_read_filtering_ts =
+      THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
+      1000000000UL;
+  // NOTE: We need to set read filtering ts to min of all active trxs and not
+  // the current hlc because some active trxs can commit to binlog later with a
+  // lower read filtering ts and that can cause failures when we try to use the
+  // snapshot to perform dump & load and then replay binlogs because some trxs
+  // in the binlog may access rows that have been expired according to current
+  // hlc.
+  const uint64_t read_filtering_ts =
+      client_provided_read_filtering_ts
+          ? client_provided_read_filtering_ts
+          : rdb_get_min_binlog_ttl_read_filtering_ts();
+  if (ss_info) {
+    ss_info->read_filtering_ts = read_filtering_ts;
   }
+  tx->set_ttl_read_filtering_ts(read_filtering_ts);
 
   return HA_EXIT_SUCCESS;
 }

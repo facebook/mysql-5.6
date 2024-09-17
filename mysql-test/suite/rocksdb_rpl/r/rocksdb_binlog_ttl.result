@@ -192,6 +192,14 @@ release explicit rocksdb snapshot;
 delete from short_ttl_table;
 delete from non_ttl_table;
 include/sync_slave_sql_with_master.inc
+"Case: Client provided read filtering time is respected"
+insert into short_ttl_table values(unix_timestamp());
+set @@session.rocksdb_consistent_snapshot_ttl_read_filtering_ts_nsec = (unix_timestamp() + 5 + 1) * 1000000000;
+start transaction with consistent snapshot;
+include/assert.inc [Primary: Client provided read filtering time should filter out row]
+commit;
+delete from short_ttl_table;
+include/sync_slave_sql_with_master.inc
 "Case: Partial rollout should work"
 "1. Enabled on primary but not on secondary"
 set @@global.rocksdb_binlog_ttl = 0;

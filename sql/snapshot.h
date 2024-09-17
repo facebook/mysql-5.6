@@ -36,6 +36,7 @@ struct snapshot_info_st {
   ulonglong snapshot_hlc = 0;
   std::string applied_opid_set;
   std::string dbtid_set;
+  uint64_t read_filtering_ts = 0;
 };
 
 class explicit_snapshot {

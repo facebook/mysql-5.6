@@ -2139,6 +2139,9 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
+ --rocksdb-consistent-snapshot-ttl-read-filtering-ts-nsec=# 
+ User specified read filtering time for consistent
+ snapshots
  --rocksdb-converter-record-cached-length=# 
  Maximum number of bytes to cache on table handler for
  encoding table record data. 0 means no limit.
@@ -3919,6 +3922,7 @@ rocksdb-compaction-sequential-deletes-count-sd TRUE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 150000
 rocksdb-compaction-stats ON
+rocksdb-consistent-snapshot-ttl-read-filtering-ts-nsec 0
 rocksdb-converter-record-cached-length 0
 rocksdb-corrupt-data-action ERROR
 rocksdb-create-checkpoint 
