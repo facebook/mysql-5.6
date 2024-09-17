@@ -4684,6 +4684,7 @@ bool Fil_shard::space_truncate(space_id_t space_id, page_no_t size_in_pages) {
   /* Step-1: Prepare tablespace for truncate. This involves
   stopping all the new operations + IO on that tablespace. Any future attempts
   to flush will be ignored and pages discarded. */
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
   if (space_prepare_for_truncate(space_id, space) != DB_SUCCESS) {
     return false;
   }
@@ -5133,6 +5134,8 @@ The tablespace must exist in the memory cache.
 @return InnoDB error code */
 dberr_t Fil_shard::space_rename(space_id_t space_id, const char *old_path,
                                 const char *new_name, const char *new_path_in) {
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
+
   fil_space_t *space;
   ulint count = 0;
   fil_node_t *file = nullptr;
@@ -8175,6 +8178,8 @@ void Fil_shard::space_flush(space_id_t space_id) {
 }
 
 void fil_flush(space_id_t space_id, flush_from_t from) {
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
+
   auto shard = fil_system->shard_by_id(space_id);
 
   shard->mutex_acquire();
@@ -8214,6 +8219,7 @@ void Fil_shard::flush_file_spaces(flush_from_t from) {
 }
 
 void Fil_system::flush_file_spaces(flush_from_t from) {
+  Thd_wait_scope wait_scope(nullptr, THD_WAIT_TABLE_FLUSH_SYNC);
   for (auto shard : m_shards) {
     shard->flush_file_spaces(from);
   }
