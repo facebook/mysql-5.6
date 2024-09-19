@@ -69,6 +69,7 @@ extern "C" struct cpu_scheduler_service_st {
   bool (*is_scheduler_enabled)();
   tp_conn_handle (*get_current_task_connection)();
   tp_tenant_id_handle (*get_tenant_id)(const char *db);
+  int (*get_current_scheduler_id)();
 } * cpu_scheduler_service;
 
 /**
@@ -100,6 +101,8 @@ extern "C" struct cpu_scheduler_service_st {
 #define tp_get_current_task_connection() \
   cpu_scheduler_service->get_current_task_connection()
 #define tp_get_tenant_id(_DB) cpu_scheduler_service->get_tenant_id(_DB)
+#define tp_get_current_scheduler_id() \
+  cpu_scheduler_service->get_current_scheduler_id();
 
 #else
 
@@ -222,5 +225,13 @@ tp_conn_handle tp_get_current_task_connection();
           tp_create_connection call for this db name.
 */
 tp_tenant_id_handle tp_get_tenant_id(const char *db);
+
+/**
+  Get scheduler id of the current task.
+
+  @return Scheduler id if current thread is running CPU scheduler task,
+          -1 if current thread is not a CPU scheduler task.
+*/
+int tp_get_current_scheduler_id();
 
 #endif

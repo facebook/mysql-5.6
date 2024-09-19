@@ -238,6 +238,7 @@ extern bool skip_master_info_check_for_read_only_error_msg_extra;
 extern bool send_error_before_closing_timed_out_connection;
 extern char *opt_read_only_error_msg_extra;
 extern bool lower_case_file_system;
+extern ulong max_mdl_mutex_waiter_release;
 
 enum enum_slave_rows_search_algorithms {
   SLAVE_ROWS_TABLE_SCAN = (1U << 0),

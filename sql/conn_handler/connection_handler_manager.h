@@ -69,6 +69,7 @@ struct Cpu_scheduler_functions {
   bool (*is_scheduler_enabled)();
   tp_conn_handle (*get_current_task_connection)();
   tp_tenant_id_handle (*get_tenant_id)(const char *db);
+  int (*get_current_scheduler_id)();
 };
 
 /**

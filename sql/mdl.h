@@ -1367,7 +1367,14 @@ class MDL_wait {
 
   // WS_EMPTY since EMPTY conflicts with #define in system headers on some
   // platforms.
-  enum enum_wait_status { WS_EMPTY = 0, GRANTED, VICTIM, TIMEOUT, KILLED };
+  enum enum_wait_status {
+    WS_EMPTY = 0,
+    GRANTED,
+    RETRY,
+    VICTIM,
+    TIMEOUT,
+    KILLED
+  };
 
   bool set_status(enum_wait_status result_arg);
   enum_wait_status get_status();
@@ -1376,6 +1383,9 @@ class MDL_wait {
                               struct timespec *abs_timeout, bool signal_timeout,
                               const PSI_stage_info *wait_state_name,
                               bool ignore_killed);
+
+  void set_cpu_scheduler_id(int id) { m_scheduler_id = id; }
+  int get_cpu_scheduler_id() { return m_scheduler_id; }
 
  private:
   /**
@@ -1388,6 +1398,8 @@ class MDL_wait {
   mysql_mutex_t m_LOCK_wait_status;
   mysql_cond_t m_COND_wait_status;
   enum_wait_status m_wait_status;
+
+  int m_scheduler_id;
 };
 
 /**

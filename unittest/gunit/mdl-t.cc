@@ -55,6 +55,10 @@ void thd_wait_begin(THD *, int) {}
 
 void thd_wait_end(THD *) {}
 
+int tp_get_current_scheduler_id() { return -1; }
+
+ulong max_mdl_mutex_waiter_release = 0;
+
 /*
   A mock error handler.
 */

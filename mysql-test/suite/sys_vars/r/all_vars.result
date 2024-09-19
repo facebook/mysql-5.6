@@ -150,6 +150,8 @@ max_binlog_cache_overhead_size
 max_binlog_cache_overhead_size
 max_length_for_sort_data
 max_length_for_sort_data
+max_mdl_mutex_waiter_release
+max_mdl_mutex_waiter_release
 optimizer_max_subgraph_pairs
 optimizer_max_subgraph_pairs
 partial_revokes

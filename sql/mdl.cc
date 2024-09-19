@@ -47,6 +47,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_stage.h"
 #include "mysql/psi/psi_mdl.h"
+#include "mysql/service_cpu_scheduler.h"
 #include "mysql/service_thd_wait.h"
 #include "mysqld_error.h"
 #include "prealloced_array.h"
@@ -459,12 +460,16 @@ class MDL_lock {
                      I_P_List_null_counter, I_P_List_fast_push_back<MDL_ticket>>
         List;
     operator const List &() const { return m_list; }
-    Ticket_list() : m_bitmap(0) {}
+    Ticket_list() : m_bitmap(0), m_tickets_on_schedulers(0) {}
 
     void add_ticket(MDL_ticket *ticket);
     void remove_ticket(MDL_ticket *ticket);
     bool is_empty() const { return m_list.is_empty(); }
     bitmap_t bitmap() const { return m_bitmap; }
+    void update_tickets_on_schedulers(int delta) {
+      m_tickets_on_schedulers += delta;
+    }
+    int get_tickets_on_schedulers() { return m_tickets_on_schedulers; }
 
    private:
     void clear_bit_if_not_in_list(enum_mdl_type type);
@@ -474,6 +479,8 @@ class MDL_lock {
     List m_list;
     /** Bitmap of types of tickets in this list. */
     bitmap_t m_bitmap;
+    /** Number of tickets on schedulers. */
+    int m_tickets_on_schedulers;
   };
 
   typedef Ticket_list::List::Iterator Ticket_iterator;
@@ -1788,7 +1795,7 @@ uint MDL_ticket::get_deadlock_weight() const {
 
 /** Construct an empty wait slot. */
 
-MDL_wait::MDL_wait() : m_wait_status(WS_EMPTY) {
+MDL_wait::MDL_wait() : m_wait_status(WS_EMPTY), m_scheduler_id(-1) {
   mysql_mutex_init(key_MDL_wait_LOCK_wait_status, &m_LOCK_wait_status, nullptr);
   mysql_cond_init(key_MDL_wait_COND_wait_status, &m_COND_wait_status);
 }
@@ -1985,9 +1992,51 @@ void MDL_lock::reschedule_waiters() {
                   grant SNRW lock and there are no pending S or
                   SH locks.
   */
+
+  bool mutex_key = key.mdl_namespace() == MDL_key::MUTEX;
+  bool force_retry = false;
+  if (m_waiting.get_tickets_on_schedulers() && mutex_key) {
+    force_retry = max_mdl_mutex_waiter_release > 0;
+  }
+
+  // Add some control on how we release waiters.
+  std::bitset<64> seen_schedulers;
+  ulong waiters_released = 0;
   while ((ticket = it++)) {
     if (can_grant_lock(ticket->get_type(), ticket->get_ctx())) {
-      if (!ticket->get_ctx()->m_wait.set_status(MDL_wait::GRANTED)) {
+      if (force_retry) {
+        // We only want one waiting worker per scheduler to wake up.
+        int id = ticket->get_ctx()->m_wait.get_cpu_scheduler_id();
+        if (id != -1) {
+          id = id % 64;
+          if (seen_schedulers.test(id)) {
+            continue;
+          }
+          seen_schedulers.set(id);
+        }
+      }
+
+      // Reschedule waiters is called under a lock, so the waiters will have to
+      // wait after we set the status to retry.
+      // For the waiters who don't have infinite amount of time to retry:
+      // These waiters typically should be during high priority ddl or
+      // promotion threads, who can't afford to sit in the queue for a long time
+      // and will try to destroy other connections, if needed.
+      bool retry_lock = false;
+      if (force_retry) {
+        // The only time set_status should return true is when there are other
+        // status like VICTIM/TIMEOUT, in which case we should not do anything
+        // more. In this case, we will let the waiter kill itself.
+        if (waiters_released > max_mdl_mutex_waiter_release ||
+            ticket->get_ctx()->m_wait.set_status(MDL_wait::RETRY)) {
+          continue;
+        }
+
+        ++waiters_released;
+        retry_lock = true;
+      }
+      if (retry_lock ||
+          !ticket->get_ctx()->m_wait.set_status(MDL_wait::GRANTED)) {
         /*
           Satisfy the found request by updating lock structures.
           It is OK to do so even after waking up the waiter since any
@@ -2001,6 +2050,16 @@ void MDL_lock::reschedule_waiters() {
           so m_obtrusive_locks_granted_waiting_count should stay the same.
         */
         m_waiting.remove_ticket(ticket);
+
+        if (retry_lock) {
+          int id = ticket->get_ctx()->m_wait.get_cpu_scheduler_id();
+          if (id != -1) {
+            m_waiting.update_tickets_on_schedulers(-1);
+          }
+
+          continue;
+        }
+
         m_granted.add_ticket(ticket);
 
         if (is_affected_by_max_write_lock_count()) {
@@ -2024,6 +2083,7 @@ void MDL_lock::reschedule_waiters() {
 
         if (key.mdl_namespace() == MDL_key::MUTEX) {
           // No point in going through the rest of the waiters.
+          assert(!force_retry);
           break;
         }
       }
@@ -3453,6 +3513,7 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                     Timeout_type lock_wait_timeout_nsec) {
   THD *thd = get_thd();
   bool is_high_priority_ddl = false;
+
   if (thd != nullptr) {
     if (thd->variables.high_priority_ddl) {
       // if this is a high priority command, use the
@@ -3521,6 +3582,11 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   lock = ticket->m_lock;
 
   lock->m_waiting.add_ticket(ticket);
+  int id = tp_get_current_scheduler_id();
+  if (id != -1) {
+    m_wait.set_cpu_scheduler_id(id);
+    lock->m_waiting.update_tickets_on_schedulers(1);
+  }
 
   /*
     Once we added a pending ticket to the waiting queue,
@@ -3620,7 +3686,9 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       !kill_conflicting_connections_after_timeout_and_retry;
 
   bool ignore_killed = mdl_request->m_ignore_killed;
+  bool grant_from_retry = false;
 
+  // Not applicable to scoped strategy, used by for example: MDL_key::MUTEX
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
     set_timespec(&abs_shortwait, 1);
@@ -3669,9 +3737,57 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
           m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
           mdl_request->key.get_wait_state_name(), ignore_killed);
   } else {
-    wait_status =
-        m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
-        mdl_request->key.get_wait_state_name(), ignore_killed);
+    do {
+      // Need to override the timeout irrespective of admin as there is no error
+      // handling. Can't just exit right away as there is a guard which is
+      // supposed to protect against race.
+      if (mdl_request->key.mdl_namespace() == MDL_key::MUTEX) {
+        set_timespec_nsec(&abs_timeout, TIMEOUT_INF);
+      }
+
+      wait_status = m_wait.timed_wait(
+          m_owner, &abs_timeout, set_status_on_timeout,
+          mdl_request->key.get_wait_state_name(), ignore_killed);
+      // It's implied that retry status means that there was a scheduler
+      // associated with the waiter. If there is a race here, we can loop again
+      // to confirm.
+      if (wait_status == MDL_wait::RETRY) {
+        done_waiting_for();
+
+        // Piglets and hogs are not applicable here based on the matrix.
+        mysql_prlock_wrlock(&lock->m_rwlock);
+        if (lock->can_grant_lock(mdl_request->type, this)) {
+          lock->m_granted.add_ticket(ticket);
+          mysql_prlock_unlock(&lock->m_rwlock);
+
+          m_ticket_store.push_front(mdl_request->duration, ticket);
+          mdl_request->ticket = ticket;
+          mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+
+          wait_status = MDL_wait::GRANTED;
+          grant_from_retry = true;
+          break;
+        }
+
+        m_wait.reset_status();
+        lock->m_waiting.add_ticket(ticket);
+
+        if (m_wait.get_cpu_scheduler_id() != -1) {
+          lock->m_waiting.update_tickets_on_schedulers(1);
+        }
+
+        mysql_prlock_unlock(&lock->m_rwlock);
+
+        will_wait_for(ticket);
+      }
+    } while (wait_status == MDL_wait::RETRY);
+
+    // If it's a retry status, and we have exited the above loop
+    // unset it. There is no processing for a transient status.
+    // Consider it as a rollback of status transaction.
+    if (wait_status == MDL_wait::RETRY) {
+      wait_status = MDL_wait::WS_EMPTY;
+    }
   }
 
   /*
@@ -3760,10 +3876,14 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   */
   assert(wait_status == MDL_wait::GRANTED);
 
-  m_ticket_store.push_front(mdl_request->duration, ticket);
-  mdl_request->ticket = ticket;
+  assert(grant_from_retry || ticket != nullptr);
+  if (!grant_from_retry) {
+    assert(ticket);
+    m_ticket_store.push_front(mdl_request->duration, ticket);
+    mdl_request->ticket = ticket;
 
-  mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+    mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+  }
 
   return false;
 }

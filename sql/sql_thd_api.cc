@@ -929,3 +929,9 @@ tp_tenant_id_handle tp_get_tenant_id(const char *db) {
                         get_tenant_id, (db));
   return nullptr;
 }
+
+int tp_get_current_scheduler_id() {
+  MYSQL_CALLBACK_RETURN(Connection_handler_manager::cpu_scheduler_functions,
+                        get_current_scheduler_id, ());
+  return -1;
+}

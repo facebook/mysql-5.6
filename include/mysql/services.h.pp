@@ -264,6 +264,7 @@ extern "C" struct cpu_scheduler_service_st {
   bool (*is_scheduler_enabled)();
   tp_conn_handle (*get_current_task_connection)();
   tp_tenant_id_handle (*get_tenant_id)(const char *db);
+  int (*get_current_scheduler_id)();
 } * cpu_scheduler_service;
 bool tp_enqueue_task(tp_routine routine, void *param,
                      tp_tenant_id_handle tenant_id, tp_scheduler_hint &hint);
@@ -280,6 +281,7 @@ int tp_get_current_client_stats(char* buf_stats, size_t buf_len);
 bool tp_is_scheduler_enabled();
 tp_conn_handle tp_get_current_task_connection();
 tp_tenant_id_handle tp_get_tenant_id(const char *db);
+int tp_get_current_scheduler_id();
 #include <mysql/service_locking.h>
 #include "my_inttypes.h"
 enum enum_locking_service_lock_type {

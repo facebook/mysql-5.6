@@ -140,6 +140,7 @@ bool Commit_order_manager::wait_on_graph(Slave_worker *worker, std::string db) {
       case MDL_wait::GRANTED:
         return false;
       case MDL_wait::WS_EMPTY:
+      case MDL_wait::RETRY:
         /* purecov: begin inspected */
         assert(false);
         return false;

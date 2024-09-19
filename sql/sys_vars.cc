@@ -3586,6 +3586,13 @@ static Sys_var_ulong Sys_yield_check_frequency(
     SESSION_VAR(yield_check_frequency), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_max_mdl_mutex_waiter_release(
+    "max_mdl_mutex_waiter_release",
+    "Control how many waiters we want to release ",
+    GLOBAL_VAR(max_mdl_mutex_waiter_release), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 1024), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
+
 #ifdef _WIN32
 static Sys_var_bool Sys_named_pipe("named_pipe", "Enable the named pipe (NT)",
                                    READ_ONLY NON_PERSIST
