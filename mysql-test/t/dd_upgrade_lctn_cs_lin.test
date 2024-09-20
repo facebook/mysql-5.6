@@ -1,3 +1,5 @@
+# Running as root not supported
+--source include/not_as_root.inc
 # Upgrade and DDSE change at the same time is not supported
 --source include/have_innodb_ddse.inc
 ###############################################################################
