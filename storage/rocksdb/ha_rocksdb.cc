@@ -3197,8 +3197,10 @@ class Rdb_explicit_snapshot : public explicit_snapshot {
     }
     ssinfo->snapshot_id = ++explicit_snapshot_counter;
     const uint64_t client_provided_read_filtering_ts =
-        THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
-        1000000000UL;
+        rdb_is_binlog_ttl_enabled()
+            ? THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
+                  1000000000UL
+            : 0;
     // NOTE: We need to set read filtering ts to min of all active trxs and not
     // the current hlc because some active trxs can commit to binlog later with
     // a lower read filtering ts and that can cause failures when we try to use
@@ -7210,10 +7212,13 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
 }
 
 /*
-  returns the min binlog ttl read filtering ts among all active trxs
-  used during compaction and binlog rotation with binlog ttl is enabled
+  returns the min binlog ttl read filtering ts among all active trxs when binlog
+  ttl is enabled
 */
 static uint64_t rdb_get_min_binlog_ttl_read_filtering_ts() {
+  if (!rdb_is_binlog_ttl_enabled()) {
+    return 0;
+  }
   uint64_t oldest_snapshot_ts = oldest_transaction_timestamp();
   return oldest_snapshot_ts
              ? oldest_snapshot_ts
@@ -7719,8 +7724,10 @@ static int rocksdb_start_tx_and_assign_read_view(
   tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
 
   const uint64_t client_provided_read_filtering_ts =
-      THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
-      1000000000UL;
+      rdb_is_binlog_ttl_enabled()
+          ? THDVAR(thd, consistent_snapshot_ttl_read_filtering_ts_nsec) /
+                1000000000UL
+          : 0;
   // NOTE: We need to set read filtering ts to min of all active trxs and not
   // the current hlc because some active trxs can commit to binlog later with a
   // lower read filtering ts and that can cause failures when we try to use the
