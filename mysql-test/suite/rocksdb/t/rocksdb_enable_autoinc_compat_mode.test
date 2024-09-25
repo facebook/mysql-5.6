@@ -104,7 +104,9 @@ INSERT INTO t1 VALUES(100, '0');
 INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (5,'c'), (NULL,'d');
 SELECT LAST_INSERT_ID();
 
---replace_column 5 # 7 # 12 # 13 #
+# replace Avg_row_length with # (6 #), when udt-in-mem in on, Avg_row_length is
+# 8 bytes larger than udt-in-mem is off due to the extra timestamp bytes
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 
 SELECT c1, c2 FROM t1 ORDER BY c2;
@@ -112,7 +114,7 @@ SELECT c1, c2 FROM t1 ORDER BY c2;
 --error ER_DUP_ENTRY, 23000
 INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (101,'c'), (NULL,'d');
 
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 
 DROP TABLE t1;
@@ -128,7 +130,7 @@ INSERT INTO t1 (a,b) VALUES (1,'a');
 INSERT INTO t1 (a,b) VALUES (1,'a'), (1,'a'), (1,'a'), (1,'a') ON DUPLICATE KEY UPDATE c = c + 1;
 SELECT LAST_INSERT_ID();
 SELECT a,b,c,pk FROM t1;
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 
@@ -143,14 +145,14 @@ INSERT INTO t1(b) VALUES(1),(2),(3),(4),(5),(6),(7),(8),(9);
 INSERT INTO t1(b) SELECT b FROM t1;
 
 SELECT a, b FROM t1;
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 
 
 CREATE TABLE t1 (a INT NOT NULL AUTO_INCREMENT PRIMARY KEY, b INT);
 INSERT into t1(b) select b from t1;
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 
@@ -210,7 +212,7 @@ INSERT INTO t1 values(2147483640);
 SET auto_increment_increment = 2;
 --error ER_AUTOINC_READ_FAILED
 INSERT INTO t1 values (),(),(),(),();
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 
@@ -219,7 +221,7 @@ INSERT INTO t1 values(9223372036854775800);
 SET auto_increment_increment = 2;
 --error ER_AUTOINC_READ_FAILED
 INSERT INTO t1 values (),(),(),(),();
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 
@@ -236,7 +238,7 @@ select a from t1;
 # when rocksdb_enable_autoinc_compat_mode is ture, auto_increment will be 4, 
 #      since it always allocate "number of rows" auto values
 # when rocksdb_enable_autoinc_compat_mode is false, auto_increment will be 3
---replace_column 5 # 7 # 12 # 13 #
+--replace_column 5 # 6 # 7 # 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 DROP TABLE t1;
 

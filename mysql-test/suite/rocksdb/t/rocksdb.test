@@ -2,6 +2,8 @@
 --source suite/rocksdb/include/have_write_committed.inc
 --source include/have_compact_range_for_drop_table.inc
 --source include/count_sessions.inc
+# Rocksdb_enable_udt_in_mem has different values with different combination
+--source include/skip_udt_in_mem.inc
 
 #
 # RocksDB Storage Engine tests

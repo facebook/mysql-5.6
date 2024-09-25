@@ -1,5 +1,7 @@
 --source include/have_rocksdb.inc
 --source include/count_sessions.inc
+# TODO(chni): Remove it once Rocksdb changes the error message and type
+--source include/skip_udt_in_mem.inc
 
 --let LOG1=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.1.err
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR

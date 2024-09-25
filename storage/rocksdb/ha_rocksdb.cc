@@ -4859,9 +4859,13 @@ class Rdb_transaction {
     rocksdb::ReadOptions options = m_read_opts[table_type];
     const bool fill_cache = !THDVAR(get_thd(), skip_fill_cache);
 
-    if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
-        options.timestamp != nullptr) {
-      options.timestamp = nullptr;
+    // When ddse upgrades, there will be some mysql table using default cf, for
+    // example, global_grants. Assign a timestamp here to make sure it matches
+    // with the comparator.
+    if (rocksdb_enable_udt_in_mem &&
+        is_udt_compatible_cf(column_family) != (options.timestamp != nullptr)) {
+      options.timestamp =
+          options.timestamp == nullptr ? &rocksdb_max_timestamp_slice : nullptr;
     }
 
     assert(options.timestamp || (!rocksdb_enable_udt_in_mem ||
@@ -5351,7 +5355,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
        get/get_iterator, we do some additional check around the cf. If cf is
        system/tmp related, we assign timestamp to nullptr.
       */
-      if (rocksdb_enable_udt_in_mem && !m_thd->is_dd_system_thread() &&
+      if (rocksdb_enable_udt_in_mem &&
           m_read_opts[table_type].timestamp == nullptr) {
         set_tx_read_timestamp(table_type);
       }

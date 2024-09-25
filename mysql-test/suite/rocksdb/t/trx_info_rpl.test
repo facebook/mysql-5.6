@@ -1,5 +1,8 @@
 --source include/have_rocksdb.inc
 --source include/master-slave.inc
+# when rpl_skip_tx_api is on, mysql will use Rdb_writebatch_impl, which is not
+# supported when enabling UDT-IN-MEM
+--source include/skip_udt_in_mem.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;

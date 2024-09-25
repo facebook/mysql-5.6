@@ -1,4 +1,6 @@
 --source include/have_rocksdb.inc
+# TODO(chni): Remove this skip_udt_in_mem once rocksdb's L0 optimization is in. 
+--source include/skip_udt_in_mem.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS r1;

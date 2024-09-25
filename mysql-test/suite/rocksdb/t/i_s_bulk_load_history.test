@@ -1,4 +1,6 @@
 source include/have_debug_sync.inc;
+# TODO(chni): Remove it once Rocksdb changes the error message and type
+--source include/skip_udt_in_mem.inc
 
 disable_query_log;
 call mtr.add_suppression("failed to bulk load");
