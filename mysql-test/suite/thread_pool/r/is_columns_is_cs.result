@@ -40,6 +40,7 @@ def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	SOME_DELAY_RRU	31		NO	doubl
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAIT_TIME_USEC	32		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_SIGNAL_TIME_USEC	33		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAITS	34		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
+def	information_schema	TP_ADMISSION_CONTROL_ENTITIES	BOOSTS	35		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	2		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL	#
 def	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL	#
@@ -177,6 +178,7 @@ NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	SOME_DELAY_RRU	double	NULL
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAIT_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_SIGNAL_TIME_USEC	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	TOTAL_WAITS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	TP_ADMISSION_CONTROL_ENTITIES	BOOSTS	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	TP_ADMISSION_CONTROL_ERRORS	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
 NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
 NULL	information_schema	TP_ADMISSION_CONTROL_ERRORS	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
