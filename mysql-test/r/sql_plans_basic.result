@@ -1,3 +1,7 @@
+SET @cur_long_query_time = @@long_query_time;
+SET @@long_query_time = 0;
+SET @saved_sql_plans_slow_query_log = @@global.sql_plans_slow_query_log;
+SET GLOBAL sql_plans_slow_query_log = ON;
 create database test_db;
 use test_db;
 CREATE TABLE t1 (
@@ -46,6 +50,12 @@ SELECT @@sql_plans_norm_prune_in_lists;
 SELECT @@sql_plans_norm_use_arg_counts;
 @@sql_plans_norm_use_arg_counts
 0
+SELECT @@sql_plans_slow_query_log;
+@@sql_plans_slow_query_log
+1
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	0
 SELECT * FROM t1;
 pk	a	b	c
 1	1	1	1
@@ -123,6 +133,9 @@ Sql_plans_total_stmts_seen	0
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	0
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	8
 
 .**************************************************************.
 | Test basic plan normalization, plan hashing and plan capture |
@@ -172,6 +185,9 @@ Sql_plans_total_stmts_seen	6
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	6
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	14
 
 .*******************************************.
 | Test correct hashing for repeated queries |
@@ -223,6 +239,9 @@ Sql_plans_total_stmts_seen	12
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	12
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	20
 
 .*************************************************.
 | Test correct hashing for multistatement queries |
@@ -267,6 +286,9 @@ Sql_plans_total_stmts_seen	15
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	15
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	23
 
 .*********************************.
 | Test sql_plans_control=OFF_SOFT |
@@ -316,6 +338,11 @@ Sql_plans_total_stmts_seen	15
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	15
+-> total_slow_queries will keep going up since it's turned on and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	28
+SET GLOBAL sql_plans_slow_query_log = OFF;
 
 .*****************************************.
 | Test sql_plans_control=ON from OFF_SOFT |
@@ -378,6 +405,11 @@ Sql_plans_total_stmts_seen	20
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	20
+-> total_slow_queries will stay same as it's turned off and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	28
+SET GLOBAL sql_plans_slow_query_log = ON;
 
 .*********************************.
 | Test sql_plans_control=OFF |
@@ -442,6 +474,10 @@ Sql_plans_total_stmts_seen	20
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	20
+-> total_slow_queries will again go up since it's turned on and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	33
 
 .*****************************************.
 | Test sql_plans_control=ON from OFF |
@@ -504,6 +540,9 @@ Sql_plans_total_stmts_seen	25
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	25
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	38
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;
@@ -533,6 +572,9 @@ Sql_plans_total_stmts_seen	4
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	4
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	42
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_control=ON;
@@ -565,6 +607,9 @@ Sql_plans_total_stmts_seen	5
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	5
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	47
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 
@@ -612,6 +657,9 @@ Sql_plans_total_stmts_seen	7
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	3
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	54
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_sampling_rate=1;
@@ -653,6 +701,9 @@ Sql_plans_total_stmts_seen	1
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	1
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	61
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_max_buffer=10485760;
@@ -695,6 +746,9 @@ Sql_plans_total_stmts_seen	2
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	2
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	68
 Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_max_buffer=10485760;
@@ -751,6 +805,10 @@ Sql_plans_total_stmts_seen	0
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	0
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	71
+SET @@long_query_time = 0;
 
 -> Now turn `sql_plans_skip_builtin_db` back OFF
 
@@ -770,6 +828,7 @@ select * from mysql.db;
 SELECT COUNT(*) FROM performance_schema.sql_plans;
 COUNT(*)
 4
+SET @@long_query_time = @cur_long_query_time;
 Because now sql_plans_skip_builtin_db=OFF, plans for the last 4 SELECTs
 get captured, and counts below go up, including 1 for SELECT COUNT(*)
 the counts below also don't increment
@@ -779,6 +838,9 @@ Sql_plans_total_stmts_seen	5
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 Variable_name	Value
 Sql_plans_total_stmts_sampled	5
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	76
 
 -> Clean up all state changes
 
@@ -786,3 +848,4 @@ set @@GLOBAL.sql_plans_control=OFF_HARD;
 drop table t1;
 drop table t2;
 drop database test_db;
+SET GLOBAL sql_plans_slow_query_log = @saved_sql_plans_slow_query_log;

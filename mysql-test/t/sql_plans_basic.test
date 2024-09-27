@@ -1,3 +1,11 @@
+
+SET @cur_long_query_time = @@long_query_time;
+# let's mark all queries as slow queries to test the Slow_queries_sql_plans counter
+SET @@long_query_time = 0;
+
+SET @saved_sql_plans_slow_query_log = @@global.sql_plans_slow_query_log;
+SET GLOBAL sql_plans_slow_query_log = ON;
+
 create database test_db;
 use test_db;
 
@@ -42,6 +50,9 @@ SELECT @@sql_plans_sampling_rate;
 SELECT @@sql_plans_norm_prune_expr_trees;
 SELECT @@sql_plans_norm_prune_in_lists;
 SELECT @@sql_plans_norm_use_arg_counts;
+SELECT @@sql_plans_slow_query_log;
+
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # With sql_plans OFF, the following statements will have no output in
 # the P_S.SQL_PLANS table
@@ -104,6 +115,7 @@ set @@GLOBAL.sql_plans_control=OFF_HARD;
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Next, test that 5 different statement leads to as many plans getting captured
 
@@ -138,6 +150,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> total_stmts count will be 6 to account for the last SELECT above
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Next, test that the same 5 statements as in the previous section do not
 # add more entries to the P_S.SQL_PLANS table
@@ -174,6 +187,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 # the count below should be 12 (5 + 1 + 5 + 1) that includes the sql_plans SELECTs
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo
 --echo  .*************************************************.
@@ -201,6 +215,7 @@ enable_result_log;
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Don't RESET state for this next test
 
@@ -236,11 +251,15 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> total_stmts* count will stay same as the previous time
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+--echo -> total_slow_queries will keep going up since it's turned on and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Don't RESET state for this next test
 
 # Next, test that with sql_plans_control=ON again, 5 new statements do
 # add more entries to the P_S.SQL_PLANS table
+# we're also turn off slow query capture, so Slow_queries_sql_plans will stay same
+SET GLOBAL sql_plans_slow_query_log = OFF;
 
 --echo
 --echo  .*****************************************.
@@ -272,9 +291,13 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+--echo -> total_slow_queries will stay same as it's turned off and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Next, test that with sql_plans_control=OFF, 5 new statements do not
 # add more entries to the P_S.SQL_PLANS table
+# we're also turn ON slow query capture, so Slow_queries_sql_plans will stay increment
+SET GLOBAL sql_plans_slow_query_log = ON;
 
 --echo
 --echo  .*********************************.
@@ -308,6 +331,8 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> total_stmts* count will stay same as the previous time
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+--echo -> total_slow_queries will again go up since it's turned on and works independently
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 # Don't RESET state for this next test
 
@@ -344,6 +369,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> 5 new counts added for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -376,6 +402,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> 4 new counts for last 3 SELECTs + 1 for SELECT .. FROM sql_plans
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -410,6 +437,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo -> 5 new counts for last 4 SELECTs + 1 for SELECT .. FROM sql_plans
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -451,6 +479,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo The last sql_plans SELECT adds an extra count to total_stmts_seen
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -494,6 +523,7 @@ SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 --echo 1 statement plan gets captured, and only 1 count added below
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -535,6 +565,7 @@ SELECT PLAN_ROW, PLAN_ID, COUNT_OCCUR FROM performance_schema.sql_plans;
 --echo 2 statement plans gets captured, and only 2 counts get added below
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo Reset state before next test
 set @@GLOBAL.sql_plans_control=OFF_HARD;
@@ -616,6 +647,12 @@ SELECT * FROM performance_schema.sql_plans;
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
 
+# Note that Slow_queries_sql_plans stays at 0 till now 
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+
+# Test the slow query counter along with plan capture for the following stmts
+SET @@long_query_time = 0;
+
 --echo
 --echo -> Now turn `sql_plans_skip_builtin_db` back OFF
 --echo
@@ -645,11 +682,16 @@ enable_result_log;
 # Using COUNT to avoid voluminous output for the sys.host_summary table
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
+
+# Resetting long query time to original value
+SET @@long_query_time = @cur_long_query_time;
+
 --echo Because now sql_plans_skip_builtin_db=OFF, plans for the last 4 SELECTs
 --echo get captured, and counts below go up, including 1 for SELECT COUNT(*)
 --echo the counts below also don't increment
 SHOW STATUS LIKE 'Sql_plans_total_stmts_seen';
 SHOW STATUS LIKE 'Sql_plans_total_stmts_sampled';
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 --echo 
 --echo -> Clean up all state changes
@@ -664,3 +706,4 @@ drop table t2;
 
 drop database test_db;
 
+SET GLOBAL sql_plans_slow_query_log = @saved_sql_plans_slow_query_log;

@@ -634,24 +634,50 @@ ulonglong current_sql_plans_buffer;
 std::atomic<ulonglong> sql_plans_total_stmts_seen;
 // Total stmts that got sampled (due to sampling_rate)
 std::atomic<ulonglong> sql_plans_total_stmts_sampled;
+// Total slow queries for which sql query plan was captured
+std::atomic<ulonglong> sql_plans_total_slow_queries;
 
-void capture_query_plan(THD *thd) {
+void capture_query_plan(THD *thd, bool slow_query_plan_capture) {
   DBUG_TRACE;
+  bool regular_plan_capture{(sql_plans_control == SQL_INFO_CONTROL_ON)};
 
-  /* Plan capture should get triggered only if:
-     1. plan_capture feature is turned ON (already checked)
-     2. plan_capture memory and disk footprints are under the limit
-     3. a) current SQL_command is valid for plan capture (already checked),
-        b) and part of the filter list, if defined
-     4. check if current command should be sampled
-     */
+  /*
+     Plan capture should get triggered if:
 
-  assert(sql_plans_control == SQL_INFO_CONTROL_ON); // 1.
+     1. Plan capture feature
+        a) plan_capture feature is turned ON (already checked)
+        b) plan_capture memory and disk footprints are under the limit
+        c) current plan should be sampled
 
-  // Insert hook for PLAN CAPTURE here
-  if ((plan_capture_check_footprint()) ||       // 2.
-      (plan_capture_check_sql_command(thd)) ||  // 3.
-      (plan_capture_check_sampling_rate()))     // 4.
+     2. Slow query plan capture (already checked in mysql_execute_command)
+        a) slow query logging turned on
+        b) slow query plan capture is turned on
+        c) current query was a slow query
+
+     3  For both the above cases, there is some additional criteria:
+        a) current SQL command is valid for plan capture (SELECT statement),
+        b) current statement involves a table (to avoid statements that have
+           uninteresting plans, like 'SELECT @@<session var>
+        c) If `sql_plans_skip_builtin_db` is turned on, then avoid capturing
+           plans for system tables (tables in  P_S, I_S, sys, mysql DBs)
+   */
+
+  assert((sql_plans_control == SQL_INFO_CONTROL_ON) ||
+         (slow_query_plan_capture));  // 1a.
+
+  if (plan_capture_check_sql_command(thd))  // 3a, 3b, 3c
+    return;
+
+  /*
+    if regular sql plan capture is ON, we need to check
+     the sampling and buffer capacity before proceeding
+   */
+  if ((sql_plans_control == SQL_INFO_CONTROL_ON) &&
+      (plan_capture_check_footprint() ||     // 1b
+       plan_capture_check_sampling_rate()))  // 1c
+    regular_plan_capture = false;
+
+  if ((regular_plan_capture == false) && (slow_query_plan_capture == false))
     return;
 
   // If we're here, then we can trigger the plan capture
@@ -671,23 +697,38 @@ void capture_query_plan(THD *thd) {
 
   // Next, capture the query plan for hashing
   // Note that this output should already be a "normalized" plan
-  std::string plan = capture_query_tree_plan(thd);
+  thd->captured_sql_plan = capture_query_tree_plan(thd);
 
   thd->set_plan_capture(false);
 
-  if (plan.empty()) {
+  /* exit now if plan was captured purely for slow queries */
+  if (regular_plan_capture == false) {
+    if (!thd->captured_sql_plan.empty()) sql_plans_total_slow_queries++;
+
+    return;
+  }
+
+  if (thd->captured_sql_plan.empty()) {
     // nothing captured
     // decr counter to make sure sampling logic works;
     sql_plans_total_stmts_seen--;
     return;
+  } else if (slow_query_plan_capture) {
+    /*
+       increment slow query counter when both slow_query_plan_capture and
+       regular_plan_capture are true
+     */
+    sql_plans_total_slow_queries++;
   }
+
   sql_plans_total_stmts_sampled++;
 
   // at this point we should have the normalized plan captured
 
   digest_key plan_id;
-  compute_md5_hash((char *)plan_id.data(), (const char *)plan.data(),
-                   plan.length());
+  compute_md5_hash((char *)plan_id.data(),
+                   (const char *)thd->captured_sql_plan.data(),
+                   thd->captured_sql_plan.length());
   thd->mt_key_set(THD::PLAN_ID, plan_id.data(), MD5_HASH_SIZE);
 
   // Check if this can be avoided by picking from THD or elsewhere
@@ -698,10 +739,10 @@ void capture_query_plan(THD *thd) {
   // Lookup plan hash in plan_ht
   const auto sql_plan_it = plan_ht.find(thd->mt_key_value(THD::PLAN_ID));
   if (sql_plan_it == plan_ht.end()) {
-    plan_ht[plan_id] = {1, now, plan};
+    plan_ht[plan_id] = {1, now, thd->captured_sql_plan};
 
     current_sql_plans_buffer +=
-        MD5_HASH_SIZE + sizeof(Plan_val) + plan.length();
+        MD5_HASH_SIZE + sizeof(Plan_val) + thd->captured_sql_plan.length();
 
   } else {
     // hash key already present in plan_ht

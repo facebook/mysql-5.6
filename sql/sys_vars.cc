@@ -2995,8 +2995,7 @@ static Sys_var_bool Sys_log_queries_not_using_indexes(
 static Sys_var_bool Sys_log_slow_admin_statements(
     "log_slow_admin_statements",
     "Log slow OPTIMIZE, ANALYZE, ALTER and other administrative statements "
-    "to "
-    "the slow log if it is open.",
+    "to the slow log if it is open.",
     GLOBAL_VAR(opt_log_slow_admin_statements), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
@@ -10255,6 +10254,13 @@ static Sys_var_bool Sys_sql_plans_skip_builtin_db(
     "for tables in builtin databasess (mysql, sys, performance_schema and "
     "information_schema). ",
     GLOBAL_VAR(sql_plans_skip_builtin_db), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_sql_plans_slow_query_log(
+    "sql_plans_slow_query_log",
+    "If set to true, SQL query execution plans will be captured "
+    "for slow queries, and saved to the slow query log. ",
+    GLOBAL_VAR(opt_log_sql_plan_for_slow_queries), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 /* SQL PLANS related ENDS */
 

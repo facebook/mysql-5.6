@@ -2623,6 +2623,9 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         log_slow_statement(thd);
 
+        /* clear captured sql plan string for next round */
+        thd->captured_sql_plan.clear();
+
         thd->reset_copy_status_var();
 
         /* Remove garbage at start of query */
@@ -3076,6 +3079,9 @@ done:
   log_slow_statement(thd);
 
   THD_STAGE_INFO(thd, stage_cleaning_up);
+
+  /* clear captured sql plan string for next round */
+  thd->captured_sql_plan.clear();
 
   thd->reset_query();
   thd->reset_query_attrs();
@@ -5722,16 +5728,34 @@ finish:
       */
       lex->unit->assert_not_fully_clean();
 
-      if (!thd->is_error() && (sql_plans_control == SQL_INFO_CONTROL_ON)) {
-        // To make sure EXPLAIN FOR CONNECTION doesn't interfere,
-        //   one can do the following:
-        //
-        // thd->query_plan.set_query_plan(SQLCOM_END, nullptr, false);
-        //
-        // But to do so, the sql_command in the query_plan will have to
-        //   be cached, or the conditions for plan_capture need to be checked
-        //   beforehand (is_explainable_query() etc).
-        capture_query_plan(thd);
+      bool slow_query_plan_capture{false};
+
+      if (thd->enable_slow_log && opt_slow_log &&
+          opt_log_sql_plan_for_slow_queries) {
+        /* check slow query status early */
+        thd->update_slow_query_status();
+
+        slow_query_plan_capture = opt_log_sql_plan_for_slow_queries &&
+                                  thd->server_status & SERVER_QUERY_WAS_SLOW;
+      }
+
+      /*
+         Capture the sql plan if plan_capture is enabled, or if slow plan
+         capture is enabled, and slow logging itself is enabled
+      */
+      if (!thd->is_error() && ((sql_plans_control == SQL_INFO_CONTROL_ON) ||
+                               slow_query_plan_capture)) {
+        /*
+           To make sure EXPLAIN FOR CONNECTION doesn't interfere,
+           one can do the following:
+
+           thd->query_plan.set_query_plan(SQLCOM_END, nullptr, false);
+
+           But to do so, the sql_command in the query_plan will have to
+           be cached, or the conditions for plan_capture need to be checked
+           beforehand (is_explainable_query() etc).
+         */
+        capture_query_plan(thd, slow_query_plan_capture);
       }
     }
 

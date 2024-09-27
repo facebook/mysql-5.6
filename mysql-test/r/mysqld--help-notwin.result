@@ -3104,6 +3104,10 @@ The following options may be given as the first argument:
  If set to true, SQL query execution plans will not be
  captured for tables in builtin databasess (mysql, sys,
  performance_schema and information_schema). 
+ --sql-plans-slow-query-log 
+ If set to true, SQL query execution plans will be
+ captured for slow queries, and saved to the slow query
+ log. 
  --sql-require-primary-key 
  When set, tables must be created with a primary key, and
  an existing primary key cannot be removed with 'ALTER
@@ -4232,6 +4236,7 @@ sql-plans-norm-prune-in-lists FALSE
 sql-plans-norm-use-arg-counts FALSE
 sql-plans-sampling-rate 1
 sql-plans-skip-builtin-db FALSE
+sql-plans-slow-query-log FALSE
 sql-require-primary-key FALSE
 sql-stats-read-control TRUE
 sql-wsenv-lib-name 

@@ -192,6 +192,7 @@ extern bool opt_log_queries_not_using_indexes;
 extern ulong opt_log_throttle_queries_not_using_indexes;
 extern ulong opt_log_throttle_ddl;
 extern bool opt_log_slow_extra;
+extern bool opt_log_sql_plan_for_slow_queries;
 extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
 extern bool opt_help;
@@ -652,6 +653,8 @@ extern bool sql_plans_skip_builtin_db;
 extern std::atomic<ulonglong> sql_plans_total_stmts_seen;
 /* Total stmts that got sampled (due to sampling_rate) */
 extern std::atomic<ulonglong> sql_plans_total_stmts_sampled;
+/* Total slow queries for which sql plan was captured  */
+extern std::atomic<ulonglong> sql_plans_total_slow_queries;
 
 // client attributes names system variable
 extern std::vector<std::string> client_attribute_names;

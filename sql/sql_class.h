@@ -5539,6 +5539,9 @@ class THD : public MDL_context_owner,
     USE_ARG_COUNTS = 16
   };
 
+  /* captured sql query plan for slow log */
+  std::string captured_sql_plan;
+
   void set_plan_capture(const bool state,
                         const ulong plan_format_modifiers = 0) {
     m_plan_capture_ongoing = state;

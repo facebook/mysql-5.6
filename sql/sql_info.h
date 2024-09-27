@@ -143,7 +143,7 @@ typedef struct Plan_val_ {
   std::string plan;
 } Plan_val;
 
-void capture_query_plan(THD *thd);
+void capture_query_plan(THD *thd, bool slow_query_plan_capture);
 void reset_sql_plans();
 std::vector<sql_plan_row> get_all_sql_plans();
 int get_captured_plan_count();

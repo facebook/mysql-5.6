@@ -4075,7 +4075,8 @@ void THD::inc_lock_usec(ulonglong lock_usec) {
 }
 
 void THD::update_slow_query_status() {
-  if (my_micro_time() > start_utime + variables.long_query_time)
+  if (!(server_status & SERVER_QUERY_WAS_SLOW) &&
+      (my_micro_time() > start_utime + variables.long_query_time))
     server_status |= SERVER_QUERY_WAS_SLOW;
 }
 

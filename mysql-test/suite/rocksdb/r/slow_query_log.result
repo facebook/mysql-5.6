@@ -1,5 +1,13 @@
 SET @cur_long_query_time = @@long_query_time;
 SET @@long_query_time = 600;
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+SET @saved_sql_plans_slow_query_log = @@global.sql_plans_slow_query_log;
+SET GLOBAL sql_plans_slow_query_log = ON;
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	0
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (id INT PRIMARY KEY, value INT) ENGINE=ROCKSDB;
 SET @@long_query_time = 0;
@@ -8,3 +16,7 @@ COUNT(*)
 7500
 SET @@long_query_time = @cur_long_query_time;
 DROP TABLE t1;
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+Variable_name	Value
+Slow_queries_sql_plans	1
+SET GLOBAL sql_plans_slow_query_log = @saved_sql_plans_slow_query_log;

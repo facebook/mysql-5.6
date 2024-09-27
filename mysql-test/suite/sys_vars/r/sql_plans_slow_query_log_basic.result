@@ -1,0 +1,89 @@
+Default value of sql_plans_slow_query_log is OFF 
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+show global variables like 'sql_plans_slow_query_log';
+Variable_name	Value
+sql_plans_slow_query_log	OFF
+select * from performance_schema.global_variables
+where variable_name='sql_plans_slow_query_log';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_slow_query_log	OFF
+SELECT @@session.sql_plans_slow_query_log;
+ERROR HY000: Variable 'sql_plans_slow_query_log' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+show session variables like 'sql_plans_slow_query_log';
+Variable_name	Value
+sql_plans_slow_query_log	OFF
+select * from performance_schema.session_variables
+where variable_name='sql_plans_slow_query_log';
+VARIABLE_NAME	VARIABLE_VALUE
+sql_plans_slow_query_log	OFF
+sql_plans_slow_query_log is a dynamic variable (change to "ON")
+set @@global.sql_plans_slow_query_log = "on";
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+1
+restore the default value
+SET @@global.sql_plans_slow_query_log = "off";
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+Verify other accepted values
+SET @@global.sql_plans_slow_query_log = 0;
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+SET @@global.sql_plans_slow_query_log = 1;
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+1
+SET @@global.sql_plans_slow_query_log = True;
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+1
+SET @@global.sql_plans_slow_query_log = False;
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+SET @@global.sql_plans_slow_query_log = "off";
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0
+Attempt setting invalid values
+SET @@global.sql_plans_slow_query_log = "onn";
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of 'onn'
+SET @@global.sql_plans_slow_query_log = " ";
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of ' '
+SET @@global.sql_plans_slow_query_log = "";
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of ''
+SET @@global.sql_plans_slow_query_log = '';
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of ''
+SET @@global.sql_plans_slow_query_log = ' ';
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of ' '
+SET @@global.sql_plans_slow_query_log = -1;
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of '-1'
+SET @@global.sql_plans_slow_query_log = 2;
+ERROR 42000: Variable 'sql_plans_slow_query_log' can't be set to the value of '2'
+SET sql_plans_slow_query_log = ON;
+ERROR HY000: Variable 'sql_plans_slow_query_log' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.sql_plans_slow_query_log = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.sql_plans_slow_query_log = OFF' at line 1
+SELECT local.sql_plans_slow_query_log;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.sql_plans_slow_query_log = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.sql_plans_slow_query_log = ON' at line 1
+SELECT global.sql_plans_slow_query_log;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT sql_plans_slow_query_log = @@session.sql_plans_slow_query_log;
+ERROR HY000: Variable 'sql_plans_slow_query_log' is a GLOBAL variable
+restart the server with non default value (ON)
+# restart: --sql_plans_slow_query_log=on
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+1
+restart the server with the default value (OFF)
+# restart
+SELECT @@global.sql_plans_slow_query_log;
+@@global.sql_plans_slow_query_log
+0

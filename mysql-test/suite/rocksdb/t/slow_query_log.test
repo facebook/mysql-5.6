@@ -4,6 +4,15 @@ SET @cur_long_query_time = @@long_query_time;
 SET @@long_query_time = 600;
 # Test the slow query log feature
 
+# default value
+SELECT @@global.sql_plans_slow_query_log;
+
+SET @saved_sql_plans_slow_query_log = @@global.sql_plans_slow_query_log;
+
+SET GLOBAL sql_plans_slow_query_log = ON;
+
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
@@ -32,3 +41,8 @@ SET @@long_query_time = @cur_long_query_time;
 --exec awk -f suite/rocksdb/slow_query_log.awk $MYSQLTEST_VARDIR/mysqld.1/mysqld-slow.log
 
 DROP TABLE t1;
+
+SHOW STATUS LIKE 'Slow_queries_sql_plans';
+
+SET GLOBAL sql_plans_slow_query_log = @saved_sql_plans_slow_query_log;
+

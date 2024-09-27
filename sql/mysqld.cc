@@ -1201,6 +1201,7 @@ ulong opt_log_throttle_queries_not_using_indexes = 0;
 bool opt_log_ddl = false;
 ulong opt_log_throttle_ddl = 0;
 bool opt_log_slow_extra = false;
+bool opt_log_sql_plan_for_slow_queries = false;
 bool opt_improved_dup_key_error = false;
 bool opt_disable_networking = false, opt_skip_show_db = false;
 bool opt_skip_name_resolve = false;
@@ -11396,6 +11397,13 @@ static int show_sql_plans_stmts_sampled(THD *, SHOW_VAR *var, char *buf) {
   return 0;
 }
 
+static int show_sql_plans_slow_queries(THD *, SHOW_VAR *var, char *buf) {
+  var->type = SHOW_LONGLONG;
+  var->value = buf;
+  *((ulonglong *)buf) = sql_plans_total_slow_queries;
+  return 0;
+}
+
 SHOW_VAR status_vars[] = {
 
     {"acl_db_cache_slow_lookup", (char *)&acl_db_cache_slow_lookup, SHOW_LONG,
@@ -11751,6 +11759,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_ALL},
     {"Slow_queries", (char *)offsetof(System_status_var, long_query_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Slow_queries_sql_plans", (char *)&show_sql_plans_slow_queries, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {"Sort_merge_passes",
      (char *)offsetof(System_status_var, filesort_merge_passes),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
