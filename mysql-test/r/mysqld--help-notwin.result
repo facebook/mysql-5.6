@@ -2703,6 +2703,9 @@ The following options may be given as the first argument:
  means no limit.
  --rocksdb-write-batch-max-bytes=# 
  Maximum size of write batch in bytes. 0 means no limit.
+ --rocksdb-write-batch-mem-free-threshold=# 
+ Destructs the writebatch if the memory allocated is above
+ the size in bytes. 0 means no limit.
  --rocksdb-write-disable-wal 
  WriteOptions::disableWAL for RocksDB
  --rocksdb-write-ignore-missing-column-families 
@@ -4121,6 +4124,7 @@ rocksdb-wal-ttl-seconds 0
 rocksdb-whole-key-filtering TRUE
 rocksdb-write-batch-flush-threshold 0
 rocksdb-write-batch-max-bytes 0
+rocksdb-write-batch-mem-free-threshold 0
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
 rocksdb-write-policy write_committed

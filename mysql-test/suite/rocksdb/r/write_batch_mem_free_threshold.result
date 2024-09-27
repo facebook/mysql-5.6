@@ -1,0 +1,9 @@
+SET @saved_rocksdb_write_batch_mem_free_threshold=@@rocksdb_write_batch_mem_free_threshold;
+CREATE DATABASE mysqlslap;
+USE mysqlslap;
+CREATE TABLE t1(id BIGINT AUTO_INCREMENT, value VARCHAR(64), PRIMARY KEY(id)) ENGINE=rocksdb;
+set global rocksdb_write_batch_mem_free_threshold=115;
+set global rocksdb_write_batch_mem_free_threshold=1;
+DROP TABLE t1;
+DROP DATABASE mysqlslap;
+SET GLOBAL rocksdb_write_batch_mem_free_threshold=@saved_rocksdb_write_batch_mem_free_threshold;

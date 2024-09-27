@@ -1105,6 +1105,7 @@ rocksdb_wal_ttl_seconds	0
 rocksdb_whole_key_filtering	ON
 rocksdb_write_batch_flush_threshold	0
 rocksdb_write_batch_max_bytes	0
+rocksdb_write_batch_mem_free_threshold	0
 rocksdb_write_disable_wal	OFF
 rocksdb_write_ignore_missing_column_families	OFF
 rocksdb_write_policy	write_committed
