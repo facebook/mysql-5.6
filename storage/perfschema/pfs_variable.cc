@@ -1193,15 +1193,11 @@ char *PFS_status_variable_cache::make_show_var_name(const char *prefix,
 */
 bool PFS_status_variable_cache::do_initialize_session(void) {
   /* Acquire LOCK_status to guard against plugin load/unload. */
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    mysql_mutex_lock(&LOCK_status);
-  }
-
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
   bool ret = init_show_var_array(OPT_SESSION, true);
-
-  if (m_current_thd->fill_status_recursion_level-- == 1) {
-    mysql_mutex_unlock(&LOCK_status);
-  }
+  m_current_thd->fill_status_recursion_level--;
 
   return ret;
 }
@@ -1232,9 +1228,9 @@ int PFS_status_variable_cache::do_materialize_global(void) {
   DEBUG_SYNC(m_current_thd, "before_materialize_global_status_array");
 
   /* Acquire LOCK_status to guard against plugin load/unload. */
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    mysql_mutex_lock(&LOCK_status);
-  }
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
 
   /*
      Build array of SHOW_VARs from global status array. Do this within
@@ -1263,9 +1259,7 @@ int PFS_status_variable_cache::do_materialize_global(void) {
   manifest(m_current_thd, m_show_var_array.begin(), &status_totals, "", false,
            true);
 
-  if (m_current_thd->fill_status_recursion_level-- == 1) {
-    mysql_mutex_unlock(&LOCK_status);
-  }
+  m_current_thd->fill_status_recursion_level--;
 
   m_materialized = true;
   DEBUG_SYNC(m_current_thd, "after_materialize_global_status_array");
@@ -1286,11 +1280,9 @@ int PFS_status_variable_cache::do_materialize_all(THD *unsafe_thd) {
   m_cache.clear();
 
   /* Avoid recursive acquisition of LOCK_status. */
-  std::unique_ptr<Mutex_lock> status_lock_guard;
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    status_lock_guard = std::unique_ptr<Mutex_lock>(
-        new Mutex_lock(&LOCK_status, __FILE__, __LINE__));
-  }
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
 
   /*
      Build array of SHOW_VARs from global status array. Do this within
@@ -1333,11 +1325,9 @@ int PFS_status_variable_cache::do_materialize_session(THD *unsafe_thd) {
   m_cache.clear();
 
   /* Avoid recursive acquisition of LOCK_status. */
-  std::unique_ptr<Mutex_lock> status_lock_guard;
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    status_lock_guard = std::unique_ptr<Mutex_lock>(
-        new Mutex_lock(&LOCK_status, __FILE__, __LINE__));
-  }
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
 
   /*
      Build array of SHOW_VARs from global status array. Do this within
@@ -1380,11 +1370,9 @@ int PFS_status_variable_cache::do_materialize_session(PFS_thread *pfs_thread) {
   m_cache.clear();
 
   /* Acquire LOCK_status to guard against plugin load/unload. */
-  std::unique_ptr<Mutex_lock> status_lock_guard;
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    status_lock_guard = std::unique_ptr<Mutex_lock>(
-        new Mutex_lock(&LOCK_status, __FILE__, __LINE__));
-  }
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
 
   /* The SHOW_VAR array must be initialized externally. */
   assert(m_initialized);
@@ -1423,9 +1411,9 @@ int PFS_status_variable_cache::do_materialize_client(PFS_client *pfs_client) {
   m_cache.clear();
 
   /* Acquire LOCK_status to guard against plugin load/unload. */
-  if (m_current_thd->fill_status_recursion_level++ == 0) {
-    mysql_mutex_lock(&LOCK_status);
-  }
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex,
+                        m_current_thd->fill_status_recursion_level++ != 0);
 
   /* The SHOW_VAR array must be initialized externally. */
   assert(m_initialized);
@@ -1443,9 +1431,7 @@ int PFS_status_variable_cache::do_materialize_client(PFS_client *pfs_client) {
   manifest(m_current_thd, m_show_var_array.begin(), &status_totals, "", false,
            true);
 
-  if (m_current_thd->fill_status_recursion_level-- == 1) {
-    mysql_mutex_unlock(&LOCK_status);
-  }
+  m_current_thd->fill_status_recursion_level--;
 
   m_materialized = true;
   return 0;

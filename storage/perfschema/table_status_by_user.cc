@@ -101,18 +101,18 @@ PFS_engine_table *table_status_by_user::create(PFS_engine_table_share *) {
 }
 
 int table_status_by_user::delete_all_rows(void) {
-  mysql_mutex_lock(&LOCK_status);
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex);
   reset_status_by_thread();
   reset_status_by_account();
   reset_status_by_user();
-  mysql_mutex_unlock(&LOCK_status);
   return 0;
 }
 
 ha_rows table_status_by_user::get_row_count(void) {
-  mysql_mutex_lock(&LOCK_status);
+  MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                        &LOCK_status, use_status_mdl_mutex);
   size_t status_var_count = all_status_vars.size();
-  mysql_mutex_unlock(&LOCK_status);
   return (global_user_container.get_row_count() * status_var_count);
 }
 

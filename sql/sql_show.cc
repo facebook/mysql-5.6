@@ -900,11 +900,13 @@ bool Sql_cmd_show_status::execute(THD *thd) {
   thd->server_status &=
       ~(SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED);
   // Restore status variables, as we don't want 'show status' to cause changes
-  mysql_mutex_lock(&LOCK_status);
-  add_diff_to_status(&global_status_var, &thd->status_var, &old_status_var);
-  thd->status_var = old_status_var;
-  thd->initial_status_var = nullptr;
-  mysql_mutex_unlock(&LOCK_status);
+  {
+    MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), thd,
+                          &LOCK_status, use_status_mdl_mutex);
+    add_diff_to_status(&global_status_var, &thd->status_var, &old_status_var);
+    thd->status_var = old_status_var;
+    thd->initial_status_var = nullptr;
+  }
 
   return status;
 }
@@ -4103,20 +4105,43 @@ static void shrink_var_array(Status_var_array *array) {
     The last entry of the all_status_vars[] should always be {0,0,SHOW_UNDEF}
 */
 bool add_status_vars(const SHOW_VAR *list) {
-  MUTEX_LOCK(lock, status_vars_inited ? &LOCK_status : nullptr);
+  bool skip_delete = true;
+  THD *thd = nullptr;
 
-  try {
-    while (list->name) all_status_vars.push_back(*list++);
-  } catch (const std::bad_alloc &) {
-    my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR),
-             static_cast<int>(sizeof(Status_var_array::value_type)));
-    return true;
+  if (status_vars_inited) {
+    /** Do not enable plugins. */
+    bool skip_creation =
+        !use_status_mdl_mutex || !Global_THD_manager::is_initialized();
+    thd = current_thd || skip_creation ? current_thd : new THD(false);
+    if (!current_thd && thd) {
+      thd->thread_stack = (char *)&thd;
+      thd->store_globals();
+      skip_delete = false;
+    }
   }
 
-  if (status_vars_inited)
-    std::sort(all_status_vars.begin(), all_status_vars.end(), Show_var_cmp());
+  {
+    MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), thd,
+                          &LOCK_status, !skip_delete, !status_vars_inited);
 
-  status_var_array_version++;
+    try {
+      while (list->name) all_status_vars.push_back(*list++);
+    } catch (const std::bad_alloc &) {
+      my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR),
+               static_cast<int>(sizeof(Status_var_array::value_type)));
+      return true;
+    }
+
+    if (status_vars_inited)
+      std::sort(all_status_vars.begin(), all_status_vars.end(), Show_var_cmp());
+
+    status_var_array_version++;
+  }
+
+  if (!skip_delete) {
+    thd->restore_globals();
+    delete thd;
+  }
   return false;
 }
 
@@ -4258,7 +4283,9 @@ static bool get_recursive_status_var_inner(THD *thd, SHOW_VAR *list,
 bool get_recursive_status_var(THD *thd, const char *name, char *const value,
                               enum_var_type var_type, size_t *length,
                               const CHARSET_INFO **charset) {
-  MUTEX_LOCK(lock, status_vars_inited ? &LOCK_status : nullptr);
+  MDL_mutex_guard guard(
+      THD::get_mutex_thd_status_aggregation(), thd, &LOCK_status,
+      use_status_mdl_mutex && status_vars_inited, !status_vars_inited);
   for (SHOW_VAR var : all_status_vars) {
     if (get_recursive_status_var_inner(thd, &var, false, name, value, var_type,
                                        length, charset))
@@ -4282,8 +4309,22 @@ bool get_recursive_status_var(THD *thd, const char *name, char *const value,
 */
 
 void remove_status_vars(SHOW_VAR *list) {
+  bool skip_delete = true;
+  THD *thd = nullptr;
+
   if (status_vars_inited) {
-    mysql_mutex_lock(&LOCK_status);
+    /** Do not enable plugins. */
+    bool skip_creation =
+        !use_status_mdl_mutex || !Global_THD_manager::is_initialized();
+    thd = current_thd || skip_creation ? current_thd : new THD(false);
+    if (!current_thd && thd) {
+      thd->thread_stack = (char *)&thd;
+      thd->store_globals();
+      skip_delete = false;
+    }
+
+    MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), thd,
+                          &LOCK_status, !skip_delete);
     size_t a = 0, b = all_status_vars.size(), c = (a + b) / 2;
 
     for (; list->name; list++) {
@@ -4301,7 +4342,6 @@ void remove_status_vars(SHOW_VAR *list) {
     }
     shrink_var_array(&all_status_vars);
     status_var_array_version++;
-    mysql_mutex_unlock(&LOCK_status);
   } else {
     uint i;
     for (; list->name; list++) {
@@ -4313,6 +4353,11 @@ void remove_status_vars(SHOW_VAR *list) {
     }
     shrink_var_array(&all_status_vars);
     status_var_array_version++;
+  }
+
+  if (!skip_delete) {
+    thd->restore_globals();
+    delete thd;
   }
 }
 
@@ -4558,7 +4603,7 @@ class Add_status : public Do_THD_Impl {
 
 void calc_sum_of_all_status(System_status_var *to) {
   DBUG_TRACE;
-  mysql_mutex_assert_owner(&LOCK_status);
+  // mysql_mutex_assert_owner(&LOCK_status);
   /* Get global values as base. */
   *to = global_status_var;
   Add_status add_status(to);

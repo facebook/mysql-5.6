@@ -5331,16 +5331,25 @@ void MDL_mutex::unlock(THD *thd, MDL_ticket *ticket) {
   Guard constructor locks the mutex.
 */
 MDL_mutex_guard::MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd,
-                                 mysql_mutex_t *mutex)
-    : m_mdl_mutex(mdl_mutex), m_thd(thd), m_mutex(mutex) {
+                                 mysql_mutex_t *mutex,
+                                 bool allow_caller_to_use_mdl_mutex,
+                                 bool allow_bypass)
+    : m_mdl_mutex(mdl_mutex),
+      m_thd(thd),
+      m_mutex(mutex),
+      m_allow_bypass(allow_bypass) {
   assert(m_mdl_mutex);
 
   // If regular mutex is not passed in then ignore use_mdl_mutex flag.
-  if (use_mdl_mutex || !m_mutex) {
-    assert(m_thd);
-    m_ticket = m_mdl_mutex->lock(m_thd);
-  } else {
-    mysql_mutex_lock(m_mutex);
+  if (!allow_bypass) {
+    bool enable_usage = use_mdl_mutex && allow_caller_to_use_mdl_mutex;
+    if (enable_usage || !m_mutex) {
+      assert(m_thd);
+      m_ticket = m_mdl_mutex->lock(m_thd);
+    } else {
+      assert(m_mutex);
+      mysql_mutex_lock(m_mutex);
+    }
   }
 }
 
@@ -5352,7 +5361,7 @@ MDL_mutex_guard::~MDL_mutex_guard() {
   if (m_ticket) {
     assert(m_mdl_mutex);
     m_mdl_mutex->unlock(m_thd, m_ticket);
-  } else {
+  } else if (!m_allow_bypass) {
     assert(m_mutex);
     mysql_mutex_unlock(m_mutex);
   }
