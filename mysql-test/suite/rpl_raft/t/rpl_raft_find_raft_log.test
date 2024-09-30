@@ -45,6 +45,7 @@ call mtr.add_suppression("Run function 'get_raft_log_info' in plugin 'RPL_RAFT' 
 replace_result $uuid1 uuid1;
 find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002:1000";
 
+replace_regex /File not found:.*/File not found/;
 --Error ER_FIND_RAFT_LOG_NOT_FOUND
 find raft logs RAFT_LOG_POSITION = "binary-logs-13001.000002:99999";
 

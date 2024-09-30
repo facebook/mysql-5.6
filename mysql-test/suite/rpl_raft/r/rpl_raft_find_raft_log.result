@@ -37,7 +37,7 @@ find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002:1000";
 Log_name	Position	Opid	Gtid	Gtid_set
 binary-logs-13000.000002	1137	1:5	uuid1:4	uuid1:1-4
 find raft logs RAFT_LOG_POSITION = "binary-logs-13001.000002:99999";
-ERROR HY000: Failed to find Raft log position: Not found: File not found: /data/users/chili/mysql/mysql80-fork/_build-8.0-Debug/mysql-test/var/mysqld.1/data/binary-logs-13001.000002.
+ERROR HY000: Failed to find Raft log position: Not found: File not found
 find raft logs RAFT_LOG_POSITION = "";
 ERROR HY000: Invalid find Raft log input: Please use 'LOG,offset'.
 find raft logs RAFT_LOG_POSITION = "binary-logs-13000.000002";
