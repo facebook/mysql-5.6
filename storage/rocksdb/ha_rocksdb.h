@@ -720,7 +720,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
   HANDLER_BUFFER mrr_buf;
 
-  Mrr_rowid_source *mrr_rowid_reader;
+  std::unique_ptr<Mrr_rowid_source> mrr_rowid_reader;
 
   friend class Mrr_rowid_source;
   friend class Mrr_pk_scan_rowid_source;

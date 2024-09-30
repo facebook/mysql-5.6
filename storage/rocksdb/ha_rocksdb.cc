@@ -20254,14 +20254,13 @@ class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
   int err;
 
  public:
-  explicit Mrr_sec_key_rowid_source(ha_rocksdb *self_arg)
-      : self(self_arg), err(0) {}
-
-  int init(RANGE_SEQ_IF *seq, void *seq_init_param, uint n_ranges, uint mode) {
+  Mrr_sec_key_rowid_source(ha_rocksdb *self_arg, RANGE_SEQ_IF *seq,
+                           void *seq_init_param, uint n_ranges, uint mode)
+      : self(self_arg), err(0) {
     self->m_keyread_only = true;
     self->mrr_enabled_keyread = true;
-    return self->handler::multi_range_read_init(seq, seq_init_param, n_ranges,
-                                                mode, nullptr);
+    self->handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
+                                         nullptr);
   }
 
   int get_next_rowid(uchar *buf, int *size, char **range_ptr) override {
@@ -20333,13 +20332,12 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
     // ICP is not supported for PK, so we don't expect that BKA's variant
     // of ICP would be used:
     mrr_used_cpk = true;
-    mrr_rowid_reader =
-        new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
+    mrr_rowid_reader = std::make_unique<Mrr_pk_scan_rowid_source>(
+        this, seq_init_param, n_ranges, mode);
   } else {
     mrr_used_cpk = false;
-    auto reader = new Mrr_sec_key_rowid_source(this);
-    reader->init(seq, seq_init_param, n_ranges, mode);
-    mrr_rowid_reader = reader;
+    mrr_rowid_reader = std::make_unique<Mrr_sec_key_rowid_source>(
+        this, seq, seq_init_param, n_ranges, mode);
   }
 
   res = mrr_fill_buffer();
@@ -20511,7 +20509,6 @@ void ha_rocksdb::mrr_free() {
     mrr_enabled_keyread = false;
   }
   mrr_free_rows();
-  delete mrr_rowid_reader;
   mrr_rowid_reader = nullptr;
 }
 

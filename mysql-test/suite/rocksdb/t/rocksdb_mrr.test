@@ -539,3 +539,20 @@ select * from t1 where t1.b in (select /*+ SEMIJOIN(FIRSTMATCH) */ t2.b from t2 
 
 drop table t0, t1000, t1, t2;
 
+--echo # Smaller buffer size causes outer table read batch to be initiated multiple times, help detect memory leak
+set SESSION join_buffer_size = 1024;
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on,hash_join=off';
+
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int primary key);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+
+create table t2 (a int primary key);
+insert into t2 select a from t1;
+--disable_result_log
+select * from t1 inner join t2 where t1.a=t2.a;
+--enable_result_log
+
+drop table t0, t1, t2;

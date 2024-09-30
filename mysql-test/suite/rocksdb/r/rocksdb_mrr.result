@@ -974,3 +974,14 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select /*+ SEMIJOIN(@`select#2` FIRSTMATCH) */ `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` semi join (`test`.`t2`) where ((`test`.`t2`.`b` = `test`.`t1`.`b`) and (`test`.`t2`.`c` > 0)) order by `test`.`t1`.`a`
 drop table t0, t1000, t1, t2;
+# Smaller buffer size causes outer table read batch to be initiated multiple times, help detect memory leak
+set SESSION join_buffer_size = 1024;
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on,hash_join=off';
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1(a int primary key);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+create table t2 (a int primary key);
+insert into t2 select a from t1;
+select * from t1 inner join t2 where t1.a=t2.a;
+drop table t0, t1, t2;
