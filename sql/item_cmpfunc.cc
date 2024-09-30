@@ -5316,6 +5316,13 @@ void Item_func_in::print(const THD *thd, String *str,
   if (thd->plan_capture() &&
       (thd->is_plan_modifier_set(THD::Plan_format::PRUNE_IN_LISTS))) {
     str->append(STRING_WITH_LEN("...)"));
+  } else if (thd->plan_capture() && (arg_count > 2) &&
+             thd->is_plan_modifier_set(THD::Plan_format::USE_ARG_COUNTS)) {
+    /* a single IN list item results in an arg_count of 2, so use arg_counts
+     * only when arg_count > 2, i.e. for IN lists larger than 1 item */
+    char tmp[64];
+    snprintf(tmp, sizeof(tmp) - 1, "<%u items>)", arg_count - 1);
+    str->append(tmp, strlen(tmp));
   } else {
     print_args(thd, str, 1, query_type);
     str->append(STRING_WITH_LEN("))"));
@@ -5901,10 +5908,17 @@ void Item_cond::update_used_tables() {
 void Item_cond::print(const THD *thd, String *str,
                       enum_query_type query_type) const {
   str->append('(');
-  if (thd->plan_capture() &&
-      thd->is_plan_modifier_set(THD::Plan_format::PRUNE_EXPR_TREES)) {
+  if (thd->plan_capture()) {
+    if (thd->is_plan_modifier_set(THD::Plan_format::PRUNE_EXPR_TREES)) {
       str->append(STRING_WITH_LEN("<Cond expr>)"));
       return;
+    } else if (thd->is_plan_modifier_set(THD::Plan_format::USE_ARG_COUNTS)) {
+      char tmp[64];
+      snprintf(tmp, sizeof(tmp) - 1, "<%u %s cond(s)>)", list.size(),
+               func_name());
+      str->append(tmp, strlen(tmp));
+      return;
+    }
   }
   bool first = true;
   for (auto &item : list) {

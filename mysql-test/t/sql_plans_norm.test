@@ -19,6 +19,8 @@ INSERT INTO t1 VALUES (1,1,'a','b'), (1,2,'a','b'),
 (5,3,'f','c'), (5,4,'k','c'),
 (6,1,'y','d'), (6,2,'f','b');
 
+analyze table t1;
+
 # Make sure all sql_plans controls are OFF
 
 SELECT @@sql_plans_control;
@@ -200,11 +202,49 @@ enable_result_log;
 
 SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
 
-
 # Clean up all state changes 
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.sql_plans_norm_prune_expr_trees=OFF;
+
+--echo
+--echo  .***********************************.
+--echo  | Test plan capture with ARG COUNTs |
+--echo  `***********************************`
+--echo
+
+set @@GLOBAL.sql_plans_control=ON;
+set @@GLOBAL.sql_plans_norm_use_arg_counts=ON;
+
+disable_result_log;
+
+alter table t1 add column c3 int not null;
+
+--echo SELECT #1
+SELECT * FROM t1 where pk_col1 in (1, 2, 3, 4, 5, 6, 8, 12, 13, 15, 17, 19, 22, 21, 25, 24, 20, 27, 22);
+
+--echo SELECT #2
+SELECT * FROM t1 WHERE pk_col1 > 1 AND pk_col1 < 10 or pk_col1 > 20 and pk_col1 < 30 or pk_col1 > 50 and pk_col1 < 100;
+
+--echo SELECT #3
+SELECT * FROM t1 where c1 in ('a');
+
+--echo SELECT #4
+SELECT * FROM t1 where c1 in ('a', 'b'); 
+
+--echo SELECT #5
+SELECT * FROM t1 where c1 in ('a', 'b', 'c'); 
+
+enable_result_log;
+
+--echo
+SELECT PLAN_ID, COUNT_OCCUR, PLAN_ROW FROM performance_schema.sql_plans;
+--echo
+
+# Clean up all state changes 
+
+set @@GLOBAL.sql_plans_control=OFF_HARD;
+set @@GLOBAL.sql_plans_norm_use_arg_counts=OFF;
 
 drop table t1;
 

@@ -684,12 +684,18 @@ static bool PrintRanges(const QUICK_RANGE *const *ranges, unsigned num_ranges,
   string range, shortened_range;
 
   // Return normalized range output
-  if (current_thd->plan_capture() &&
-      current_thd->is_plan_modifier_set(
-            THD::Plan_format::PRUNE_EXPR_TREES)) {
-    range += "<Range expr>";
-    *ranges_out = range;
-    return false;
+  if (current_thd->plan_capture()) {
+    if (current_thd->is_plan_modifier_set(THD::Plan_format::PRUNE_EXPR_TREES)) {
+      range += "<Range expr>";
+      *ranges_out = range;
+      return false;
+    } else if (current_thd->is_plan_modifier_set(
+                   THD::Plan_format::USE_ARG_COUNTS)) {
+      char str[64];
+      snprintf(str, sizeof(str) - 1, "<%u range(s)>", num_ranges);
+      *ranges_out += str;
+      return false;
+    }
   }
 
   for (unsigned range_idx = 0; range_idx < num_ranges; ++range_idx) {
