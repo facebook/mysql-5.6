@@ -223,3 +223,16 @@ EXPLAIN
     -> Vector index scan on t1 using vector_key_1  (rows=1)
 
 drop table t1;
+
+Take a final reading of counters
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	6
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	60
+rocksdb_vectors_read	60
+rocksdb_vectors_rows_read	24
+rocksdb_vectors_sent_to_faiss	60
+

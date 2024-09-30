@@ -173,3 +173,16 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 149	4	1	97	37
 drop table t1;
+
+Take a final reading of counters
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	32
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	80
+rocksdb_vectors_read	1196
+rocksdb_vectors_rows_read	80
+rocksdb_vectors_sent_to_faiss	1196
+

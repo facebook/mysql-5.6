@@ -11,6 +11,11 @@ insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1
   ('id1', 'quantizer', 2, '[2, 2, 0, 0]'), ('id1', 'quantizer', 3, '[3, 3, 0, 0]'), ('id1', 'quantizer', 4, '[4, 4, 0, 0]'), ('id1', 'quantizer', 5, '[5, 5, 0, 0]'),
   ('id1', 'quantizer', 6, '[6, 6, 0, 0]'), ('id1', 'quantizer', 7, '[7, 7, 0, 0]'), ('id1', 'quantizer', 8, '[8, 8, 0, 0]'), ('id1', 'quantizer', 9, '[9, 9, 0, 0]');
 
+--let $status_tab = status_tmp
+--let $status_like = 'rocksdb_vectors_%'
+
+--source include/show_status_init.inc
+
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
   vector1 JSON NOT NULL fb_vector_dimension 4,
@@ -40,6 +45,8 @@ show variables like 'fb_vector_search_nprobe';
 with search as (select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100) select COUNT(*) from search;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 
+--source include/show_status.inc
+
 # reduce the session nprobe to 3 and check the results
 --echo
 --echo Set a lower session default value for nprobe
@@ -50,6 +57,7 @@ show variables like 'fb_vector_search_nprobe';
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 # use the query hint to further limit the search space
 --echo
@@ -58,6 +66,7 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 # set a lower session default value for nprobe
 --echo
@@ -70,6 +79,7 @@ show variables like 'fb_vector_search_nprobe';
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 # use the query hint to expand the search space
 --echo
@@ -78,6 +88,7 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 3) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 # add more vectors into the database and check that they are reflected in the search
 --echo
@@ -91,6 +102,7 @@ insert into t1 values (1011, json_array(0.28, 0.28, 0, 0), 'val1011');
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 3) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 # adding some error cases
 --echo
@@ -99,10 +111,13 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 0) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 with search as (select /*+ SET_VAR(fb_vector_search_nprobe = 10001) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100) select COUNT(*) from search;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 with search as (select /*+ SET_VAR(fb_vector_search_nprobe = 1G) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100) select COUNT(*) from search;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 --echo
 --echo On providing value other than unsigned int, the nprobe hint will become ineffective, and the session variable value will be used
@@ -110,16 +125,21 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = -1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 0.1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe = 1.0) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 --replace_numeric_round 4
 select /*+ SET_VAR(fb_vector_search_nprobe =A) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 
 drop table t1;
 
 source ../include/cleanup_ivf.inc;
+--source include/show_status_cleanup.inc

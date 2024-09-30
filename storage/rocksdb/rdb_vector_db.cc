@@ -142,6 +142,9 @@ class Rdb_faiss_inverted_list_context {
     if (!m_error) {
       // only record list size when there is no error
       m_list_size_stats.push_back({list_id, m_current_list_size});
+
+      /* list iteration completed, increment centroid list counter */
+      rocksdb_vectors_centroid_lists_read++;
     }
     m_current_list_size = 0;
   }
@@ -169,6 +172,9 @@ class Rdb_faiss_inverted_list_context {
         return HA_EXIT_FAILURE;
       }
       result.emplace_back(iter->second, distances[i]);
+
+      /* vector read from FAISS, increment vectors_rcvd_from_faiss counter */
+      rocksdb_vectors_rcvd_from_faiss++;
     }
     return HA_EXIT_SUCCESS;
   }
@@ -445,6 +451,15 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       /* evaluate PK condition and filter */
       if (m_context->m_pk_index_cond->val_int()) break;
 
+      /* vector got filtered out, increment vectors_filtered_icp counter */
+      rocksdb_vectors_filtered_icp++;
+
+      /* Since the vector was read from disk, increment vectors_read counter
+         This covers the ICP based PK filtering path for both the KNN_FIRST
+         and the VECTOR ITERATOR access methods
+       */
+      rocksdb_vectors_read++;
+
       /* clear buffers for next round */
       sk.clear();
       sk_value.clear();
@@ -601,6 +616,12 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
     }
     assert(codes.size() == m_code_size);
 
+    /* Vector was read from disk, increment vectors_read counter
+       This covers the ANALYZE TABLE path and the FAISS triggered path
+       for the KNN_FIRST access method
+     */
+    rocksdb_vectors_read++;
+
     m_context->on_iterator_record();
     return HA_EXIT_SUCCESS;
   }
@@ -616,6 +637,9 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       faiss::idx_t vector_id = 42;
       m_codes_buffer.resize(m_code_size);
       return {vector_id, m_codes_buffer.data()};
+    } else {
+      /* vector is being sent to FAISS , increment vectors_sent_to_faiss counter */
+      rocksdb_vectors_sent_to_faiss++;
     }
 
     faiss::idx_t vector_id = m_context->add_key(key);
@@ -658,6 +682,7 @@ class Rdb_vector_list_iterator : public Rdb_vector_db_iterator {
            !m_current_iterator->is_available()) {
       if (m_error || m_list_id_iter == m_list_ids.end() ||
           *m_list_id_iter < 0) {
+        m_current_iterator.reset();
         break;
       }
       m_current_iterator.reset(new Rdb_vector_iterator(
@@ -677,6 +702,11 @@ class Rdb_vector_list_iterator : public Rdb_vector_db_iterator {
       m_error = rtn;
       return rtn;
     }
+    /* Vector was read from disk, increment vectors_read counter
+       This covers the VECTOR ITERATOR path
+     */
+    rocksdb_vectors_read++;
+
     return rtn;
   }
 
@@ -807,12 +837,21 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     std::vector<faiss::idx_t> vector_ids(nprobe);
     std::vector<float> distances(nprobe);
 
+    /*
+       do a coarse search through centroids configured for this vector index,
+       and get a list of the closest <nprobe> centroids
+     */
     m_quantizer->search(vector_count, query_vector.data(), nprobe,
                         distances.data(), vector_ids.data());
 
     Rdb_faiss_inverted_list_context context(
         thd, tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
         end_key_packed_tuple, pk_descr, sk_descr);
+
+    /*
+       set up an iterator to go through the centroid lists in increasing
+       order of distance from the query vector
+     */
     index_scan_result_iter.reset(new Rdb_vector_list_iterator(
         std::move(context), m_index_id, m_cf_handle.get(),
         m_index_l2->code_size, std::move(vector_ids)));

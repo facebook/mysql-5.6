@@ -1,3 +1,10 @@
+
+--let $status_tab = status_tmp
+--let $status_like = 'rocksdb_vectors_%'
+
+--source include/show_status_init.inc
+
+
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
   a int,
@@ -320,3 +327,7 @@ drop table t1;
 
 enable_warnings;
 
+--echo 
+--echo Take a final reading of counters: they should all be zero
+--source include/show_status.inc
+--source include/show_status_cleanup.inc

@@ -30,6 +30,17 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	1	5	5	5
 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	10
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	50
+rocksdb_vectors_read	50
+rocksdb_vectors_rows_read	50
+rocksdb_vectors_sent_to_faiss	50
+
+
 Set a lower session default value for nprobe
 set session fb_vector_search_nprobe = 3;
 show variables like 'fb_vector_search_nprobe';
@@ -58,6 +69,17 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	2	5	5	5
 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	3
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	15
+rocksdb_vectors_read	15
+rocksdb_vectors_rows_read	15
+rocksdb_vectors_sent_to_faiss	15
+
+
 Query hint can be used to override the default nprobe
 The following SELECT should have only 5 result rows
 select /*+ SET_VAR(fb_vector_search_nprobe = 1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
@@ -70,6 +92,17 @@ id	vector1	name	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	3	5	5	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	5
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 
 Set a new, lower, session default value for nprobe
 set session fb_vector_search_nprobe = 1;
@@ -88,6 +121,17 @@ id	vector1	name	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	4	5	5	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	5
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 
 Query hint can be used to override the default nprobe and expand search space
 The following SELECT should have 15 result rows
@@ -111,6 +155,17 @@ id	vector1	name	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 50	5	5	5	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	3
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	15
+rocksdb_vectors_read	15
+rocksdb_vectors_rows_read	15
+rocksdb_vectors_sent_to_faiss	15
+
 
 Add new vectors into the vector database to verify that they become part of the search
 insert into t1 values (1010, json_array(0.32, 0.32, 0, 0), 'val1010');
@@ -140,6 +195,17 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	6	5	7	5
 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	3
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	17
+rocksdb_vectors_read	17
+rocksdb_vectors_rows_read	17
+rocksdb_vectors_sent_to_faiss	17
+
+
 Valid values for nprobe are between 1 and 10000
 By providing nprobe as < 1 or > 10000, the nprobe hint will get truncated to the min/max limits (1 and 10000). Examples below:
 select /*+ SET_VAR(fb_vector_search_nprobe = 0) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
@@ -156,6 +222,17 @@ Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '0'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	7	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	7
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 with search as (select /*+ SET_VAR(fb_vector_search_nprobe = 10001) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100) select COUNT(*) from search;
 COUNT(*)
 52
@@ -164,6 +241,17 @@ Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '10001'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	8	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	10
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	52
+rocksdb_vectors_read	52
+rocksdb_vectors_rows_read	52
+rocksdb_vectors_sent_to_faiss	52
+
 with search as (select /*+ SET_VAR(fb_vector_search_nprobe = 1G) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100) select COUNT(*) from search;
 COUNT(*)
 52
@@ -172,6 +260,17 @@ Warning	1292	Truncated incorrect fb_vector_search_nprobe value: '1073741824'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	9	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	10
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	52
+rocksdb_vectors_read	52
+rocksdb_vectors_rows_read	52
+rocksdb_vectors_sent_to_faiss	52
+
 
 On providing value other than unsigned int, the nprobe hint will become ineffective, and the session variable value will be used
 Example of bad syntax for nprobe query hint
@@ -189,6 +288,17 @@ Warning	1064	Optimizer hint syntax error near '-1) */ *, fb_vector_l2(vector1, '
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	10	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	7
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 select /*+ SET_VAR(fb_vector_search_nprobe = 0.1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
 1010	[0.32, 0.32, 0, 0]	val1010	0.0008
@@ -203,6 +313,17 @@ Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	11	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	7
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 select /*+ SET_VAR(fb_vector_search_nprobe = 1) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
 1010	[0.32, 0.32, 0, 0]	val1010	0.0008
@@ -217,6 +338,17 @@ Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	12	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	7
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 select /*+ SET_VAR(fb_vector_search_nprobe =A) */ *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 force index(key1) order by dis limit 100;
 id	vector1	name	dis
 1010	[0.32, 0.32, 0, 0]	val1010	0.0008
@@ -231,4 +363,15 @@ Warning	1232	Incorrect argument type to variable 'fb_vector_search_nprobe'
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 52	13	5	7	5
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	7
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 drop table t1;

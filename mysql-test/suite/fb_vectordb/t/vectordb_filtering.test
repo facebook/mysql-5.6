@@ -17,6 +17,11 @@ enable_query_log;
 
 --disable_warnings
 
+--let $status_tab = status_tmp
+--let $status_like = 'rocksdb_vectors_%'
+
+--source include/show_status_init.inc
+
 --echo
 --echo Vector distance ordering for reference:
 explain
@@ -81,3 +86,8 @@ inc $i;
 }
 
 drop table t1;
+
+--echo
+--echo Take a final reading of counters
+--source include/show_status.inc
+--source include/show_status_cleanup.inc

@@ -1297,6 +1297,14 @@ extern std::atomic<uint64_t> rocksdb_partial_index_groups_materialized;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_sorted;
 extern std::atomic<uint64_t> rocksdb_partial_index_rows_materialized;
 extern std::atomic<uint64_t> rocksdb_binlog_ttl_compaction_timestamp;
+
+extern std::atomic<uint64_t> rocksdb_vectors_read;
+extern std::atomic<uint64_t> rocksdb_vectors_sent_to_faiss;
+extern std::atomic<uint64_t> rocksdb_vectors_filtered_icp;
+extern std::atomic<uint64_t> rocksdb_vectors_rcvd_from_faiss;
+extern std::atomic<uint64_t> rocksdb_vectors_rows_read;
+extern std::atomic<uint64_t> rocksdb_vectors_centroid_lists_read;
+
 extern bool rocksdb_enable_tmp_table;
 extern bool rocksdb_enable_delete_range_for_drop_index;
 extern bool rocksdb_disable_instant_ddl;

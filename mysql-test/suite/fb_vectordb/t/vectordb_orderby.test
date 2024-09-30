@@ -12,6 +12,11 @@ insert into t1 values (9, '[20,10,30]'), (10, '[25,25,41]');
 
 disable_warnings;
 
+--let $status_tab = status_tmp
+--let $status_like = 'rocksdb_vectors_%'
+
+--source include/show_status_init.inc
+
 --echo
 --echo
 --echo 1. Verify that the optimizer chooses the vector index for an ORDER BY 
@@ -205,3 +210,9 @@ explain format=tree select vector1 from t1 order by FB_VECTOR_L2(vector1, '[2, 1
 explain format=tree select id from t1 order by FB_VECTOR_L2(vector1, '[2, 1, 1]');
 
 drop table t1;
+
+--echo
+--echo Take a final reading of counters
+--source include/show_status.inc
+--source include/show_status_cleanup.inc
+

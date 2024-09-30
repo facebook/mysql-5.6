@@ -9,6 +9,11 @@ source ../include/init_ivf.inc;
 # 2 centroids
 insert into VECTORDB_DATA values ('id1', 'metadata', 0, JSON_OBJECT('version', 1, 'nlist', 2)), ('id1', 'quantizer', 0, '[0, 0, 0, 0]'), ('id1', 'quantizer', 1, '[1, 1, 0, 0]');
 
+--let $status_tab = status_tmp
+--let $status_like = 'rocksdb_vectors_%'
+
+--source include/show_status_init.inc
+
 CREATE TABLE t1 (
   id BIGINT NOT NULL PRIMARY KEY,
   vector1 JSON NOT NULL fb_vector_dimension 4,
@@ -29,19 +34,31 @@ explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by d
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
+
+--echo Explanation of the above counters: 
+--echo ->   Since both lists are traversed, all 200 vectors are sent to faiss. 
+--echo ->   100 vectors are received back from FAISS since LIMIT is 10 and the default 
+--echo      LIMIT_MULTIPLIER is 10
+--echo ->   rocksdb_vectors_rows_read is 10, as SQL layer doesn't filter anything out
+--echo      and only reads 10 rows corresponding to the LIMIT. 
+--echo 
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 SET SESSION fb_vector_search_type = KNN;
 
 # test order by a integer column with index when the flag fb_vector_use_index_scan is off versus on
 explain select * from t1 order by value limit 10;
 select * from t1 order by value limit 10;
+--source include/show_status.inc
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select * from t1 order by value limit 10;
 select * from t1 order by value limit 10;
+--source include/show_status.inc
 SET SESSION fb_vector_search_type = KNN;
 
 # test order by a varchar column with index when the flag fb_vector_use_index_scan is off versus on
@@ -69,11 +86,14 @@ explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 SET SESSION fb_vector_search_type = KNN;
 
 # the rank of 98 should go down in next query
@@ -92,11 +112,14 @@ SET SESSION fb_vector_search_type = KNN;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
+--source include/show_status.inc
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 --replace_numeric_round 4
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
+--source include/show_status.inc
 SET SESSION fb_vector_search_type = KNN;
 
 
@@ -184,6 +207,11 @@ select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc lim
 select *, fb_vector_ip(vector1, '[1, 0.9]') as dis from t1 order by dis desc limit 10;
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 SET SESSION fb_vector_search_type = KNN;
+
+--echo
+--echo Take a final reading of counters
+--source include/show_status.inc
+--source include/show_status_cleanup.inc
 
 drop table t1;
 

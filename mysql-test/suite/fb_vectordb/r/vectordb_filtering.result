@@ -165,3 +165,16 @@ id	color	vector1	dis
 11	green	[4.4, 5.61, 5.72]	18.4305
 14	green	[5.5, 6.71, 6.82]	37.9665
 drop table t1;
+
+Take a final reading of counters
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	11
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	130
+rocksdb_vectors_read	330
+rocksdb_vectors_rows_read	176
+rocksdb_vectors_sent_to_faiss	270
+

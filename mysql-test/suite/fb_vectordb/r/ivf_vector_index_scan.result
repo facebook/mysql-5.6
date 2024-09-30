@@ -30,6 +30,24 @@ id	vector1	name	value	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 200	1	100	100	100
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	2
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	100
+rocksdb_vectors_read	200
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	200
+
+Explanation of the above counters: 
+->   Since both lists are traversed, all 200 vectors are sent to faiss. 
+->   100 vectors are received back from FAISS since LIMIT is 10 and the default 
+LIMIT_MULTIPLIER is 10
+->   rocksdb_vectors_rows_read is 10, as SQL layer doesn't filter anything out
+and only reads 10 rows corresponding to the LIMIT. 
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -51,6 +69,17 @@ id	vector1	name	value	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 200	2	100	100	100
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	2
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	200
+rocksdb_vectors_rows_read	200
+rocksdb_vectors_sent_to_faiss	0
+
 SET SESSION fb_vector_search_type = KNN;
 explain select * from t1 order by value limit 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -69,6 +98,17 @@ id	vector1	name	value
 52	[0.0052, 0.0052, 0, 0]	val52	2
 1048	[1.0048, 0.9952, 0, 0]	val1048	2
 1052	[1.0052, 0.9948, 0, 0]	val1052	2
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	0
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	0
+rocksdb_vectors_rows_read	0
+rocksdb_vectors_sent_to_faiss	0
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select * from t1 order by value limit 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -87,6 +127,17 @@ id	vector1	name	value
 52	[0.0052, 0.0052, 0, 0]	val52	2
 1048	[1.0048, 0.9952, 0, 0]	val1048	2
 1052	[1.0052, 0.9948, 0, 0]	val1052	2
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	0
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	0
+rocksdb_vectors_rows_read	0
+rocksdb_vectors_sent_to_faiss	0
+
 SET SESSION fb_vector_search_type = KNN;
 explain select * from t1 order by name limit 10;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -182,6 +233,17 @@ id	vector1	name	value	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 200	3	100	100	100
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	2
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	60
+rocksdb_vectors_read	200
+rocksdb_vectors_rows_read	60
+rocksdb_vectors_sent_to_faiss	200
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -199,6 +261,17 @@ id	vector1	name	value	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 200	4	100	100	100
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	2
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	200
+rocksdb_vectors_rows_read	200
+rocksdb_vectors_sent_to_faiss	0
+
 SET SESSION fb_vector_search_type = KNN;
 update t1 set vector1 = '[0.0097, 0.009, 0, 0]' where id = 98;
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
@@ -243,6 +316,17 @@ id	vector1	name	value	dis
 99	[0.0099, 0.0099, 0, 0]	val99aaa	49	0.1683
 97	[0.0097, 0.0097, 0, 0]	val97aaa	47	0.1685
 98	[0.0097, 0.009, 0, 0]	val98aaa	48	0.169
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	6
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	160
+rocksdb_vectors_read	600
+rocksdb_vectors_rows_read	270
+rocksdb_vectors_sent_to_faiss	400
+
 SET SESSION fb_vector_search_type = ITERATOR;
 explain select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 where name like '%aaa%' order by dis limit 6;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -260,6 +344,17 @@ id	vector1	name	value	dis
 SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX WHERE TABLE_NAME = 't1';
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 200	8	100	100	100
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	2
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	200
+rocksdb_vectors_rows_read	200
+rocksdb_vectors_sent_to_faiss	0
+
 SET SESSION fb_vector_search_type = KNN;
 update t1 set id = 2000 where id = 98;
 select *, fb_vector_l2(vector1, '[0.3, 0.3]')  as dis from t1 order by dis limit 10;
@@ -499,4 +594,17 @@ SELECT NTOTAL, HIT, MIN_LIST_SIZE, MAX_LIST_SIZE, AVG_LIST_SIZE  FROM INFORMATIO
 NTOTAL	HIT	MIN_LIST_SIZE	MAX_LIST_SIZE	AVG_LIST_SIZE
 198	22	98	100	99
 SET SESSION fb_vector_search_type = KNN;
+
+Take a final reading of counters
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	28
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	700
+rocksdb_vectors_read	2788
+rocksdb_vectors_rows_read	1464
+rocksdb_vectors_sent_to_faiss	1394
+
 drop table t1;

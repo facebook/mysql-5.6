@@ -573,3 +573,16 @@ id	vector1	a	COUNT(*)
 9	[20, 10, 30]	1	1
 10	[25, 25, 41]	1	1
 drop table t1;
+
+Take a final reading of counters: they should all be zero
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	0
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	0
+rocksdb_vectors_rows_read	0
+rocksdb_vectors_sent_to_faiss	0
+
