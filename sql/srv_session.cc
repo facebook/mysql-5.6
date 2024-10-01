@@ -896,12 +896,14 @@ bool Srv_session::open() {
   m_thd->set_plugin(plugin);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
-  PSI_thread *psi;
-  uint psi_seqnum = 0;
-  psi = PSI_THREAD_CALL(new_thread)(key_thread_one_connection, psi_seqnum,
-                                    m_thd, m_thd->thread_id());
-  PSI_THREAD_CALL(set_thread_THD)(psi, m_thd);
-  m_thd->set_psi(psi);
+  if (!PSI_THREAD_CALL(get_thread)()) {
+    PSI_thread *psi;
+    uint psi_seqnum = 0;
+    psi = PSI_THREAD_CALL(new_thread)(key_thread_srv_session, psi_seqnum,
+                                      m_thd, m_thd->thread_id());
+    PSI_THREAD_CALL(set_thread_THD)(psi, m_thd);
+    m_thd->set_psi(psi);
+  }
 #endif /* HAVE_PSI_THREAD_INTERFACE */
 
   server_session_list.add(m_thd, plugin, this);

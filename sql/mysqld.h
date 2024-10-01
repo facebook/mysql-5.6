@@ -916,6 +916,7 @@ extern PSI_thread_key key_thread_bootstrap;
 extern PSI_thread_key key_thread_handle_manager;
 extern PSI_thread_key key_thread_handle_slave_stats_daemon;
 extern PSI_thread_key key_thread_one_connection;
+extern PSI_thread_key key_thread_srv_session;
 extern PSI_thread_key key_thread_compress_gtid_table;
 extern PSI_thread_key key_thread_parser_service;
 extern PSI_thread_key key_thread_handle_con_admin_sockets;

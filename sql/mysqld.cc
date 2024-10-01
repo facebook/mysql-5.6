@@ -14127,6 +14127,7 @@ PSI_thread_key key_thread_bootstrap;
 PSI_thread_key key_thread_handle_manager;
 PSI_thread_key key_thread_handle_slave_stats_daemon;
 PSI_thread_key key_thread_one_connection;
+PSI_thread_key key_thread_srv_session;
 PSI_thread_key key_thread_compress_gtid_table;
 PSI_thread_key key_thread_parser_service;
 PSI_thread_key key_thread_handle_con_admin_sockets;
@@ -14152,6 +14153,7 @@ PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},
   { &key_thread_parser_service, "parser_service", "parser_srv", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_con_admin_sockets, "admin_interface", "con_admin", PSI_FLAG_USER, 0, PSI_DOCUMENT_ME},
   { &key_thread_dump_worker, "dump_worker", "dump", PSI_FLAG_THREAD_SYSTEM, 0, PSI_DOCUMENT_ME},
+  { &key_thread_srv_session, "server_session", "srv_session", PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
