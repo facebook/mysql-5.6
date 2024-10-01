@@ -150,6 +150,7 @@ my $opt_max_test_fail      = env_or_val(MTR_MAX_TEST_FAIL => 10);
 my $opt_mysqlx_baseport    = $ENV{'MYSQLXPLUGIN_PORT'} || "auto";
 my $opt_port_base          = $ENV{'MTR_PORT_BASE'} || "auto";
 my $opt_port_exclude       = $ENV{'MTR_PORT_EXCLUDE'} || "none";
+my $opt_skip_port_bind_errors = 1;
 my $opt_reorder            = 1;
 my $opt_retry              = 3;
 my $opt_retry_failure      = env_or_val(MTR_RETRY_FAILURE => 2);
@@ -1066,6 +1067,9 @@ sub report_stats($$;$) {
 #
 # When all tests are completed or if we abort test runs early, a message
 # 'BYE' is sent to the worker.
+#
+# 'TESTRESULT_PORT_BIND_ERROR' has also been added to stop using the server
+# for tests since it will continue to fail to run tests.
 sub run_test_server ($$$) {
   my ($server, $tests, $childs) = @_;
 
@@ -1117,7 +1121,7 @@ sub run_test_server ($$$) {
         }
         chomp($line);
 
-        if ($line eq 'TESTRESULT') {
+        if ($line eq 'TESTRESULT' || $line eq 'TESTRESULT_PORT_BIND_ERROR') {
           $result = My::Test::read_test($sock);
 
           # Report test status
@@ -1242,7 +1246,9 @@ sub run_test_server ($$$) {
           my $retries         = $result->{retries}  || 2;
           my $test_has_failed = $result->{failures} || 0;
 
-          if ($test_has_failed and $retries <= $opt_retry) {
+          # Skip retry if the test failed due to a port bind issue
+          if ($line ne 'TESTRESULT_PORT_BIND_ERROR' and
+              $test_has_failed and $retries <= $opt_retry) {
             # Test should be run one more time unless it has failed
             # too many times already
             my $tname    = $result->{name};
@@ -1270,6 +1276,14 @@ sub run_test_server ($$$) {
 
           # Save result in completed list
           push(@$completed, $result);
+
+          # If the failure was due to a port bind issue, shutdown the server
+          if ($line eq 'TESTRESULT_PORT_BIND_ERROR') {
+            # Shutdown worker
+            print $sock "BYE\n";
+            $sock->shutdown(SHUT_WR);
+            next;
+          }
 
         } elsif ($line eq 'START') {
           # 'START' is the initial message from a new worker, send first test
@@ -1493,8 +1507,13 @@ sub run_worker ($) {
 
       $ENV{'SECONDARY_ENGINE_TEST'} = 0;
 
+      my $result = 'TESTRESULT';
+      if (exists $test->{'port_bind_error'}) {
+        $result = 'TESTRESULT_PORT_BIND_ERROR';
+      }
+
       # Send it back, now with results set
-      $test->write_test($server, 'TESTRESULT');
+      $test->write_test($server, $result);
       mark_time_used('restart');
     } elsif ($line eq 'GETREPORTS') {
       stop_all_servers($opt_shutdown_timeout);
@@ -1806,6 +1825,7 @@ sub command_line_setup {
     'mysqlx-port=i'                   => \$opt_mysqlx_baseport,
     'port-base|mtr-port-base=i'       => \$opt_port_base,
     'port-exclude|mtr-port-exclude=s' => \$opt_port_exclude,
+    'skip-port-bind-errors=i'         => \$opt_skip_port_bind_errors,
 
     # Test case authoring
     'check-testcases!' => \$opt_check_testcases,
@@ -6586,6 +6606,16 @@ sub report_failure_and_restart ($) {
 
   my $test_failures = $tinfo->{'failures'} || 0;
   $tinfo->{'failures'} = $test_failures + 1;
+
+  # It should be sufficient to scan the error log at this point to look for
+  # port bind issues.
+  if ($opt_skip_port_bind_errors and defined($tinfo->{logfile}) and
+      $tinfo->{logfile} =~ m/Do you already have another mysqld server/) {
+    $tinfo->{'result'} = 'MTR_RES_SKIPPED';
+    $tinfo->{comment} = "Port bind error detected: " . $tinfo->{comment};
+    $tinfo->{'failures'} = 0;
+    $tinfo->{'port_bind_error'} = 1;
+  }
 
   if ($tinfo->{comment}) {
     # The test failure has been detected by mysql-test-run.pl
