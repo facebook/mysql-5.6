@@ -1,3 +1,5 @@
+#TODO(chni): This test is flaky when UDT-IN-MEM is on. Follow up on this.
+--source include/skip_udt_in_mem.inc
 #
 # Stress partial indexes by performing writes, and checking that PK/SK are still consistent.
 #

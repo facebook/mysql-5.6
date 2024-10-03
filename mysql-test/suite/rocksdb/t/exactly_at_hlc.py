@@ -1,6 +1,6 @@
 """
-This script stress tests exactly_at_hlc by performing writes and reads
-parallelly.
+This script stress tests exactly_at_hlc by performing writes and reads in
+parallel.
 
 Usage: exactly_at_hlc.py user host port db_name table_name
        num_iters_write num_iters_read error_log_path
