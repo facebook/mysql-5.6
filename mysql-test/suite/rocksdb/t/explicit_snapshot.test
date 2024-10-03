@@ -109,7 +109,7 @@ echo "con1: Starting shared snapshot";
 let $snapshot=
 query_get_value(START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT, Snapshot_ID, 1);
 echo "con1: Trying to insert row";
-error ER_UPDATES_WITH_CONSISTENT_SNAPSHOT;
+error ER_UPDATES_WITH_EXPLICIT_SNAPSHOT;
 INSERT INTO T1 VALUES();
 
 connection con2;
@@ -118,7 +118,7 @@ disable_result_log;
 eval START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT $snapshot;
 enable_result_log;
 echo "con2: Trying to insert row";
-error ER_UPDATES_WITH_CONSISTENT_SNAPSHOT;
+error ER_UPDATES_WITH_EXPLICIT_SNAPSHOT;
 INSERT INTO T1 VALUES();
 
 connection con1;
