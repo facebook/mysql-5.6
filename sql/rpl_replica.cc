@@ -2279,6 +2279,10 @@ int terminate_slave_threads(Master_info *mi, int thread_mask,
 
   if (thread_mask & (SLAVE_IO | SLAVE_FORCE_ALL)) {
     DBUG_PRINT("info", ("Terminating IO thread"));
+
+    // stop sending secondary lag stats to primary
+    stop_handle_slave_stats_daemon();
+
     mi->abort_slave = true;
     DBUG_EXECUTE_IF("pause_after_queue_event",
                     { rpl_replica_debug_point(DBUG_RPL_S_PAUSE_QUEUE_EV); });
@@ -2622,10 +2626,17 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
     lock_cond_sql = &mi->rli->run_lock;
   }
 
-  if ((thread_mask & SLAVE_IO) && !enable_raft_plugin)
+  if ((thread_mask & SLAVE_IO) && !enable_raft_plugin) {
     is_error = start_slave_thread(key_thread_replica_io, handle_slave_io,
                                   lock_io, lock_cond_io, cond_io,
                                   &mi->slave_running, &mi->slave_run_id, mi);
+    if (!is_error) {
+      // clean up - stop previous run of slave_stats_daemon, if any
+      stop_handle_slave_stats_daemon();
+      // start sending secondary lag stats to primary
+      start_handle_slave_stats_daemon();
+    }
+  }
 
   if (!is_error && (thread_mask & (SLAVE_IO | SLAVE_MONITOR)) &&
       mi->is_source_connection_auto_failover() &&
@@ -5973,7 +5984,6 @@ extern "C" void *handle_slave_io(void *arg) {
   uint retry_count;
   bool suppress_warnings;
   int ret;
-  bool slave_stats_daemon_created = false;
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   // needs to call my_thread_init(), otherwise we get a coredump in DBUG_ stuff
   my_thread_init();
@@ -6139,12 +6149,6 @@ extern "C" void *handle_slave_io(void *arg) {
       goto connected;
     }
 
-    if (!slave_stats_daemon_created) {
-      // clean up - stop previous run of slave_stats_daemon, if any
-      stop_handle_slave_stats_daemon();
-      // start sending secondary lag stats to primary
-      slave_stats_daemon_created = start_handle_slave_stats_daemon();
-    }
     DBUG_PRINT("info", ("Starting reading binary log from master"));
     while (!io_slave_killed(thd, mi)) {
       MYSQL_RPL rpl;
@@ -6366,11 +6370,6 @@ extern "C" void *handle_slave_io(void *arg) {
 
     // error = 0;
   err:
-    if (slave_stats_daemon_created) {
-      // stop sending secondary lag stats to primary
-      stop_handle_slave_stats_daemon();
-    }
-
     /*
       If source_connection_auto_failover (async connection failover) is
       enabled, this server is not a Group Replication SECONDARY and
