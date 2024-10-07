@@ -541,13 +541,27 @@ bypass_rpc_exception bypass_select(const myrocks_select_from_rpc *param) {
   thd->set_query_id(next_query_id());
   thd->set_time();
 
+  if (enable_exactly_at_hlc && param->exactly_at_hlc != 0) {
+    if (param->exactly_at_hlc == std::numeric_limits<int64_t>::max()) {
+      // exactly_at_hlc is set to max, which means we use latest HLC per shard
+      // as the read HLC
+      thd->read_hlc = applied_hlc;
+    } else {
+      thd->read_hlc = param->exactly_at_hlc;
+    }
+  }
+
   auto m_digest_psi = MYSQL_DIGEST_START(thd->m_statement_psi);
 
   auto ret = rocksdb_hton->bypass_select_by_key(thd, &columns, *param);
   ret.hlc_lower_bound_ts = applied_hlc;
 
-  if (enable_exactly_at_hlc) {
-    ret.read_hlc = applied_hlc;
+  if (enable_exactly_at_hlc && param->exactly_at_hlc != 0) {
+    if (param->exactly_at_hlc == std::numeric_limits<int64_t>::max()) {
+      ret.read_hlc = applied_hlc;
+    } else {
+      ret.read_hlc = param->exactly_at_hlc;
+    }
   }
 
   query_logger.general_log_write(thd, COM_QUERY, buf.c_ptr(), buf.length());

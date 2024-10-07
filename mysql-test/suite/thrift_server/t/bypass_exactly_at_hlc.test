@@ -1,0 +1,66 @@
+source ../include/init_thrift_server_plugin.inc;
+
+disable_query_log;
+disable_warnings;
+DROP TABLE IF EXISTS t1, t2;
+enable_warnings;
+enable_query_log;
+
+SET @@global.maximum_hlc_drift_ns = 2538630000000000000;
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+set global rocksdb_force_flush_memtable_now = true;
+
+CREATE TABLE t1 (id INT NOT NULL, value BIGINT PRIMARY KEY) ENGINE=rocksdB;
+INSERT INTO t1 VALUES(1, 2538630000000000002);
+
+echo;
+echo Not specify exactly_at_hlc;
+echo;
+
+# select id, value from t1 where id = 1
+# 2538630000000000003
+Update t1 Set value=2538630000000000003 where id=1;
+# 2538630000000000004
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "value"],"where":[{"column":"id","op":0,"value":{"signedIntVal":1}}],"limit":5}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+SELECT USER, HOST, DB, COMMAND, TIME, INFO, STATE FROM INFORMATION_SCHEMA.PROCESSLIST WHERE USER='rpc_plugin';
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+echo;
+echo specify customized exactly_at_hlc value;
+echo;
+
+# select id, value from t1 where id = 1
+# 2538630000000000006
+Update t1 Set value=2538630000000000004 where id=1;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "value"],"where":[{"column":"id","op":0,"value":{"signedIntVal":1}}],"exactly_at_hlc":2538630000000000005,"limit":5}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+SELECT USER, HOST, DB, COMMAND, TIME, INFO, STATE FROM INFORMATION_SCHEMA.PROCESSLIST WHERE USER='rpc_plugin';
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+echo;
+echo specify max exactly_at_hlc value;
+echo;
+
+# select id, value from t1 where id = 1
+# 2538630000000000006
+Update t1 Set value=2538630000000000005 where id=1;
+SET GLOBAL THRIFT_SERVER_TESTER_INPUT='bypass: {"db_name":"test","table_name":"t1","columns":["id", "value"],"where":[{"column":"id","op":0,"value":{"signedIntVal":1}}],"exactly_at_hlc":9223372036854775807,"limit":5}';
+SELECT SEQ_NUMBER, TYPE, VALUE FROM THRIFT_SERVER_PLUGIN_OUTPUT ORDER BY SEQ_NUMBER;
+
+SELECT USER, HOST, DB, COMMAND, TIME, INFO, STATE FROM INFORMATION_SCHEMA.PROCESSLIST WHERE USER='rpc_plugin';
+
+# empty result set
+TRUNCATE TABLE THRIFT_SERVER_PLUGIN_OUTPUT;
+
+DROP TABLE t1;
+SET @@global.maximum_hlc_drift_ns = 300000000000;
+SET @@global.minimum_hlc_ns = 0;
+source ../include/uninit_thrift_server_plugin.inc;
