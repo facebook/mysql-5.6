@@ -78,7 +78,7 @@ EOF
 select "--- slave state after crash recovery, slave stop, one transaction recovered---" as "";
 --enable_query_log
 connection slave;
---exec /usr/bin/python3 suite/rocksdb/t/check_log_for_xa.py $LOG commit,prepare,rollback
+--exec python3 suite/rocksdb/t/check_log_for_xa.py $LOG commit,prepare,rollback
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;

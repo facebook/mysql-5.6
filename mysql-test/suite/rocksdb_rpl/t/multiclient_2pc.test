@@ -64,7 +64,7 @@ SET DEBUG_SYNC='now SIGNAL go';
 --source include/wait_until_connected_again.inc
 --disable_reconnect
 
---exec /usr/bin/python3 suite/rocksdb/t/check_log_for_xa.py $LOG prepare,commit,rollback
+--exec python3 suite/rocksdb/t/check_log_for_xa.py $LOG prepare,commit,rollback
 
 select * from t1 where a=1;
 select count(*) from t1;
