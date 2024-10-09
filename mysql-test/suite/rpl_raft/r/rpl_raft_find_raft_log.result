@@ -87,7 +87,7 @@ ERROR HY000: Failed to find Raft log position: Not found: Could not find the req
 find raft logs GTID_EXECUTED = "";
 ERROR HY000: Failed to find Raft log position: Invalid input.
 find raft logs GTID_EXECUTED = "uuid1";
-ERROR HY000: Failed to find Raft log position: Not found: Could not find the requested position.
+ERROR HY000: Failed to find Raft log position: Invalid gtid set: uuid1.
 find raft logs GTID_EXECUTED = "1234";
 ERROR HY000: Failed to find Raft log position: Invalid gtid set: 1234.
 find raft logs GTID_EXECUTED = "uuid1:1-abc";
