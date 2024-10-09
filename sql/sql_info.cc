@@ -392,9 +392,14 @@ static void populate_sql_findings(THD *thd, const std::string &query_text,
     const uint err_no = err->mysql_errno();
 
     // Lookup the finding map of this statement for current condition
-    std::vector<SQL_FINDING>::iterator iter;
-    for (iter = finding_vec.begin(); iter != finding_vec.end(); iter++)
-      if (iter->code == err_no) break;
+    std::vector<SQL_FINDING>::iterator iter = std::find_if(
+        finding_vec.begin(), finding_vec.end(),
+        [&](const SQL_FINDING &finding) {
+          return finding.code == err_no &&
+                 err->message_octet_length() >= finding.message.size() &&
+                 strncmp(finding.message.c_str(), err->message_text(),
+                         finding.message.size()) == 0;
+        });
     if (iter == finding_vec.cend()) {
       /* If we reached the SQL stats limits then skip adding new findings
          i.e, keep updating the count and date of existing findings
