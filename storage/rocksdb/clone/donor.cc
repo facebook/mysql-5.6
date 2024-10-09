@@ -921,7 +921,7 @@ int donor::copy(const THD *thd, uint task_id, Ha_clone_cbk &cbk) {
     const auto completed_count = m_completed_files.size();
     const auto in_progress_count = m_in_progress_files.size();
     const auto not_started_count = m_not_started_files.size();
-    if (completed_count >= last_reported_file_count + 10 ||
+    if (completed_count >= last_reported_file_count + 1000 ||
         (not_started_count == 0 && in_progress_count == 0)) {
       LogPluginErrMsg(
           INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
