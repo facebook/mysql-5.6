@@ -683,9 +683,6 @@ enable_result_log;
 
 SELECT COUNT(*) FROM performance_schema.sql_plans;
 
-# Resetting long query time to original value
-SET @@long_query_time = @cur_long_query_time;
-
 --echo Because now sql_plans_skip_builtin_db=OFF, plans for the last 4 SELECTs
 --echo get captured, and counts below go up, including 1 for SELECT COUNT(*)
 --echo the counts below also don't increment
@@ -699,6 +696,11 @@ SHOW STATUS LIKE 'Slow_queries_sql_plans';
 
 set @@GLOBAL.sql_plans_control=OFF_HARD;
 
+--echo Add a multi line query
+disable_result_log;
+SELECT * FROM t1 limit 1; SELECT * FROM t2 limit 1; SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col1 limit 1; SELECT * FROM t1 JOIN t2 ON t1.c = t2.pk_col2 limit 1; SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk > 3 AND t2.pk_col1 <= 3 limit 1; SELECT t1.* FROM t2 JOIN t1 ON t1.a = t2.pk_col1 where t1.pk >= 3 AND t1.pk <= 3 AND t2.pk_col2 IN (5, 6, 7, 8, 9) limit 1;
+enable_result_log;
+
 drop table t1;
 drop table t2;
 
@@ -706,4 +708,15 @@ drop table t2;
 
 drop database test_db;
 
+# Resetting long query time to original value
+SET @@long_query_time = @cur_long_query_time;
+
 SET GLOBAL sql_plans_slow_query_log = @saved_sql_plans_slow_query_log;
+
+--echo
+--echo Verify the total SQL plans captured in the slow log file
+--echo match what is seen above. The last value for Sql_plans_total_slow_queries
+--echo above should match the total count below. 
+--echo
+
+--exec awk -f include/sql_plan_slow_log.awk $MYSQLTEST_VARDIR/mysqld.1/mysqld-slow.log

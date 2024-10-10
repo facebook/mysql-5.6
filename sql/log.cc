@@ -1150,9 +1150,20 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
   }
   if (my_b_write(&log_file, pointer_cast<const uchar *>(sql_text),
                  sql_text_len) ||
-      my_b_write(&log_file, pointer_cast<const uchar *>(";\n"), 2) ||
-      flush_io_cache(&log_file))
+      my_b_write(&log_file, pointer_cast<const uchar *>(";\n"), 2))
     goto err;
+
+  /*
+     add SQL plan, if available, to the slow log file, if sql plan logging
+     to slow log is configured (opt_log_sql_plan_for_slow_queries)
+   */
+  if (opt_log_sql_plan_for_slow_queries && !thd->captured_sql_plan.empty() &&
+      (my_b_write(&log_file,
+                  pointer_cast<const uchar *>(thd->captured_sql_plan.data()),
+                  thd->captured_sql_plan.length())))
+    goto err;
+
+  if (flush_io_cache(&log_file)) goto err;
 
   if (purge_logs_by_size()) goto err;
   mysql_mutex_unlock(&LOCK_log);
