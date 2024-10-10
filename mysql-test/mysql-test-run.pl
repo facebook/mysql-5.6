@@ -1279,6 +1279,10 @@ sub run_test_server ($$$) {
 
           # If the failure was due to a port bind issue, shutdown the server
           if ($line eq 'TESTRESULT_PORT_BIND_ERROR') {
+            # Mark the thread as completed so that not_parallel tests will run
+            if ($completed_wid_count < $opt_parallel) {
+              $completed_wid_count++;
+            }
             # Shutdown worker
             print $sock "BYE\n";
             $sock->shutdown(SHUT_WR);
