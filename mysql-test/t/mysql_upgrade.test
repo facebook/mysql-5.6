@@ -1,3 +1,4 @@
+--source include/not_as_root.inc
 --source include/big_test.inc
 --source include/not_valgrind.inc
 --let $MYSQLD_DATADIR= `select @@datadir`
