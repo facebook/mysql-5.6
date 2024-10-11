@@ -45,8 +45,7 @@ class Item_func_fb_vector_distance : public Item_real_func {
   /// String used when reading JSON binary values or JSON text values.
   String m_value;
   Fb_vector m_input_vector;
-  virtual float compute_distance(const float *v1, const float *v2,
-                                 size_t dimension) = 0;
+  virtual float compute_distance(Fb_vector &v1, Fb_vector &v2) = 0;
   bool fix_input_vector();
 };
 
@@ -61,8 +60,7 @@ class Item_func_fb_vector_l2 final : public Item_func_fb_vector_distance {
   enum Functype functype() const override;
 
  protected:
-  float compute_distance(const float *v1, const float *v2,
-                         size_t dimension) override;
+  float compute_distance(Fb_vector &v1, Fb_vector &v2) override;
 };
 
 /**
@@ -76,8 +74,7 @@ class Item_func_fb_vector_ip final : public Item_func_fb_vector_distance {
   enum Functype functype() const override;
 
  protected:
-  float compute_distance(const float *v1, const float *v2,
-                         size_t dimension) override;
+  float compute_distance(Fb_vector &v1, Fb_vector &v2) override;
 };
 
 /**

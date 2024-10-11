@@ -7,13 +7,19 @@ enable_query_log;
 echo;
 echo TEST CASE basic distance calculation;
 echo;
+# empty case
+select FB_VECTOR_L2('[1, 2, 3]', '[]') as v1, FB_VECTOR_L2('[]', '[1, 2, 3]') as v2, FB_VECTOR_L2('[]', '[]') as v3;
 # same vector, should return 0
 select FB_VECTOR_L2('[1, 2, 3]', '[1, 2, 3]') as v1;
 # vector of same length, different length
 select FB_VECTOR_L2('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_L2('[1, 2, 3]', '[2]') as v2, FB_VECTOR_L2('[1]', '[2, 3, 5]') as v3;
 # ip
+# empty case
+select FB_VECTOR_IP('[1, 2, 3]', '[]') as v1, FB_VECTOR_IP('[]', '[1, 2, 3]') as v2, FB_VECTOR_IP('[]', '[]') as v3;
 select FB_VECTOR_IP('[1, 2, 3]', '[1, 2, 3]') as v1;
 select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1;
+# trailing 0s do not change IP result
+select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_IP('[1, 2, 3, 0, 0]', '[2, 3, 5, 7, 8]') as v2, FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5, 7, 8]') as v3, FB_VECTOR_IP('[1, 2, 3, 8, 9]', '[2, 3, 5, 0, 0]') as v4, FB_VECTOR_IP('[1, 2, 3, 8, 9]', '[2, 3, 5]') as v5;
 # cosine
 select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[1, 2, 3]'), FB_VECTOR_NORMALIZE_L2('[1, 2, 3]')) as v1;
 select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[1, 2, 3]'), FB_VECTOR_NORMALIZE_L2('[2, 3, 5]')) as v1;
@@ -28,6 +34,10 @@ error ER_INVALID_JSON_TEXT_IN_PARAM;
 select FB_VECTOR_L2('[1, 2, 3]', 'abc') as v1;
 error ER_INCORRECT_TYPE;
 select FB_VECTOR_L2('[1, 2, "abc"]', '[1, 2, 3]') as v1;
+error ER_INCORRECT_TYPE;
+select FB_VECTOR_L2('[1, 2, 2]', 'null') as v1;
+error ER_INCORRECT_TYPE;
+select FB_VECTOR_L2('[1, 2, 2]', '{}') as v1;
 
 echo;
 echo TEST CASE distance function with column prameter;

@@ -1,18 +1,27 @@
 
 TEST CASE basic distance calculation
 
+select FB_VECTOR_L2('[1, 2, 3]', '[]') as v1, FB_VECTOR_L2('[]', '[1, 2, 3]') as v2, FB_VECTOR_L2('[]', '[]') as v3;
+v1	v2	v3
+14	14	0
 select FB_VECTOR_L2('[1, 2, 3]', '[1, 2, 3]') as v1;
 v1
 0
 select FB_VECTOR_L2('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_L2('[1, 2, 3]', '[2]') as v2, FB_VECTOR_L2('[1]', '[2, 3, 5]') as v3;
 v1	v2	v3
 6	14	35
+select FB_VECTOR_IP('[1, 2, 3]', '[]') as v1, FB_VECTOR_IP('[]', '[1, 2, 3]') as v2, FB_VECTOR_IP('[]', '[]') as v3;
+v1	v2	v3
+0	0	0
 select FB_VECTOR_IP('[1, 2, 3]', '[1, 2, 3]') as v1;
 v1
 14
 select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1;
 v1
 23
+select FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5]') as v1, FB_VECTOR_IP('[1, 2, 3, 0, 0]', '[2, 3, 5, 7, 8]') as v2, FB_VECTOR_IP('[1, 2, 3]', '[2, 3, 5, 7, 8]') as v3, FB_VECTOR_IP('[1, 2, 3, 8, 9]', '[2, 3, 5, 0, 0]') as v4, FB_VECTOR_IP('[1, 2, 3, 8, 9]', '[2, 3, 5]') as v5;
+v1	v2	v3	v4	v5
+23	23	23	23	23
 select FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2('[1, 2, 3]'), FB_VECTOR_NORMALIZE_L2('[1, 2, 3]')) as v1;
 v1
 0.9999998807907104
@@ -32,6 +41,10 @@ select FB_VECTOR_L2('[1, 2, 3]', 'abc') as v1;
 ERROR 22032: Invalid JSON text in argument 2 to function fb_vector_l2: "Invalid value." at position 0.
 select FB_VECTOR_L2('[1, 2, "abc"]', '[1, 2, 3]') as v1;
 ERROR HY000: Incorrect type for argument 0 in function fb_vector_l2.
+select FB_VECTOR_L2('[1, 2, 2]', 'null') as v1;
+ERROR HY000: Incorrect type for argument 1 in function fb_vector_l2.
+select FB_VECTOR_L2('[1, 2, 2]', '{}') as v1;
+ERROR HY000: Incorrect type for argument 1 in function fb_vector_l2.
 
 TEST CASE distance function with column prameter
 

@@ -127,17 +127,8 @@ double Item_func_fb_vector_distance::val_real() {
     if (parse_fb_vector_from_item(args, 0, m_value, func_name(), vector1)) {
       return error_real();
     }
-    const size_t dimension =
-        std::max(vector1.get_dimension(), m_input_vector.get_dimension());
-    if (vector1.set_dimension(dimension) ||
-        m_input_vector.set_dimension(dimension)) {
-      assert(false);
-      // should never happen
-      my_error(ER_INVALID_CAST, MYF(0), "a smaller dimension");
-      return error_real();
-    }
-    return compute_distance(vector1.get_data_view(),
-                            m_input_vector.get_data_view(), dimension);
+
+    return compute_distance(vector1, m_input_vector);
   } catch (...) {
     handle_std_exception(func_name());
     return error_real();
@@ -295,14 +286,23 @@ bool Item_func_fb_vector_blob_to_json::val_json(Json_wrapper *wr) {
 }
 
 #ifdef WITH_FB_VECTORDB
-float Item_func_fb_vector_l2::compute_distance(const float *v1, const float *v2,
-                                               size_t dimension) {
-  return faiss::fvec_L2sqr(v1, v2, dimension);
+float Item_func_fb_vector_l2::compute_distance(Fb_vector &v1, Fb_vector &v2) {
+  const auto dimension = std::max(v1.get_dimension(), v2.get_dimension());
+  if (v1.set_dimension(dimension) || v2.set_dimension(dimension)) {
+    assert(false);
+    // should never happen
+    my_error(ER_INVALID_CAST, MYF(0), "a smaller dimension");
+    return error_real();
+  }
+  return faiss::fvec_L2sqr(v1.get_data_view(), v2.get_data_view(), dimension);
 }
 
-float Item_func_fb_vector_ip::compute_distance(const float *v1, const float *v2,
-                                               size_t dimension) {
-  return faiss::fvec_inner_product(v1, v2, dimension);
+float Item_func_fb_vector_ip::compute_distance(Fb_vector &v1, Fb_vector &v2) {
+  // the trailing 0s do not contribute to the inner product, so we do not
+  // need to resize the vectors here.
+  const auto dimension = std::min(v1.get_dimension(), v2.get_dimension());
+  return faiss::fvec_inner_product(v1.get_data_view(), v2.get_data_view(),
+                                   dimension);
 }
 
 bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
@@ -336,18 +336,14 @@ bool Item_func_fb_vector_normalize_l2::val_json(Json_wrapper *wr) {
 
 // dummy implementation when not compiled with fb_vector
 
-float Item_func_fb_vector_l2::compute_distance(const float *v1 [[maybe_unused]],
-                                               const float *v2 [[maybe_unused]],
-                                               size_t dimension
-                                               [[maybe_unused]]) {
+float Item_func_fb_vector_l2::compute_distance(Fb_vector &v1 [[maybe_unused]],
+                                               Fb_vector &v2 [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
   return error_real();
 }
 
-float Item_func_fb_vector_ip::compute_distance(const float *v1 [[maybe_unused]],
-                                               const float *v2 [[maybe_unused]],
-                                               size_t dimension
-                                               [[maybe_unused]]) {
+float Item_func_fb_vector_ip::compute_distance(Fb_vector &v1 [[maybe_unused]],
+                                               Fb_vector &v2 [[maybe_unused]]) {
   FB_VECTORDB_DISABLED_ERR;
   return error_real();
 }
