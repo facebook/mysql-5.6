@@ -1,7 +1,12 @@
 
-----------------------------------------------
-Test PK filtering with single PK BIGINT column
-----------------------------------------------
+Testing with RANGE TREE / ITERATOR BOUNDS based PK FILTERING TURNED OFF
+
+set session fb_vector_use_iterator_bounds = off;
+
+
+-------------------------------------------------
+1. Test PK filtering with single PK BIGINT column
+-------------------------------------------------
 
 CREATE TABLE t1 (   
 pk BIGINT NOT NULL PRIMARY KEY,
@@ -17,6 +22,9 @@ Record value of fb_vector_index_cond_pushdown
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
 @@SESSION.fb_vector_index_cond_pushdown
 1
+SELECT @@SESSION.fb_vector_use_iterator_bounds;
+@@SESSION.fb_vector_use_iterator_bounds
+0
 
 Vector distance ordering for reference:
 explain
@@ -40,12 +48,25 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+1a. OPEN ENDED RANGE
+---------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
 pk	vector1	dis
 7	[11, 1, 1]	10.75
@@ -57,12 +78,25 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	8
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	8
+rocksdb_vectors_sent_to_faiss	8
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	8	8
 
-bounded range
+1b. BOUNDED RANGE
+-----------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
 pk	vector1	dis
 7	[11, 1, 1]	10.75
@@ -71,36 +105,75 @@ pk	vector1	dis
 8	[21, 2, 2]	74.75
 9	[31, 3, 3]	342.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 
-IN list
+1c. IN list
+-----------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
 pk	vector1	dis
 5	[5, 5, 5]	64.75
 3	[3, 3, 3]	90.75
 1	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+1d. IN list with EQ condition
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
 pk	vector1	dis
 5	[5, 5, 5]	64.75
 3	[3, 3, 3]	90.75
 1	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with LIKE clause
+1e. IN list with LIKE clause
+----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
 pk	vector1	dis
 5	[5, 5, 5]	64.75
@@ -109,12 +182,24 @@ pk	vector1	dis
 11	[51, 5, 5]	1490.75
 12	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 
-Test EXPLAIN FORMAT=TREE
+1f. Test EXPLAIN FORMAT=TREE
+----------------------------
 
 EXPLAIN FORMAT=TREE
 SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
@@ -123,7 +208,8 @@ EXPLAIN
     -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
 
 
-Test EXPLAIN FORMAT=JSON
+1g. Test EXPLAIN FORMAT=JSON
+----------------------------
 
 EXPLAIN FORMAT=JSON
 SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
@@ -168,9 +254,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk` in (1,5)) or (`test`.`t1`.`pk` like '1%')) order by `dis` limit 10
 drop table t1;
 
---------------------------------------------------
-Test PK filtering with PK keys parts (BIGINT, INT) 
---------------------------------------------------
+-----------------------------------------------------
+2. Test PK filtering with PK keys parts (BIGINT, INT) 
+-----------------------------------------------------
 
 CREATE TABLE t1 (   
 pk_keypart_1 BIGINT NOT NULL,
@@ -184,7 +270,9 @@ insert into t1 values (1, 11, '[1, 1, 1]'), (2, 11, '[2, 2, 2]'), (3, 11, '[3, 3
 insert into t1 values (7, 112, '[11, 1, 1]'), (8, 112, '[21, 2, 2]'), (9, 112, '[31, 3, 3]'), 
 (10, 112, '[41, 4, 4]'), (11, 112, '[51, 5, 5]'), (12, 112, '[61, 6, 6]');
 
-Vector distance ordering for reference:
+Vector distance ordering for reference
+--------------------------------------
+
 explain
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -206,12 +294,25 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+2a. OPEN ENDED RANGE
+---------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 7	112	[11, 1, 1]	10.75
@@ -223,12 +324,25 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	8
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	8
+rocksdb_vectors_sent_to_faiss	8
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	8	8
 
-bounded range
+2b. BOUNDED RANGE
+-----------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 7	112	[11, 1, 1]	10.75
@@ -237,36 +351,75 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 8	112	[21, 2, 2]	74.75
 9	112	[31, 3, 3]	342.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 
-IN list
+2c. IN list
+-----------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 5	11	[5, 5, 5]	64.75
 3	11	[3, 3, 3]	90.75
 1	11	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+2d. IN list with EQ condition
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 5	11	[5, 5, 5]	64.75
 3	11	[3, 3, 3]	90.75
 1	11	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with LIKE clause
+2e. IN list with LIKE clause
+----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 5	11	[5, 5, 5]	64.75
@@ -275,21 +428,47 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 
-Filter on pk_keypart_2 EQ condition (negative test)
+2f. Filter on pk_keypart_2 EQ condition (negative test)
+-------------------------------------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	12
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	0
+rocksdb_vectors_sent_to_faiss	0
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	0	0
 
-Filter on pk_keypart_2 through IN list 
+2g. Filter on pk_keypart_2 through IN list 
+------------------------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 6	11	[6, 6, 6]	60.75
@@ -299,24 +478,50 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 2	11	[2, 2, 2]	112.75
 1	11	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	6
+rocksdb_vectors_rcvd_from_faiss	6
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	6
+rocksdb_vectors_sent_to_faiss	6
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	6	6
 
-Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
+2h. Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
+----------------------------------------------------------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 10	112	[41, 4, 4]	814.75
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	18
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	21
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
+2i. Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
+-------------------------------------------------------------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
 pk_keypart_1	pk_keypart_2	vector1	dis
 7	112	[11, 1, 1]	10.75
@@ -324,12 +529,25 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 9	112	[31, 3, 3]	342.75
 10	112	[41, 4, 4]	814.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	14
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	18
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	4	4
 
-Turn PK pre-filtering OFF and check results
+2j. Turn PK pre-filtering OFF and check results
+-----------------------------------------------
+
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
 @@SESSION.fb_vector_index_cond_pushdown
 1
@@ -340,12 +558,25 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-Turn PK pre-filtering ON through query hint and check results
+2k. Turn PK pre-filtering ON through query hint and check results
+-----------------------------------------------------------------
+
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
 @@SESSION.fb_vector_index_cond_pushdown
 0
@@ -354,6 +585,17 @@ pk_keypart_1	pk_keypart_2	vector1	dis
 10	112	[41, 4, 4]	814.75
 11	112	[51, 5, 5]	1490.75
 12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	18
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	21
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
@@ -416,9 +658,9 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`test`.`t1`.`pk_keypart_2` AS `pk_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk_keypart_2` > 20) and (`test`.`t1`.`pk_keypart_1` like '1%')) order by `dis` limit 10
 drop table t1;
 
---------------------------------------------
-Test PK filtering with single PK CHAR column 
---------------------------------------------
+-----------------------------------------------
+3. Test PK filtering with single PK CHAR column 
+-----------------------------------------------
 
 CREATE TABLE t1 (   
 pk_char CHAR (16) NOT NULL PRIMARY KEY,
@@ -452,12 +694,25 @@ ten	[41, 4, 4]	814.75
 eleven	[51, 5, 5]	1490.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+3a. OPEN ENDED RANGE
+---------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
 pk_char	vector1	dis
 seven	[11, 1, 1]	10.75
@@ -471,12 +726,25 @@ nine	[31, 3, 3]	342.75
 ten	[41, 4, 4]	814.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	4
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-bounded range
+3b. BOUNDED RANGE
+-----------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
 pk_char	vector1	dis
 seven	[11, 1, 1]	10.75
@@ -490,36 +758,74 @@ ten	[41, 4, 4]	814.75
 eleven	[51, 5, 5]	1490.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	3
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-IN list
+3c. IN list
+-----------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
 pk_char	vector1	dis
 five	[5, 5, 5]	64.75
 three	[3, 3, 3]	90.75
 one	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+3d. IN list with EQ condition
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
 pk_char	vector1	dis
 five	[5, 5, 5]	64.75
 three	[3, 3, 3]	90.75
 one	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with LIKE clause
+3e. IN list with LIKE clause
+----------------------------
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
 pk_char	vector1	dis
 five	[5, 5, 5]	64.75
@@ -527,15 +833,26 @@ eight	[21, 2, 2]	74.75
 one	[1, 1, 1]	140.75
 eleven	[51, 5, 5]	1490.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	4	4
 drop table t1;
 
------------------------------------------------
-Test PK filtering with single PK VARCHAR column 
------------------------------------------------
+--------------------------------------------------
+4. Test PK filtering with single PK VARCHAR column 
+--------------------------------------------------
 
 CREATE TABLE t1 (   
 pk_varchar VARCHAR (16) NOT NULL PRIMARY KEY,
@@ -569,12 +886,25 @@ ten	[41, 4, 4]	814.75
 eleven	[51, 5, 5]	1490.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+4a. OPEN ENDED RANGE
+---------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
 pk_varchar	vector1	dis
 seven	[11, 1, 1]	10.75
@@ -588,12 +918,25 @@ nine	[31, 3, 3]	342.75
 ten	[41, 4, 4]	814.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	4
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-bounded range
+4b. BOUNDED RANGE
+-----------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
 pk_varchar	vector1	dis
 seven	[11, 1, 1]	10.75
@@ -607,36 +950,75 @@ ten	[41, 4, 4]	814.75
 eleven	[51, 5, 5]	1490.75
 twelve	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	3
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-IN list
+4c. IN list
+-----------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
 pk_varchar	vector1	dis
 five	[5, 5, 5]	64.75
 three	[3, 3, 3]	90.75
 one	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+4d. IN list with EQ condition
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
 pk_varchar	vector1	dis
 five	[5, 5, 5]	64.75
 three	[3, 3, 3]	90.75
 one	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with LIKE clause
+4e. IN list with LIKE clause
+----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
 pk_varchar	vector1	dis
 five	[5, 5, 5]	64.75
@@ -644,16 +1026,27 @@ eight	[21, 2, 2]	74.75
 one	[1, 1, 1]	140.75
 eleven	[51, 5, 5]	1490.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	4	4
 drop table t1;
 
----------------------------------------------------
-Test PK filtering with PK keys parts (CHAR, BIGINT) 
+------------------------------------------------------
+5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
 and non key parts (CHAR) and (INT)
----------------------------------------------------
+------------------------------------------------------
 
 CREATE TABLE t1 (   
 pk_char_keypart_1 CHAR (16) NOT NULL,
@@ -672,6 +1065,8 @@ insert into t1 values ('seven', 7, '[11, 1, 1]', 'SECOND', 12), ('eight', 8, '[2
 ('eleven', 11, '[51, 5, 5]', 'SECOND', 8), ('twelve', 12, '[61, 6, 6]', 'SECOND', 7);
 
 Vector distance ordering for reference:
+--------------------------------------
+
 explain
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -693,12 +1088,24 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+5a. OPEN ENDED RANGE
+--------------------
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 seven	7	[11, 1, 1]	SECOND	12	10.75
@@ -712,12 +1119,25 @@ nine	9	[31, 3, 3]	SECOND	10	342.75
 ten	10	[41, 4, 4]	SECOND	9	814.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	4
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-bounded range
+5b. BOUNDED RANGE
+-----------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 seven	7	[11, 1, 1]	SECOND	12	10.75
@@ -731,24 +1151,50 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	3
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-IN list
+5c. IN list
+-----------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 five	5	[5, 5, 5]	FIRST	2	64.75
 three	3	[3, 3, 3]	FIRST	4	90.75
 one	1	[1, 1, 1]	FIRST	6	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+5d. IN list with EQ condition
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 seven	7	[11, 1, 1]	SECOND	12	10.75
@@ -756,12 +1202,25 @@ five	5	[5, 5, 5]	FIRST	2	64.75
 three	3	[3, 3, 3]	FIRST	4	90.75
 one	1	[1, 1, 1]	FIRST	6	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	10
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	14
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	4	4
 
-IN list with LIKE clause
+5e. IN list with LIKE clause
+----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 six	6	[6, 6, 6]	FIRST	1	60.75
@@ -772,15 +1231,29 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	6
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	7	7
 
-Test EXPLAIN FORMAT=TREE with PK condition
+--------------------------------------------------------------------
+6. Test EXPLAIN FORMAT=TREE with PK condition
 The entire PK condition will be pushed down to the vector index
+--------------------------------------------------------------------
 
-1.   Ordered vector index scan (KNN_FIRST) will be chosen by default
+6a.   Ordered vector index scan (KNN_FIRST) will be chosen by default
+---------------------------------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
@@ -789,7 +1262,8 @@ EXPLAIN
     -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
 
 
-2.   Override access method via session var 
+6b.   Override access method via session var 
+--------------------------------------------
 
 set session fb_vector_search_type = ITERATOR;
 EXPLAIN FORMAT=TREE
@@ -801,7 +1275,8 @@ EXPLAIN
 
 set session fb_vector_search_type = AUTO;
 
-3.   Override access method via query hint
+6c.   Override access method via query hint
+-------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
@@ -822,11 +1297,25 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
-Test EXPLAIN FORMAT=TREE with non PK condition
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	5
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	0
+
+
+-------------------------------------------------------------------------
+7. Test EXPLAIN FORMAT=TREE with non PK condition
 The entire non-PK condition will be implemented as a filter operator
 and nothing should get pushed down to the vector index
+-------------------------------------------------------------------------
 
-1.   Vector index scan (with filesort) will be chosen by default
+7a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
@@ -845,7 +1334,19 @@ three	3	[3, 3, 3]	FIRST	4	90.75
 two	2	[2, 2, 2]	FIRST	5	112.75
 one	1	[1, 1, 1]	FIRST	6	140.75
 
-2.   Override access method via session var 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	0
+
+
+7b.   Override access method via session var 
+--------------------------------------------
 
 set session fb_vector_search_type = KNN;
 EXPLAIN FORMAT=TREE
@@ -863,9 +1364,21 @@ four	4	[4, 4, 4]	FIRST	3	74.75
 three	3	[3, 3, 3]	FIRST	4	90.75
 two	2	[2, 2, 2]	FIRST	5	112.75
 one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 set session fb_vector_search_type = AUTO;
 
-3.   Override access method via query hint
+7c.   Override access method via query hint
+-------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
@@ -885,11 +1398,25 @@ three	3	[3, 3, 3]	FIRST	4	90.75
 two	2	[2, 2, 2]	FIRST	5	112.75
 one	1	[1, 1, 1]	FIRST	6	140.75
 
-Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+
+--------------------------------------------------------------------------------------------
+8. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
 PK and non PK conditions will both be implemented as a filter operator on 
 top of "vector index scan" or "ordered vector index scan" (in case of override)
+--------------------------------------------------------------------------------------------
 
-1.   Vector index scan (with filesort) will be chosen by default
+8a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
@@ -911,7 +1438,19 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
-2.   Override access method via session var 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	0
+
+
+8b.   Override access method via session var 
+--------------------------------------------
 
 set session fb_vector_search_type = KNN;
 EXPLAIN FORMAT=TREE
@@ -932,9 +1471,21 @@ one	1	[1, 1, 1]	FIRST	6	140.75
 ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 set session fb_vector_search_type = AUTO;
 
-3.   Override access method via query hint
+8c.   Override access method via query hint
+-------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
@@ -957,12 +1508,26 @@ ten	10	[41, 4, 4]	SECOND	9	814.75
 eleven	11	[51, 5, 5]	SECOND	8	1490.75
 twelve	12	[61, 6, 6]	SECOND	7	2370.75
 
-Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+
+-----------------------------------------------------------------------------------------
+9. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
 non PK conditions should be implemented as a filter operator.
 PK condition should be extracted and pushed down to "vector index scan" operator,
 or "ordered vector index scan" operator if the default is overriden
+-----------------------------------------------------------------------------------------
 
-1.   Vector index scan (with filesort) will be chosen by default
+9a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
@@ -976,7 +1541,19 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_ke
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 one	1	[1, 1, 1]	FIRST	6	140.75
 
-2.   Override access method via session var 
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	0
+
+
+9b.   Override access method via session var 
+--------------------------------------------
 
 set session fb_vector_search_type = KNN;
 EXPLAIN FORMAT=TREE
@@ -989,9 +1566,21 @@ EXPLAIN
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 set session fb_vector_search_type = AUTO;
 
-3.   Override access method via query hint
+9c.   Override access method via query hint
+-------------------------------------------
 
 EXPLAIN FORMAT=TREE
 select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
@@ -1005,11 +1594,22 @@ select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5
 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
 pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
 one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
 drop table t1;
 
-----------------------------------------------------
-Test PK filtering with PK keys parts (CHAR, VARCHAR) 
-----------------------------------------------------
+--------------------------------------------------------
+10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+--------------------------------------------------------
 
 CREATE TABLE t1 (   
 pk_char_keypart_1 CHAR (16) NOT NULL,
@@ -1045,12 +1645,25 @@ doubles	TEN	[41, 4, 4]	814.75
 doubles	ELEVEN	[51, 5, 5]	1490.75
 doubles	TWELVE	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	12	12
 
-open ended range 
+10a. OPEN ENDED RANGE
+---------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
 singles	SEVEN	[11, 1, 1]	10.75
@@ -1063,12 +1676,24 @@ singles	two	[2, 2, 2]	112.75
 singles	one	[1, 1, 1]	140.75
 singles	NINE	[31, 3, 3]	342.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	6
+rocksdb_vectors_rcvd_from_faiss	9
+rocksdb_vectors_read	15
+rocksdb_vectors_rows_read	9
+rocksdb_vectors_sent_to_faiss	9
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	9	9
 
-bounded range
+10b. BOUNDED RANGE
+------------------
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
 pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
 singles	SEVEN	[11, 1, 1]	10.75
@@ -1082,34 +1707,73 @@ doubles	TEN	[41, 4, 4]	814.75
 doubles	ELEVEN	[51, 5, 5]	1490.75
 doubles	TWELVE	[61, 6, 6]	2370.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	2
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	10	10
 
-IN list
+10c. IN list
+------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
 pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
 singles	five	[5, 5, 5]	64.75
 singles	three	[3, 3, 3]	90.75
 singles	one	[1, 1, 1]	140.75
 
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	13
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	3	3
 
-IN list with EQ condition
+10d. IN list with EQ condition
+------------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
 pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
 doubles	ELEVEN	[51, 5, 5]	1490.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	11
+rocksdb_vectors_rcvd_from_faiss	1
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	1
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	1	1
 
-IN list with LIKE clause
+10e. IN list with LIKE clause
+-----------------------------
+
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
 pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
 singles	five	[5, 5, 5]	64.75
@@ -1117,6 +1781,1817 @@ singles	one	[1, 1, 1]	140.75
 doubles	TEN	[41, 4, 4]	814.75
 doubles	ELEVEN	[51, 5, 5]	1490.75
 doubles	TWELVE	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
+drop table t1;
+
+Testing with RANGE TREE / ITERATOR BOUNDS based PK FILTERING TURNED ON
+
+set session fb_vector_use_iterator_bounds = on;
+
+
+-------------------------------------------------
+1. Test PK filtering with single PK BIGINT column
+-------------------------------------------------
+
+CREATE TABLE t1 (   
+pk BIGINT NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values (1, '[1, 1, 1]'), (2, '[2, 2, 2]'), (3, '[3, 3, 3]'), 
+(4, '[4, 4, 4]'), (5, '[5, 5, 5]'), (6, '[6, 6, 6]');
+insert into t1 values (7, '[11, 1, 1]'), (8, '[21, 2, 2]'), (9, '[31, 3, 3]'), 
+(10, '[41, 4, 4]'), (11, '[51, 5, 5]'), (12, '[61, 6, 6]');
+
+Record value of fb_vector_index_cond_pushdown
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+@@SESSION.fb_vector_index_cond_pushdown
+1
+SELECT @@SESSION.fb_vector_use_iterator_bounds;
+@@SESSION.fb_vector_use_iterator_bounds
+1
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk	vector1	dis
+7	[11, 1, 1]	10.75
+6	[6, 6, 6]	60.75
+5	[5, 5, 5]	64.75
+4	[4, 4, 4]	74.75
+8	[21, 2, 2]	74.75
+3	[3, 3, 3]	90.75
+2	[2, 2, 2]	112.75
+1	[1, 1, 1]	140.75
+9	[31, 3, 3]	342.75
+10	[41, 4, 4]	814.75
+11	[51, 5, 5]	1490.75
+12	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+1a. OPEN ENDED RANGE
+---------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
+pk	vector1	dis
+7	[11, 1, 1]	10.75
+6	[6, 6, 6]	60.75
+5	[5, 5, 5]	64.75
+8	[21, 2, 2]	74.75
+9	[31, 3, 3]	342.75
+10	[41, 4, 4]	814.75
+11	[51, 5, 5]	1490.75
+12	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	2
+rocksdb_vectors_rcvd_from_faiss	8
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	8
+rocksdb_vectors_sent_to_faiss	8
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	8	8
+
+1b. BOUNDED RANGE
+-----------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
+pk	vector1	dis
+7	[11, 1, 1]	10.75
+6	[6, 6, 6]	60.75
+5	[5, 5, 5]	64.75
+8	[21, 2, 2]	74.75
+9	[31, 3, 3]	342.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	5
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
+
+1c. IN list
+-----------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
+pk	vector1	dis
+5	[5, 5, 5]	64.75
+3	[3, 3, 3]	90.75
+1	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+1d. IN list with EQ condition
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
+pk	vector1	dis
+5	[5, 5, 5]	64.75
+3	[3, 3, 3]	90.75
+1	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+1e. IN list with LIKE clause
+----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+pk	vector1	dis
+5	[5, 5, 5]	64.75
+1	[1, 1, 1]	140.75
+10	[41, 4, 4]	814.75
+11	[51, 5, 5]	1490.75
+12	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
+
+1f. Test EXPLAIN FORMAT=TREE
+----------------------------
+
+EXPLAIN FORMAT=TREE
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk in (1,5)) or (t1.pk like '1%'))  (rows=1)
+
+
+1g. Test EXPLAIN FORMAT=JSON
+----------------------------
+
+EXPLAIN FORMAT=JSON
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost":
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "t1",
+        "access_type": "index",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "vector_key_1",
+        "used_key_parts": [
+          "vector1"
+        ],
+        "key_length": "65535",
+        "rows_examined_per_scan": 1,
+        "rows_produced_per_join": 1,
+        "filtered": "100.00",
+        "cost_info": {
+          "read_cost":
+          "eval_cost":
+          "prefix_cost":
+          "data_read_per_join": "24"
+        },
+        "used_columns": [
+          "pk",
+          "vector1"
+        ]
+      }
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk` in (1,5)) or (`test`.`t1`.`pk` like '1%')) order by `dis` limit 10
+drop table t1;
+
+-----------------------------------------------------
+2. Test PK filtering with PK keys parts (BIGINT, INT) 
+-----------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_keypart_1 BIGINT NOT NULL,
+pk_keypart_2 INT NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY(pk_keypart_1, pk_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values (1, 11, '[1, 1, 1]'), (2, 11, '[2, 2, 2]'), (3, 11, '[3, 3, 3]'), 
+(4, 11, '[4, 4, 4]'), (5, 11, '[5, 5, 5]'), (6, 11, '[6, 6, 6]');
+insert into t1 values (7, 112, '[11, 1, 1]'), (8, 112, '[21, 2, 2]'), (9, 112, '[31, 3, 3]'), 
+(10, 112, '[41, 4, 4]'), (11, 112, '[51, 5, 5]'), (12, 112, '[61, 6, 6]');
+
+Vector distance ordering for reference
+--------------------------------------
+
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`test`.`t1`.`pk_keypart_2` AS `pk_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_keypart_1	pk_keypart_2	vector1	dis
+7	112	[11, 1, 1]	10.75
+6	11	[6, 6, 6]	60.75
+5	11	[5, 5, 5]	64.75
+4	11	[4, 4, 4]	74.75
+8	112	[21, 2, 2]	74.75
+3	11	[3, 3, 3]	90.75
+2	11	[2, 2, 2]	112.75
+1	11	[1, 1, 1]	140.75
+9	112	[31, 3, 3]	342.75
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+2a. OPEN ENDED RANGE
+---------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+7	112	[11, 1, 1]	10.75
+6	11	[6, 6, 6]	60.75
+5	11	[5, 5, 5]	64.75
+8	112	[21, 2, 2]	74.75
+9	112	[31, 3, 3]	342.75
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	2
+rocksdb_vectors_rcvd_from_faiss	8
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	8
+rocksdb_vectors_sent_to_faiss	8
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	8	8
+
+2b. BOUNDED RANGE
+-----------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+7	112	[11, 1, 1]	10.75
+6	11	[6, 6, 6]	60.75
+5	11	[5, 5, 5]	64.75
+8	112	[21, 2, 2]	74.75
+9	112	[31, 3, 3]	342.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	5
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
+
+2c. IN list
+-----------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+5	11	[5, 5, 5]	64.75
+3	11	[3, 3, 3]	90.75
+1	11	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+2d. IN list with EQ condition
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+5	11	[5, 5, 5]	64.75
+3	11	[3, 3, 3]	90.75
+1	11	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+2e. IN list with LIKE clause
+----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+5	11	[5, 5, 5]	64.75
+1	11	[1, 1, 1]	140.75
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	5	5
+
+2f. Filter on pk_keypart_2 EQ condition (negative test)
+-------------------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	12
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	0
+rocksdb_vectors_sent_to_faiss	0
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	0	0
+
+2g. Filter on pk_keypart_2 through IN list 
+------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+6	11	[6, 6, 6]	60.75
+5	11	[5, 5, 5]	64.75
+4	11	[4, 4, 4]	74.75
+3	11	[3, 3, 3]	90.75
+2	11	[2, 2, 2]	112.75
+1	11	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	6
+rocksdb_vectors_rcvd_from_faiss	6
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	6
+rocksdb_vectors_sent_to_faiss	6
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	6	6
+
+2h. Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
+----------------------------------------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	18
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	21
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+2i. Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
+-------------------------------------------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+7	112	[11, 1, 1]	10.75
+8	112	[21, 2, 2]	74.75
+9	112	[31, 3, 3]	342.75
+10	112	[41, 4, 4]	814.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+
+2j. Turn PK pre-filtering OFF and check results
+-----------------------------------------------
+
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+@@SESSION.fb_vector_index_cond_pushdown
+1
+SET @@SESSION.fb_vector_index_cond_pushdown = false;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+2k. Turn PK pre-filtering ON through query hint and check results
+-----------------------------------------------------------------
+
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+@@SESSION.fb_vector_index_cond_pushdown
+0
+select /*+ SET_VAR(fb_vector_index_cond_pushdown=ON) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+pk_keypart_1	pk_keypart_2	vector1	dis
+10	112	[41, 4, 4]	814.75
+11	112	[51, 5, 5]	1490.75
+12	112	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	18
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	21
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+SET @@SESSION.fb_vector_index_cond_pushdown = true;
+
+Test EXPLAIN FORMAT=TREE
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_keypart_2 > 20) and (t1.pk_keypart_1 like '1%'))  (rows=1)
+
+
+Test EXPLAIN FORMAT=JSON
+
+EXPLAIN FORMAT=JSON
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost":
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "t1",
+        "access_type": "index",
+        "possible_keys": [
+          "PRIMARY"
+        ],
+        "key": "vector_key_1",
+        "used_key_parts": [
+          "vector1"
+        ],
+        "key_length": "65535",
+        "rows_examined_per_scan": 1,
+        "rows_produced_per_join": 1,
+        "filtered": "100.00",
+        "cost_info": {
+          "read_cost":
+          "eval_cost":
+          "prefix_cost":
+          "data_read_per_join": "32"
+        },
+        "used_columns": [
+          "pk_keypart_1",
+          "pk_keypart_2",
+          "vector1"
+        ]
+      }
+    }
+  }
+}
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`test`.`t1`.`pk_keypart_2` AS `pk_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` where ((`test`.`t1`.`pk_keypart_2` > 20) and (`test`.`t1`.`pk_keypart_1` like '1%')) order by `dis` limit 10
+drop table t1;
+
+-----------------------------------------------
+3. Test PK filtering with single PK CHAR column 
+-----------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char CHAR (16) NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char` AS `pk_char`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+3a. OPEN ENDED RANGE
+---------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+3b. BOUNDED RANGE
+-----------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
+pk_char	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+3c. IN list
+-----------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+3d. IN list with EQ condition
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+3e. IN list with LIKE clause
+----------------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
+pk_char	vector1	dis
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+one	[1, 1, 1]	140.75
+eleven	[51, 5, 5]	1490.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	4
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+drop table t1;
+
+--------------------------------------------------
+4. Test PK filtering with single PK VARCHAR column 
+--------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_varchar VARCHAR (16) NOT NULL PRIMARY KEY,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_varchar` AS `pk_varchar`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+4a. OPEN ENDED RANGE
+---------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+two	[2, 2, 2]	112.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+4b. BOUNDED RANGE
+-----------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
+pk_varchar	vector1	dis
+seven	[11, 1, 1]	10.75
+six	[6, 6, 6]	60.75
+five	[5, 5, 5]	64.75
+four	[4, 4, 4]	74.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+nine	[31, 3, 3]	342.75
+ten	[41, 4, 4]	814.75
+eleven	[51, 5, 5]	1490.75
+twelve	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+4c. IN list
+-----------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+4d. IN list with EQ condition
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+three	[3, 3, 3]	90.75
+one	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+4e. IN list with LIKE clause
+----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
+pk_varchar	vector1	dis
+five	[5, 5, 5]	64.75
+eight	[21, 2, 2]	74.75
+one	[1, 1, 1]	140.75
+eleven	[51, 5, 5]	1490.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	4
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+drop table t1;
+
+------------------------------------------------------
+5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
+and non key parts (CHAR) and (INT)
+------------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_bigint_keypart_2 BIGINT NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+non_key_char CHAR (16) NOT NULL,
+non_key_int INT NOT NULL,
+PRIMARY KEY (pk_char_keypart_1, pk_bigint_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('one', 1, '[1, 1, 1]', 'FIRST', 6), ('two', 2, '[2, 2, 2]', 'FIRST', 5), 
+('three', 3, '[3, 3, 3]', 'FIRST', 4), ('four', 4, '[4, 4, 4]', 'FIRST', 3), 
+('five', 5, '[5, 5, 5]', 'FIRST', 2), ('six', 6, '[6, 6, 6]', 'FIRST', 1);
+insert into t1 values ('seven', 7, '[11, 1, 1]', 'SECOND', 12), ('eight', 8, '[21, 2, 2]', 'SECOND', 11), 
+('nine', 9, '[31, 3, 3]', 'SECOND', 10), ('ten', 10, '[41, 4, 4]', 'SECOND', 9), 
+('eleven', 11, '[51, 5, 5]', 'SECOND', 8), ('twelve', 12, '[61, 6, 6]', 'SECOND', 7);
+
+Vector distance ordering for reference:
+--------------------------------------
+
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_bigint_keypart_2` AS `pk_bigint_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,`test`.`t1`.`non_key_char` AS `non_key_char`,`test`.`t1`.`non_key_int` AS `non_key_int`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+eight	8	[21, 2, 2]	SECOND	11	74.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+5a. OPEN ENDED RANGE
+--------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+5b. BOUNDED RANGE
+-----------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+nine	9	[31, 3, 3]	SECOND	10	342.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	10
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+5c. IN list
+-----------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+five	5	[5, 5, 5]	FIRST	2	64.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+5d. IN list with EQ condition
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+seven	7	[11, 1, 1]	SECOND	12	10.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	4
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	4	4
+
+5e. IN list with LIKE clause
+----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	6
+rocksdb_vectors_rcvd_from_faiss	7
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	7
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	7	7
+
+--------------------------------------------------------------------
+6. Test EXPLAIN FORMAT=TREE with PK condition
+The entire PK condition will be pushed down to the vector index
+--------------------------------------------------------------------
+
+6a.   Ordered vector index scan (KNN_FIRST) will be chosen by default
+---------------------------------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
+
+6b.   Override access method via session var 
+--------------------------------------------
+
+set session fb_vector_search_type = ITERATOR;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
+set session fb_vector_search_type = AUTO;
+
+6c.   Override access method via query hint
+-------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	5
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	7
+rocksdb_vectors_sent_to_faiss	0
+
+
+-------------------------------------------------------------------------
+7. Test EXPLAIN FORMAT=TREE with non PK condition
+The entire non-PK condition will be implemented as a filter operator
+and nothing should get pushed down to the vector index
+-------------------------------------------------------------------------
+
+7a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	0
+
+
+7b.   Override access method via session var 
+--------------------------------------------
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+set session fb_vector_search_type = AUTO;
+
+7c.   Override access method via query hint
+-------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+
+--------------------------------------------------------------------------------------------
+8. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
+PK and non PK conditions will both be implemented as a filter operator on 
+top of "vector index scan" or "ordered vector index scan" (in case of override)
+--------------------------------------------------------------------------------------------
+
+8a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	0
+
+
+8b.   Override access method via session var 
+--------------------------------------------
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+set session fb_vector_search_type = AUTO;
+
+8c.   Override access method via query hint
+-------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+six	6	[6, 6, 6]	FIRST	1	60.75
+five	5	[5, 5, 5]	FIRST	2	64.75
+four	4	[4, 4, 4]	FIRST	3	74.75
+three	3	[3, 3, 3]	FIRST	4	90.75
+two	2	[2, 2, 2]	FIRST	5	112.75
+one	1	[1, 1, 1]	FIRST	6	140.75
+ten	10	[41, 4, 4]	SECOND	9	814.75
+eleven	11	[51, 5, 5]	SECOND	8	1490.75
+twelve	12	[61, 6, 6]	SECOND	7	2370.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+
+-----------------------------------------------------------------------------------------
+9. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
+non PK conditions should be implemented as a filter operator.
+PK condition should be extracted and pushed down to "vector index scan" operator,
+or "ordered vector index scan" operator if the default is overriden
+-----------------------------------------------------------------------------------------
+
+9a.   Vector index scan (with filesort) will be chosen by default
+-----------------------------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Sort: dis, limit input to 10 row(s) per chunk  (rows=1)
+        -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+            -> Vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	8
+rocksdb_vectors_rcvd_from_faiss	0
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	0
+
+
+9b.   Override access method via session var 
+--------------------------------------------
+
+set session fb_vector_search_type = KNN;
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+set session fb_vector_search_type = AUTO;
+
+9c.   Override access method via query hint
+-------------------------------------------
+
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+EXPLAIN
+-> Limit: 10 row(s)  (rows=1)
+    -> Filter: ((t1.non_key_char in ('FIRST','THIRD')) or (t1.non_key_int in (2,6)))  (rows=1)
+        -> Ordered vector index scan on t1 using vector_key_1, with index condition: (t1.pk_bigint_keypart_2 like '1%')  (rows=1)
+
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+pk_char_keypart_1	pk_bigint_keypart_2	vector1	non_key_char	non_key_int	dis
+one	1	[1, 1, 1]	FIRST	6	140.75
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	9
+rocksdb_vectors_rcvd_from_faiss	4
+rocksdb_vectors_read	13
+rocksdb_vectors_rows_read	4
+rocksdb_vectors_sent_to_faiss	4
+
+drop table t1;
+
+--------------------------------------------------------
+10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+--------------------------------------------------------
+
+CREATE TABLE t1 (   
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'), 
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'), 
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	vector_key_1	65535	NULL	1	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk_char_keypart_1` AS `pk_char_keypart_1`,`test`.`t1`.`pk_varchar_keypart_2` AS `pk_varchar_keypart_2`,`test`.`t1`.`vector1` AS `vector1`,fb_vector_l2(`test`.`t1`.`vector1`,'[12.5, 3.5, 2.5]') AS `dis` from `test`.`t1` order by `dis` limit 100
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	EIGHT	[21, 2, 2]	74.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	two	[2, 2, 2]	112.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	12
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	12
+rocksdb_vectors_sent_to_faiss	12
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	12	12
+
+10a. OPEN ENDED RANGE
+---------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	EIGHT	[21, 2, 2]	74.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	two	[2, 2, 2]	112.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	0
+rocksdb_vectors_rcvd_from_faiss	9
+rocksdb_vectors_read	9
+rocksdb_vectors_rows_read	9
+rocksdb_vectors_sent_to_faiss	9
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	9	9
+
+10b. BOUNDED RANGE
+------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	SEVEN	[11, 1, 1]	10.75
+singles	six	[6, 6, 6]	60.75
+singles	five	[5, 5, 5]	64.75
+singles	four	[4, 4, 4]	74.75
+singles	three	[3, 3, 3]	90.75
+singles	one	[1, 1, 1]	140.75
+singles	NINE	[31, 3, 3]	342.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	2
+rocksdb_vectors_rcvd_from_faiss	10
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	10
+rocksdb_vectors_sent_to_faiss	10
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	10	10
+
+10c. IN list
+------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+singles	three	[3, 3, 3]	90.75
+singles	one	[1, 1, 1]	140.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	13
+rocksdb_vectors_rcvd_from_faiss	3
+rocksdb_vectors_read	16
+rocksdb_vectors_rows_read	3
+rocksdb_vectors_sent_to_faiss	3
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	3	3
+
+10d. IN list with EQ condition
+------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+doubles	ELEVEN	[51, 5, 5]	1490.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	2
+rocksdb_vectors_rcvd_from_faiss	1
+rocksdb_vectors_read	3
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	1
+
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
+test	t1	vector_key_1	flat	1	1
+
+10e. IN list with LIKE clause
+-----------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+singles	one	[1, 1, 1]	140.75
+doubles	TEN	[41, 4, 4]	814.75
+doubles	ELEVEN	[51, 5, 5]	1490.75
+doubles	TWELVE	[61, 6, 6]	2370.75
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	5
+rocksdb_vectors_sent_to_faiss	5
 
 select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
 MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;

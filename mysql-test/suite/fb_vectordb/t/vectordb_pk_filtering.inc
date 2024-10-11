@@ -1,0 +1,916 @@
+
+--echo
+--echo -------------------------------------------------
+--echo 1. Test PK filtering with single PK BIGINT column
+--echo -------------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk BIGINT NOT NULL PRIMARY KEY,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values (1, '[1, 1, 1]'), (2, '[2, 2, 2]'), (3, '[3, 3, 3]'), 
+                      (4, '[4, 4, 4]'), (5, '[5, 5, 5]'), (6, '[6, 6, 6]');
+
+insert into t1 values (7, '[11, 1, 1]'), (8, '[21, 2, 2]'), (9, '[31, 3, 3]'), 
+                      (10, '[41, 4, 4]'), (11, '[51, 5, 5]'), (12, '[61, 6, 6]');
+
+--echo 
+--echo Record value of fb_vector_index_cond_pushdown
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+SELECT @@SESSION.fb_vector_use_iterator_bounds;
+
+--echo
+--echo Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1a. OPEN ENDED RANGE
+--echo ---------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1b. BOUNDED RANGE
+--echo -----------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1c. IN list
+--echo -----------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1d. IN list with EQ condition
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1e. IN list with LIKE clause
+--echo ----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 1f. Test EXPLAIN FORMAT=TREE
+--echo ----------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+
+--echo
+--echo 1g. Test EXPLAIN FORMAT=JSON
+--echo ----------------------------
+--echo
+
+--replace_regex /(.*)cost": (.*)/\1cost":/ 
+EXPLAIN FORMAT=JSON
+SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
+
+drop table t1;
+
+--echo
+--echo -----------------------------------------------------
+--echo 2. Test PK filtering with PK keys parts (BIGINT, INT) 
+--echo -----------------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk_keypart_1 BIGINT NOT NULL,
+  pk_keypart_2 INT NOT NULL,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  PRIMARY KEY(pk_keypart_1, pk_keypart_2),
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values (1, 11, '[1, 1, 1]'), (2, 11, '[2, 2, 2]'), (3, 11, '[3, 3, 3]'), 
+                      (4, 11, '[4, 4, 4]'), (5, 11, '[5, 5, 5]'), (6, 11, '[6, 6, 6]');
+
+insert into t1 values (7, 112, '[11, 1, 1]'), (8, 112, '[21, 2, 2]'), (9, 112, '[31, 3, 3]'), 
+                      (10, 112, '[41, 4, 4]'), (11, 112, '[51, 5, 5]'), (12, 112, '[61, 6, 6]');
+
+--echo
+--echo Vector distance ordering for reference
+--echo --------------------------------------
+--echo
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2a. OPEN ENDED RANGE
+--echo ---------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2b. BOUNDED RANGE
+--echo -----------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2c. IN list
+--echo -----------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2d. IN list with EQ condition
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2e. IN list with LIKE clause
+--echo ----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2f. Filter on pk_keypart_2 EQ condition (negative test)
+--echo -------------------------------------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2g. Filter on pk_keypart_2 through IN list 
+--echo ------------------------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2h. Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
+--echo ----------------------------------------------------------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2i. Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
+--echo -------------------------------------------------------------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2j. Turn PK pre-filtering OFF and check results
+--echo -----------------------------------------------
+--echo
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+SET @@SESSION.fb_vector_index_cond_pushdown = false;
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2k. Turn PK pre-filtering ON through query hint and check results
+--echo -----------------------------------------------------------------
+--echo
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+
+select /*+ SET_VAR(fb_vector_index_cond_pushdown=ON) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+# reset variables
+SET @@SESSION.fb_vector_index_cond_pushdown = true;
+
+--echo
+--echo Test EXPLAIN FORMAT=TREE
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+--echo
+--echo Test EXPLAIN FORMAT=JSON
+--echo
+
+--replace_regex /(.*)cost": (.*)/\1cost":/ 
+EXPLAIN FORMAT=JSON
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+
+drop table t1;
+
+--echo
+--echo -----------------------------------------------
+--echo 3. Test PK filtering with single PK CHAR column 
+--echo -----------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk_char CHAR (16) NOT NULL PRIMARY KEY,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+                      ('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+                      ('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+--echo
+--echo Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 3a. OPEN ENDED RANGE
+--echo ---------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 3b. BOUNDED RANGE
+--echo -----------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 3c. IN list
+--echo -----------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 3d. IN list with EQ condition
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 3e. IN list with LIKE clause
+--echo ----------------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+drop table t1;
+
+--echo
+--echo --------------------------------------------------
+--echo 4. Test PK filtering with single PK VARCHAR column 
+--echo --------------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk_varchar VARCHAR (16) NOT NULL PRIMARY KEY,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values ('one', '[1, 1, 1]'), ('two', '[2, 2, 2]'), ('three', '[3, 3, 3]'), 
+                      ('four', '[4, 4, 4]'), ('five', '[5, 5, 5]'), ('six', '[6, 6, 6]');
+
+insert into t1 values ('seven', '[11, 1, 1]'), ('eight', '[21, 2, 2]'), ('nine', '[31, 3, 3]'), 
+                      ('ten', '[41, 4, 4]'), ('eleven', '[51, 5, 5]'), ('twelve', '[61, 6, 6]');
+
+--echo
+--echo Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 4a. OPEN ENDED RANGE
+--echo ---------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 4b. BOUNDED RANGE
+--echo -----------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 4c. IN list
+--echo -----------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 4d. IN list with EQ condition
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 4e. IN list with LIKE clause
+--echo ----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+drop table t1;
+
+--echo
+--echo ------------------------------------------------------
+--echo 5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
+--echo      and non key parts (CHAR) and (INT)
+--echo ------------------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk_char_keypart_1 CHAR (16) NOT NULL,
+  pk_bigint_keypart_2 BIGINT NOT NULL,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  non_key_char CHAR (16) NOT NULL,
+  non_key_int INT NOT NULL,
+  PRIMARY KEY (pk_char_keypart_1, pk_bigint_keypart_2),
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values ('one', 1, '[1, 1, 1]', 'FIRST', 6), ('two', 2, '[2, 2, 2]', 'FIRST', 5), 
+                      ('three', 3, '[3, 3, 3]', 'FIRST', 4), ('four', 4, '[4, 4, 4]', 'FIRST', 3), 
+                      ('five', 5, '[5, 5, 5]', 'FIRST', 2), ('six', 6, '[6, 6, 6]', 'FIRST', 1);
+
+insert into t1 values ('seven', 7, '[11, 1, 1]', 'SECOND', 12), ('eight', 8, '[21, 2, 2]', 'SECOND', 11), 
+                      ('nine', 9, '[31, 3, 3]', 'SECOND', 10), ('ten', 10, '[41, 4, 4]', 'SECOND', 9), 
+                      ('eleven', 11, '[51, 5, 5]', 'SECOND', 8), ('twelve', 12, '[61, 6, 6]', 'SECOND', 7);
+
+--echo
+--echo Vector distance ordering for reference:
+--echo --------------------------------------
+--echo
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 5a. OPEN ENDED RANGE
+--echo --------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 5b. BOUNDED RANGE
+--echo -----------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 5c. IN list
+--echo -----------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 5d. IN list with EQ condition
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 5e. IN list with LIKE clause
+--echo ----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo --------------------------------------------------------------------
+--echo 6. Test EXPLAIN FORMAT=TREE with PK condition
+--echo      The entire PK condition will be pushed down to the vector index
+--echo --------------------------------------------------------------------
+--echo
+--echo 6a.   Ordered vector index scan (KNN_FIRST) will be chosen by default
+--echo ---------------------------------------------------------------------
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--echo
+--echo 6b.   Override access method via session var 
+--echo --------------------------------------------
+--echo
+
+set session fb_vector_search_type = ITERATOR;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 6c.   Override access method via query hint
+--echo -------------------------------------------
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo -------------------------------------------------------------------------
+--echo 7. Test EXPLAIN FORMAT=TREE with non PK condition
+--echo      The entire non-PK condition will be implemented as a filter operator
+--echo      and nothing should get pushed down to the vector index
+--echo -------------------------------------------------------------------------
+--echo
+--echo 7a.   Vector index scan (with filesort) will be chosen by default
+--echo -----------------------------------------------------------------
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo 7b.   Override access method via session var 
+--echo --------------------------------------------
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+--source include/show_status.inc
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 7c.   Override access method via query hint
+--echo -------------------------------------------
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo --------------------------------------------------------------------------------------------
+--echo 8. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond cannot be pushed down
+--echo      PK and non PK conditions will both be implemented as a filter operator on 
+--echo      top of "vector index scan" or "ordered vector index scan" (in case of override)
+--echo --------------------------------------------------------------------------------------------
+--echo
+--echo 8a.   Vector index scan (with filesort) will be chosen by default
+--echo -----------------------------------------------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo 8b.   Override access method via session var 
+--echo --------------------------------------------
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 8c.   Override access method via query hint
+--echo -------------------------------------------
+--echo
+
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo -----------------------------------------------------------------------------------------
+--echo 9. Test EXPLAIN FORMAT=TREE with PK and non PK condition where PK cond can be pushed down
+--echo      non PK conditions should be implemented as a filter operator.
+--echo      PK condition should be extracted and pushed down to "vector index scan" operator,
+--echo      or "ordered vector index scan" operator if the default is overriden
+--echo -----------------------------------------------------------------------------------------
+--echo
+--echo 9a.   Vector index scan (with filesort) will be chosen by default
+--echo -----------------------------------------------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+--echo
+--echo 9b.   Override access method via session var 
+--echo --------------------------------------------
+--echo
+
+set session fb_vector_search_type = KNN;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+set session fb_vector_search_type = AUTO;
+
+--echo
+--echo 9c.   Override access method via query hint
+--echo -------------------------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+select /*+ SET_VAR(fb_vector_search_type=KNN) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
+    where (non_key_char in ('FIRST', 'THIRD') or non_key_int in (2, 6)) and pk_bigint_keypart_2 like '1%' order by dis limit 10;
+
+--source include/show_status.inc
+
+drop table t1;
+
+--echo
+--echo --------------------------------------------------------
+--echo 10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+--echo --------------------------------------------------------
+--echo
+
+CREATE TABLE t1 (   
+  pk_char_keypart_1 CHAR (16) NOT NULL,
+  pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat' 
+);
+
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'), 
+                      ('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'), 
+                      ('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+--echo
+--echo Vector distance ordering for reference:
+explain
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 order by dis limit 100;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 10a. OPEN ENDED RANGE
+--echo ---------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 10b. BOUNDED RANGE
+--echo ------------------
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 10c. IN list
+--echo ------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 10d. IN list with EQ condition
+--echo ------------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 10e. IN list with LIKE clause
+--echo -----------------------------
+--echo
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+drop table t1;
