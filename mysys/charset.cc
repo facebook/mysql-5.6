@@ -226,9 +226,10 @@ int MY_CHARSET_LOADER::add_collation(CHARSET_INFO *cs) {
        (cs->number = get_collation_number_internal(cs->m_coll_name))) &&
       cs->number < array_elements(all_charsets)) {
     if (!all_charsets[cs->number]) {
-      if (!(all_charsets[cs->number] = (CHARSET_INFO *)my_once_alloc(
-                sizeof(CHARSET_INFO), MYF(MY_ZEROFILL))))
+      if (!(all_charsets[cs->number] =
+                (CHARSET_INFO *)my_once_alloc(sizeof(CHARSET_INFO), MYF(0))))
         return MY_XML_ERROR;
+      new (all_charsets[cs->number]) CHARSET_INFO;
     } else if (all_charsets[cs->number]->state & MY_CS_COMPILED) {
       // Disallow overwriting compiled character sets
       clear_cs_info(cs);
