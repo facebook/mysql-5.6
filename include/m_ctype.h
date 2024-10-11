@@ -380,40 +380,43 @@ extern MY_CHARSET_HANDLER my_charset_ascii_handler;
 extern MY_CHARSET_HANDLER my_charset_ucs2_handler;
 
 /* See strings/CHARSET_INFO.txt about information on this structure  */
+// If upstream adds or changes any fields, keep them zero-initialized.
 struct CHARSET_INFO {
-  uint number;
-  uint primary_number;
-  uint binary_number;
-  std::atomic<uint> state;
-  const char *csname;
-  const char *m_coll_name;
-  const char *comment;
-  const char *tailoring;
-  struct Coll_param *coll_param;
-  const uchar *ctype;
-  const uchar *to_lower;
-  const uchar *to_upper;
-  const uchar *sort_order;
-  struct MY_UCA_INFO *uca; /* This can be changed in apply_one_rule() */
-  const uint16 *tab_to_uni;
-  const MY_UNI_IDX *tab_from_uni;
-  const MY_UNICASE_INFO *caseinfo;
-  const struct lex_state_maps_st *state_maps; /* parser internal data */
-  const uchar *ident_map;                     /* parser internal data */
-  uint strxfrm_multiply;
-  uchar caseup_multiply;
-  uchar casedn_multiply;
-  uint mbminlen;
-  uint mbmaxlen;
-  uint mbmaxlenlen;
-  my_wc_t min_sort_char;
-  my_wc_t max_sort_char; /* For LIKE optimization */
-  uchar pad_char;
-  bool escape_with_backslash_is_dangerous;
-  uchar levels_for_compare;
+  uint number{0U};
+  uint primary_number{0U};
+  uint binary_number{0U};
+  std::atomic<uint> state{0U};
+  const char *csname{nullptr};
+  const char *m_coll_name{nullptr};
+  const char *comment{nullptr};
+  const char *tailoring{nullptr};
+  struct Coll_param *coll_param{nullptr};
+  const uchar *ctype{nullptr};
+  const uchar *to_lower{nullptr};
+  const uchar *to_upper{nullptr};
+  const uchar *sort_order{nullptr};
+  /* This can be changed in apply_one_rule() */
+  struct MY_UCA_INFO *uca{nullptr};
+  const uint16 *tab_to_uni{nullptr};
+  const MY_UNI_IDX *tab_from_uni{nullptr};
+  const MY_UNICASE_INFO *caseinfo{nullptr};
+  /* parser internal data */
+  const struct lex_state_maps_st *state_maps{nullptr};
+  const uchar *ident_map{nullptr}; /* parser internal data */
+  uint strxfrm_multiply{0U};
+  uchar caseup_multiply{0};
+  uchar casedn_multiply{0};
+  uint mbminlen{0U};
+  uint mbmaxlen{0U};
+  uint mbmaxlenlen{0U};
+  my_wc_t min_sort_char{0UL};
+  my_wc_t max_sort_char{0UL}; /* For LIKE optimization */
+  uchar pad_char{0};
+  bool escape_with_backslash_is_dangerous{false};
+  uchar levels_for_compare{0};
 
-  MY_CHARSET_HANDLER *cset;
-  MY_COLLATION_HANDLER *coll;
+  MY_CHARSET_HANDLER *cset{nullptr};
+  MY_COLLATION_HANDLER *coll{nullptr};
 
   /**
     If this collation is PAD_SPACE, it collates as if all inputs were
@@ -422,7 +425,7 @@ struct CHARSET_INFO {
 
     Note that this is fundamentally about the behavior of coll->strnxfrm.
   */
-  enum Pad_attribute pad_attribute;
+  enum Pad_attribute pad_attribute { static_cast<Pad_attribute>(0) };
 };
 #define ILLEGAL_CHARSET_INFO_NUMBER (~0U)
 

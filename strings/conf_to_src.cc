@@ -289,7 +289,6 @@ int main(int argc, char **argv [[maybe_unused]]) {
     exit(EXIT_FAILURE);
   }
 
-  memset(&ncs, 0, sizeof(ncs));
   memset(&all_charsets, 0, sizeof(all_charsets));
 
   sprintf(filename, "%s/%s", argv[1], "Index.xml");
