@@ -432,6 +432,8 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       key_slice = rocksdb::Slice(sk);
       value_slice = rocksdb::Slice(sk_value);
 
+      DBUG_EXECUTE_IF("missing_unpack_info", value_slice.clear(););
+
       /* unpack SK tuple
 
        * Note: even though the SK tuple obtained above includes the list_id,

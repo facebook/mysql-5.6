@@ -3282,7 +3282,20 @@ int Rdb_key_def::unpack_unknown(Rdb_field_packing *const fpi,
     return UNPACK_FAILURE;
   }
 
-  assert_IMP(len > 0, unp_reader != nullptr);
+  /* This is unexpected and could mean data corruption or a bug.
+   * Better to fail the query rather than risk MySQL crash looping
+   */
+  if (unp_reader == nullptr) {
+    LogPluginErrMsg(
+        ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+        "Unpack data missing for type:%d csname:%s coll_name:%s "
+        "unpack_data_len:%d ",
+        fpi->m_field_real_type,
+        fpi->m_field_charset ? fpi->m_field_charset->csname : "unknown",
+        fpi->m_field_charset ? fpi->m_field_charset->m_coll_name : "unknown",
+        len);
+    return UNPACK_FAILURE;
+  }
 
   if ((ptr = (const uchar *)unp_reader->read(len))) {
     memcpy(dst, ptr, len);
@@ -3387,7 +3400,29 @@ static uint rdb_read_unpack_simple(Rdb_bit_reader *const reader,
   for (uint i = 0; i < src_len; i++) {
     if (codec->m_dec_size[src[i]] > 0) {
       uint *ret;
-      assert(reader != nullptr);
+
+      /*
+       * We can end up in rdb_read_unpack_simple() even with null unpack info,
+       * as unpack info is not required in all cases.
+       *
+       * If it is indeed required, like in this section, then return
+       * error rather than let MySQL crash. After mysql restarts, the same
+       * crash will happen again when the same query comes in again (i.e.
+       * when client retries).
+       *
+       * This is likely due to a data corruption on disk, or a version
+       * incompatibility bug (eg. one version did not write the unpack info and
+       * the other version is expecting it).
+       */
+      if (reader == nullptr) {
+        LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                        "Unpack data missing for src:%.*s with src_len:%d "
+                        "csname:%s coll_name:%s",
+                        (src_len > 20) ? 20 : (int)src_len, src, (int)src_len,
+                        codec->m_cs ? codec->m_cs->csname : "unknown",
+                        codec->m_cs ? codec->m_cs->m_coll_name : "unknown");
+        return UNPACK_FAILURE;
+      }
 
       if ((ret = reader->read(codec->m_dec_size[src[i]])) == nullptr) {
         return UNPACK_FAILURE;

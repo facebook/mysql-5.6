@@ -255,7 +255,7 @@ Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` A
 drop table t1;
 
 -----------------------------------------------------
-2. Test PK filtering with PK keys parts (BIGINT, INT) 
+2. Test PK filtering with PK keys parts (BIGINT, INT)
 -----------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -466,7 +466,7 @@ MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	0	0
 
-2g. Filter on pk_keypart_2 through IN list 
+2g. Filter on pk_keypart_2 through IN list
 ------------------------------------------
 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
@@ -659,7 +659,7 @@ Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`te
 drop table t1;
 
 -----------------------------------------------
-3. Test PK filtering with single PK CHAR column 
+3. Test PK filtering with single PK CHAR column
 -----------------------------------------------
 
 CREATE TABLE t1 (   
@@ -851,7 +851,7 @@ test	t1	vector_key_1	flat	4	4
 drop table t1;
 
 --------------------------------------------------
-4. Test PK filtering with single PK VARCHAR column 
+4. Test PK filtering with single PK VARCHAR column
 --------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -1044,7 +1044,7 @@ test	t1	vector_key_1	flat	4	4
 drop table t1;
 
 ------------------------------------------------------
-5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
+5. Test PK filtering with PK keys parts (CHAR, BIGINT)
 and non key parts (CHAR) and (INT)
 ------------------------------------------------------
 
@@ -1262,7 +1262,7 @@ EXPLAIN
     -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
 
 
-6b.   Override access method via session var 
+6b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = ITERATOR;
@@ -1345,7 +1345,7 @@ rocksdb_vectors_rows_read	12
 rocksdb_vectors_sent_to_faiss	0
 
 
-7b.   Override access method via session var 
+7b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -1449,7 +1449,7 @@ rocksdb_vectors_rows_read	12
 rocksdb_vectors_sent_to_faiss	0
 
 
-8b.   Override access method via session var 
+8b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -1552,7 +1552,7 @@ rocksdb_vectors_rows_read	4
 rocksdb_vectors_sent_to_faiss	0
 
 
-9b.   Override access method via session var 
+9b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -1608,7 +1608,7 @@ rocksdb_vectors_sent_to_faiss	4
 drop table t1;
 
 --------------------------------------------------------
-10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+10. Test PK filtering with PK keys parts (CHAR, VARCHAR)
 --------------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -1798,6 +1798,81 @@ MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 drop table t1;
+
+-------------------------------------------------
+11. Test unpack errors due to missing unpack info
+-------------------------------------------------
+
+CREATE TABLE t1 (
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+11a. with CHARSET=latin1
+------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+SET debug = '+d,missing_unpack_info';
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	5
+
+CREATE TABLE t1 (
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+11b. with CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+----------------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+SET debug = '+d,missing_unpack_info';
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	5
+
 
 Testing with RANGE TREE / ITERATOR BOUNDS based PK FILTERING TURNED ON
 
@@ -2055,7 +2130,7 @@ Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`vector1` A
 drop table t1;
 
 -----------------------------------------------------
-2. Test PK filtering with PK keys parts (BIGINT, INT) 
+2. Test PK filtering with PK keys parts (BIGINT, INT)
 -----------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -2266,7 +2341,7 @@ MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	0	0
 
-2g. Filter on pk_keypart_2 through IN list 
+2g. Filter on pk_keypart_2 through IN list
 ------------------------------------------
 
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
@@ -2459,7 +2534,7 @@ Note	1003	/* select#1 */ select `test`.`t1`.`pk_keypart_1` AS `pk_keypart_1`,`te
 drop table t1;
 
 -----------------------------------------------
-3. Test PK filtering with single PK CHAR column 
+3. Test PK filtering with single PK CHAR column
 -----------------------------------------------
 
 CREATE TABLE t1 (   
@@ -2651,7 +2726,7 @@ test	t1	vector_key_1	flat	4	4
 drop table t1;
 
 --------------------------------------------------
-4. Test PK filtering with single PK VARCHAR column 
+4. Test PK filtering with single PK VARCHAR column
 --------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -2844,7 +2919,7 @@ test	t1	vector_key_1	flat	4	4
 drop table t1;
 
 ------------------------------------------------------
-5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
+5. Test PK filtering with PK keys parts (CHAR, BIGINT)
 and non key parts (CHAR) and (INT)
 ------------------------------------------------------
 
@@ -3062,7 +3137,7 @@ EXPLAIN
     -> Ordered vector index scan on t1 using vector_key_1, with index condition: ((t1.pk_char_keypart_1 in ('one','five')) or (t1.pk_bigint_keypart_2 in (2,6)) or (t1.pk_bigint_keypart_2 like '1%'))  (rows=1)
 
 
-6b.   Override access method via session var 
+6b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = ITERATOR;
@@ -3145,7 +3220,7 @@ rocksdb_vectors_rows_read	12
 rocksdb_vectors_sent_to_faiss	0
 
 
-7b.   Override access method via session var 
+7b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -3249,7 +3324,7 @@ rocksdb_vectors_rows_read	12
 rocksdb_vectors_sent_to_faiss	0
 
 
-8b.   Override access method via session var 
+8b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -3352,7 +3427,7 @@ rocksdb_vectors_rows_read	4
 rocksdb_vectors_sent_to_faiss	0
 
 
-9b.   Override access method via session var 
+9b.   Override access method via session var
 --------------------------------------------
 
 set session fb_vector_search_type = KNN;
@@ -3408,7 +3483,7 @@ rocksdb_vectors_sent_to_faiss	4
 drop table t1;
 
 --------------------------------------------------------
-10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+10. Test PK filtering with PK keys parts (CHAR, VARCHAR)
 --------------------------------------------------------
 
 CREATE TABLE t1 (   
@@ -3598,3 +3673,78 @@ MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 TABLE_SCHEMA	TABLE_NAME	INDEX_NAME	INDEX_TYPE	MIN_LIST_SIZE	MAX_LIST_SIZE
 test	t1	vector_key_1	flat	5	5
 drop table t1;
+
+-------------------------------------------------
+11. Test unpack errors due to missing unpack info
+-------------------------------------------------
+
+CREATE TABLE t1 (
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+11a. with CHARSET=latin1
+------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+SET debug = '+d,missing_unpack_info';
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	5
+
+CREATE TABLE t1 (
+pk_char_keypart_1 CHAR (16) NOT NULL,
+pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+11b. with CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+----------------------------------------------------
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+pk_char_keypart_1	pk_varchar_keypart_2	vector1	dis
+singles	five	[5, 5, 5]	64.75
+SET debug = '+d,missing_unpack_info';
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+ERROR HY000: Got error 505 'Found data corruption.' from ROCKSDB
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+
+Status counters
+---------------
+COUNTER	VALUE
+rocksdb_vectors_centroid_lists_read	1
+rocksdb_vectors_filtered_icp	7
+rocksdb_vectors_rcvd_from_faiss	5
+rocksdb_vectors_read	12
+rocksdb_vectors_rows_read	1
+rocksdb_vectors_sent_to_faiss	5
+

@@ -122,7 +122,7 @@ drop table t1;
 
 --echo
 --echo -----------------------------------------------------
---echo 2. Test PK filtering with PK keys parts (BIGINT, INT) 
+--echo 2. Test PK filtering with PK keys parts (BIGINT, INT)
 --echo -----------------------------------------------------
 --echo
 
@@ -234,7 +234,7 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
 --echo
---echo 2g. Filter on pk_keypart_2 through IN list 
+--echo 2g. Filter on pk_keypart_2 through IN list
 --echo ------------------------------------------
 --echo
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
@@ -326,7 +326,7 @@ drop table t1;
 
 --echo
 --echo -----------------------------------------------
---echo 3. Test PK filtering with single PK CHAR column 
+--echo 3. Test PK filtering with single PK CHAR column
 --echo -----------------------------------------------
 --echo
 
@@ -423,7 +423,7 @@ drop table t1;
 
 --echo
 --echo --------------------------------------------------
---echo 4. Test PK filtering with single PK VARCHAR column 
+--echo 4. Test PK filtering with single PK VARCHAR column
 --echo --------------------------------------------------
 --echo
 
@@ -521,7 +521,7 @@ drop table t1;
 
 --echo
 --echo ------------------------------------------------------
---echo 5. Test PK filtering with PK keys parts (CHAR, BIGINT) 
+--echo 5. Test PK filtering with PK keys parts (CHAR, BIGINT)
 --echo      and non key parts (CHAR) and (INT)
 --echo ------------------------------------------------------
 --echo
@@ -639,7 +639,7 @@ EXPLAIN FORMAT=TREE
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 
 --echo
---echo 6b.   Override access method via session var 
+--echo 6b.   Override access method via session var
 --echo --------------------------------------------
 --echo
 
@@ -686,7 +686,7 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key
 --source include/show_status.inc
 
 --echo
---echo 7b.   Override access method via session var 
+--echo 7b.   Override access method via session var
 --echo --------------------------------------------
 --echo
 
@@ -735,7 +735,7 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where non_key
 --source include/show_status.inc
 
 --echo
---echo 8b.   Override access method via session var 
+--echo 8b.   Override access method via session var
 --echo --------------------------------------------
 --echo
 
@@ -785,7 +785,7 @@ select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where (non_ke
 --source include/show_status.inc
 
 --echo
---echo 9b.   Override access method via session var 
+--echo 9b.   Override access method via session var
 --echo --------------------------------------------
 --echo
 
@@ -818,7 +818,7 @@ drop table t1;
 
 --echo
 --echo --------------------------------------------------------
---echo 10. Test PK filtering with PK keys parts (CHAR, VARCHAR) 
+--echo 10. Test PK filtering with PK keys parts (CHAR, VARCHAR)
 --echo --------------------------------------------------------
 --echo
 
@@ -914,3 +914,78 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
 drop table t1;
+
+--echo
+--echo -------------------------------------------------
+--echo 11. Test unpack errors due to missing unpack info
+--echo -------------------------------------------------
+--echo
+
+CREATE TABLE t1 (
+  pk_char_keypart_1 CHAR (16) NOT NULL,
+  pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+                      ('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+                      ('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+--echo
+--echo 11a. with CHARSET=latin1
+--echo ------------------------
+--echo
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+
+--source include/have_debug.inc
+SET debug = '+d,missing_unpack_info';
+
+error ER_GET_ERRMSG;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+
+--disable_query_log
+call mtr.add_suppression("Unpack data missing for*");
+--enable_query_log
+
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+--echo
+--source include/show_status.inc
+
+CREATE TABLE t1 (
+  pk_char_keypart_1 CHAR (16) NOT NULL,
+  pk_varchar_keypart_2 VARCHAR (10) NOT NULL,
+  vector1 JSON NOT NULL FB_VECTOR_DIMENSION 3,
+  PRIMARY KEY (pk_char_keypart_1, pk_varchar_keypart_2),
+  INDEX vector_key_1(vector1) FB_VECTOR_INDEX_TYPE 'flat'
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+insert into t1 values ('singles', 'one', '[1, 1, 1]'), ('singles', 'two', '[2, 2, 2]'), ('singles', 'three', '[3, 3, 3]'),
+                      ('singles', 'four', '[4, 4, 4]'), ('singles', 'five', '[5, 5, 5]'), ('singles', 'six', '[6, 6, 6]');
+
+insert into t1 values ('singles', 'SEVEN', '[11, 1, 1]'), ('singles', 'EIGHT', '[21, 2, 2]'), ('singles', 'NINE', '[31, 3, 3]'),
+                      ('doubles', 'TEN', '[41, 4, 4]'), ('doubles', 'ELEVEN', '[51, 5, 5]'), ('doubles', 'TWELVE', '[61, 6, 6]');
+
+--echo
+--echo 11b. with CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+--echo ----------------------------------------------------
+--echo
+
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+
+SET debug = '+d,missing_unpack_info';
+
+error ER_GET_ERRMSG;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 1;
+
+drop table t1;
+SET debug = '-d,missing_unpack_info';
+
+--echo
+--source include/show_status.inc
