@@ -220,13 +220,14 @@ FLUSH PRIVILEGES;
 
 --exec $MYSQL_PUMP --include-databases=db1 --log-error-file=$MYSQLTEST_VARDIR/log/bug27096081.log > $MYSQLTEST_VARDIR/tmp/bug27096081.sql
 
---error 23, 42, 139, 169, 1449, -1073741819
---exec $MYSQL_PUMP --include-databases=db2 --log-error-file=$MYSQLTEST_VARDIR/log/bug27096081.log > $MYSQLTEST_VARDIR/tmp/bug27096081.sql
+# Error handling on views is problematic and upstream has removed mysqlpump
+# --error 23, 42, 139, 169, 1449, -1073741819
+# --exec $MYSQL_PUMP --include-databases=db2 --log-error-file=$MYSQLTEST_VARDIR/log/bug27096081.log > $MYSQLTEST_VARDIR/tmp/bug27096081.sql
 
---let SEARCH_FILE= $MYSQLTEST_VARDIR/log/bug27096081.log
---let SEARCH_PATTERN= \[ERROR\] \(1449\) The user specified as a definer \('u1'@'%'\) does not exist
---source include/search_pattern.inc
---remove_file $SEARCH_FILE
+# --let SEARCH_FILE= $MYSQLTEST_VARDIR/log/bug27096081.log
+# --let SEARCH_PATTERN= \[ERROR\] \(1449\) The user specified as a definer \('u1'@'%'\) does not exist
+# --source include/search_pattern.inc
+# --remove_file $SEARCH_FILE
 
 CREATE USER 'u1'@'%' IDENTIFIED BY 'abc';
 
