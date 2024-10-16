@@ -147,3 +147,26 @@ ERROR HY000: Can't copy to the vector field. The source vector field has a diffe
 change back to blob is allowed
 alter table t1 modify column c2 BLOB NOT NULL;
 drop table t1;
+
+do not allow add vector column on a nonempty table
+
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY);
+insert into t1 values (1);
+alter table t1 add c2 BLOB NOT NULL FB_VECTOR_DIMENSION 4;
+ERROR 22004: Invalid use of NULL value
+select * from t1;
+c1
+1
+
+allow add vector column when table is empty
+delete from t1 where c1 = 1;
+alter table t1 add c2 BLOB NOT NULL FB_VECTOR_DIMENSION 4;
+
+verify field validation logic
+insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1]'));
+ERROR HY000: Invalid vector value.
+insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1,2,3,4]'));
+select c1, FB_VECTOR_BLOB_TO_JSON(c2) as c2 from t1;
+c1	c2
+1	[1.0, 2.0, 3.0, 4.0]
+drop table t1;

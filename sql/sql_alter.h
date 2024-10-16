@@ -577,6 +577,9 @@ class Alter_table_ctx {
   /** Metadata lock request on table's new database if it is changed. */
   MDL_request target_db_mdl_request;
 
+  /** indicates if a vector type column is added */
+  bool vector_column_added = false;
+
  private:
   char new_filename[FN_REFLEN + 1];
   char new_alias_buff[FN_REFLEN + 1];

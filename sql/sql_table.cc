@@ -14954,6 +14954,10 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
         alter_ctx->error_if_not_empty |=
             Alter_table_ctx::GEOMETRY_WITHOUT_DEFAULT;
       }
+
+      if (def->m_fb_vector_dimension > 0) {
+        alter_ctx->vector_column_added = true;
+      }
     }
 
     if (!def->after)
@@ -18420,6 +18424,11 @@ err_new_table_cleanup:
       thd->get_stmt_da()->current_row_for_condition()) {
     (void)push_zero_date_warning(thd, alter_ctx.datetime_field);
   }
+
+  if (alter_ctx.vector_column_added) {
+    my_error(ER_INVALID_USE_OF_NULL, MYF(0));
+  }
+
   return true;
 
 err_with_mdl:
@@ -18743,6 +18752,16 @@ static int copy_data_between_tables(
       error = 1;
       break;
     }
+
+    /*
+      return error if we are adding a vector column
+      on a nonempty table
+     */
+    if (alter_ctx->vector_column_added) {
+      error = 1;
+      break;
+    }
+
     if (to->next_number_field) {
       if (auto_increment_field_copied)
         to->autoinc_field_has_explicit_non_null_value = true;

@@ -121,4 +121,24 @@ echo change back to blob is allowed;
 alter table t1 modify column c2 BLOB NOT NULL;
 drop table t1;
 
+echo;
+echo do not allow add vector column on a nonempty table;
+echo;
+CREATE TABLE t1(c1 BIGINT PRIMARY KEY);
+insert into t1 values (1);
+error ER_INVALID_USE_OF_NULL;
+alter table t1 add c2 BLOB NOT NULL FB_VECTOR_DIMENSION 4;
+select * from t1;
+echo;
+echo allow add vector column when table is empty;
+delete from t1 where c1 = 1;
+alter table t1 add c2 BLOB NOT NULL FB_VECTOR_DIMENSION 4;
+echo;
+echo verify field validation logic;
+error ER_INVALID_VECTOR;
+insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1]'));
+insert into t1 values (1, FB_VECTOR_JSON_TO_BLOB('[1,2,3,4]'));
+select c1, FB_VECTOR_BLOB_TO_JSON(c2) as c2 from t1;
+drop table t1;
+
 source ../include/cleanup_ivf.inc;
