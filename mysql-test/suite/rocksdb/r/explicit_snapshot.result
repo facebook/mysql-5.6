@@ -71,23 +71,23 @@ a
 "con1: Creating explict snapshot"
 "con2: Trying to insert row"
 INSERT INTO T1 VALUES();
-ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT|START TRANSACTION WITH SHARED|EXISTING [ROCKSDB] SNAPSHOT
 "con2: Attaching existing snapshot"
 ATTACH EXPLICIT ROCKSDB SNAPSHOT 3;
 "con2: Trying to insert row"
 INSERT INTO T1 VALUES();
-ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT|START TRANSACTION WITH SHARED|EXISTING [ROCKSDB] SNAPSHOT
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
 "con1: Starting shared snapshot"
 "con1: Trying to insert row"
 INSERT INTO T1 VALUES();
-ERROR HY000: Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT.
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT|START TRANSACTION WITH SHARED|EXISTING [ROCKSDB] SNAPSHOT
 "con2: Starting existing snapshot"
 START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT 4;
 "con2: Trying to insert row"
 INSERT INTO T1 VALUES();
-ERROR HY000: Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT.
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT|START TRANSACTION WITH SHARED|EXISTING [ROCKSDB] SNAPSHOT
 COMMIT;
 COMMIT;
 "con1: Creating explicit snapshot"
