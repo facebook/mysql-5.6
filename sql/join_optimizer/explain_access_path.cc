@@ -987,6 +987,11 @@ static std::unique_ptr<Json_object> SetObjectMembers(
       string prefix;
       const char *prefix_ptr = nullptr;
 
+      std::unique_ptr<Json_array> range_arr(new (std::nothrow) Json_array());
+      if (range_arr == nullptr) return nullptr;
+      string ranges;
+      bool ranges_present = false;
+
       if (key->is_fb_vector_index()) {
         Item_func_fb_vector_distance *item_func =
             down_cast<Item_func_fb_vector_distance *>(
@@ -1000,6 +1005,22 @@ static std::unique_ptr<Json_object> SetObjectMembers(
                       ? "Vector"
                       : "Ordered vector";
         prefix_ptr = prefix.c_str();
+
+        AccessPath *pk_range_path = current_thd->get_pk_range_path();
+        if (pk_range_path &&
+            (pk_range_path->index_range_scan().used_key_part[0].field->table ==
+             table)) {
+          /*
+             Note: PK key part is sent to PrintRanges, since the range is on
+             PK conditions, even though the index chosen is the vector index
+             here
+          */
+          error |= PrintRanges(pk_range_path->index_range_scan().ranges,
+                               pk_range_path->index_range_scan().num_ranges,
+                               table->key_info[table->s->primary_key].key_part,
+                               /*single_part_only=*/false, range_arr, &ranges);
+          ranges_present = true;
+        }
       }
 
       assert(table->file->pushed_idx_cond == nullptr ||
@@ -1008,7 +1029,8 @@ static std::unique_ptr<Json_object> SetObjectMembers(
 
       error |= SetIndexInfoInObject(
           &description, "index_scan", prefix_ptr, table, key, "scan",
-          /*lookup condition*/ "", /*range*/ nullptr, nullptr,
+          /*lookup condition*/ "", ranges_present ? &ranges : nullptr,
+          ranges_present ? std::move(range_arr) : nullptr,
           path->index_scan().reverse, table->file->pushed_idx_cond, obj);
       error |= AddChildrenFromPushedCondition(table, children);
       break;
