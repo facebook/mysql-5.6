@@ -5522,6 +5522,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
+    rocksdb::Status s;
     if (value == nullptr) {
       // Only possible for intrinsic tmp table which has sk with hidden pk
       // and row_locks as RDB_LOCK_NONE. This is triggered from
@@ -5530,23 +5531,23 @@ class Rdb_transaction_impl : public Rdb_transaction {
       // with recursive qn as (select 1 from dual union select 1 from qn)
       // select * from qn;
       rocksdb::PinnableSlice pin_val;
-      rocksdb::Status s = m_rocksdb_tx[table_type]->Get(
-          m_read_opts[table_type], &column_family, key, &pin_val);
+      s = m_rocksdb_tx[table_type]->Get(m_read_opts[table_type], &column_family,
+                                        key, &pin_val);
       pin_val.Reset();
-      return s;
     } else {
       value->Reset();
       if (table_type == USER_TABLE) {
         global_stats.queries[QUERIES_POINT].inc();
       }
-      return m_rocksdb_tx[table_type]->Get(m_read_opts[table_type],
-                                           &column_family, key, value);
+      s = m_rocksdb_tx[table_type]->Get(m_read_opts[table_type], &column_family,
+                                        key, value);
     }
 
     if (rocksdb_enable_udt_in_mem && !is_udt_compatible_cf(column_family) &&
         saved_timestamp != nullptr) {
       m_read_opts[table_type].timestamp = saved_timestamp;
     }
+    return s;
   }
 
   void multi_get(rocksdb::ColumnFamilyHandle &column_family, size_t num_keys,

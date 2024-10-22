@@ -1,3 +1,1 @@
-# TODO(chni): Remove this after server fix 
---source include/skip_udt_in_mem.inc
 --source ../../../t/dd_schema_definition_debug.test
