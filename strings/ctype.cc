@@ -300,7 +300,7 @@ typedef struct my_cs_file_info {
 } MY_CHARSET_FILE;
 
 static void my_charset_file_reset_charset(MY_CHARSET_FILE *i) {
-  memset(&i->cs, 0, sizeof(i->cs));
+  new (&i->cs) CHARSET_INFO;
 }
 
 static void my_charset_file_reset_collation(MY_CHARSET_FILE *i) {
