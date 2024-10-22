@@ -79,10 +79,10 @@ class Work_queue {
     PSI_stage_info old_stage;
     thd->ENTER_COND(&has_work, &lock, &stage_waiting_for_work_item, &old_stage);
 
-    if (queue.empty() && !thd->is_killed()) {
+    if (queue.empty()) {
       // Wait for work with timeout.
       do {
-        if (is_shutdown) {
+        if (is_shutdown || thd->is_killed()) {
           // Queue is empty and shutdown. No more work will be enqueued.
           goto exit;
         }
@@ -93,7 +93,7 @@ class Work_queue {
         thd_wait_begin(thd, THD_WAIT_SLEEP);
         mysql_cond_timedwait(&has_work, &lock, &abstime);
         thd_wait_end(thd);
-      } while (queue.empty() && !thd->is_killed());
+      } while (queue.empty());
     }
 
     assert(!queue.empty());
