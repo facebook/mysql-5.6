@@ -35,6 +35,7 @@
 #include "./ha_rocksdb_proto.h"
 #include "./rdb_datadic.h"
 #include "./rdb_psi.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -61,6 +62,7 @@ bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
                                           DEFAULT_SYSTEM_CF_NAME};
   tmp_column_family_id = UINT_MAX;
   tmp_system_column_family_id = UINT_MAX;
+  const auto enable_tmp_table = sysvars::enable_tmp_table;
   // Step1 : Drop existing tmp cfs and populate the other existing cfs.
   for (auto cfh_ptr : *handles) {
     assert(cfh_ptr != nullptr);
@@ -85,7 +87,7 @@ bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
           "RocksDB: Dropping column family %s with id %u on RocksDB failed for "
           "temp table",
           cf_name.c_str(), cf_id);
-      if (rocksdb_enable_tmp_table) {
+      if (enable_tmp_table) {
         return HA_EXIT_FAILURE;
       }
     } else {
@@ -108,7 +110,7 @@ bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
   }
 
   // Step3 : Create the hardcoded tmp column families.
-  if (rocksdb_enable_tmp_table) {
+  if (enable_tmp_table) {
     for (const auto &cf_name : tmp_cfs) {
       get_or_create_cf(rdb, cf_name);
       // verify cf is created
@@ -492,7 +494,7 @@ int Rdb_cf_manager::create_cf_flags_if_needed(
 }
 
 bool Rdb_cf_manager::is_tmp_column_family(const uint cf_id) const {
-  if (rocksdb_enable_tmp_table &&
+  if (sysvars::enable_tmp_table &&
       (cf_id == tmp_column_family_id || cf_id == tmp_system_column_family_id)) {
     return true;
   }

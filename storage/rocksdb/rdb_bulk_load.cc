@@ -14,9 +14,13 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "./rdb_bulk_load.h"
-#include "./rdb_utils.h"
+// MySQL includes
 #include "include/scope_guard.h"
+
+// MyRocks includes
+#include "rdb_bulk_load.h"
+#include "rdb_utils.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -149,7 +153,7 @@ class Rdb_bulk_load_manager {
   // completed sessions
   std::deque<std::string> m_completed_sessions;
   std::atomic<int> m_id_seed{0};
-  uint m_history_size = RDB_BULK_LOAD_HISTORY_DEFAULT_SIZE;
+  uint m_history_size = sysvars::BULK_LOAD_HISTORY_DEFAULT_SIZE;
 
   Rdb_bulk_load_session *find_active_session(const std::string &session_id) {
     mysql_mutex_assert_owner(&m_mutex);

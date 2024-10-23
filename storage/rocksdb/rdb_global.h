@@ -200,8 +200,6 @@ const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
 #define RDB_TBL_STATS_SAMPLE_PCT_MIN 1
 #define RDB_TBL_STATS_SAMPLE_PCT_MAX 100
 
-#define RDB_TBL_STATS_RECALC_THRESHOLD_PCT_MAX 100
-
 /* Minimum time interval between stats recalc for a given table */
 #define RDB_MIN_RECALC_INTERVAL 10 /* seconds */
 
@@ -211,16 +209,6 @@ const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
 #else
 #define THREAD_PRIO_MAX PRIO_DARWIN_BG
 #endif
-
-/*
-  Default and maximum values for rocksdb-compaction-sequential-deletes and
-  rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
-*/
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES 149999
-#define MAX_COMPACTION_SEQUENTIAL_DELETES 2000000
-
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW 150000
-#define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW 2000000
 
 /*
   Default and maximum values for various compaction and flushing related
@@ -241,33 +229,6 @@ const char *const RDB_PARTIAL_INDEX_THRESHOLD_QUALIFIER =
   Default value for rocksdb_sst_mgr_rate_bytes_per_sec = 0 (disabled).
 */
 #define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC 0
-
-/*
-  Default value for rocksdb_max_trash_db_ratio_pct (multiplied by 1GB).
-*/
-#define DEFAULT_MAX_TRASH_DB_RATIO_PCT 100000000000
-
-/*
-  SELECT BYPASS related policy:
-  0x1 = ON/OFF MASK - whether bypass is on or off
-  0x2 = FORCED/DEFAULT MASK, whether the ON/OFF bit is being FORCED (0x0)
-  or simply inteneded as DEFAULT (0x1).
-
-  always_off = 0x0, always off regardless of hint. This is the default
-  always_on  = 0x1, always on regardless of hint
-  opt_in     = 0x2, default off, turn on with +bypass hint
-  opt_out    = 0x3, default on, turn off with +no_bypass hint
- */
-#define SELECT_BYPASS_POLICY_ON_MASK 0x1
-#define SELECT_BYPASS_POLICY_DEFAULT_MASK 0x2
-
-enum select_bypass_policy_type {
-  always_off = 0,
-  always_on = SELECT_BYPASS_POLICY_ON_MASK,
-  opt_in = SELECT_BYPASS_POLICY_DEFAULT_MASK,
-  opt_out = (SELECT_BYPASS_POLICY_DEFAULT_MASK | SELECT_BYPASS_POLICY_ON_MASK),
-  default_value = 0
-};
 
 /*
   Defines the field sizes for serializing XID object to a string representation.
@@ -365,7 +326,7 @@ static_assert(HA_ERR_ROCKSDB_FIRST > HA_ERR_LAST,
 #define HA_ERR_ROCKSDB_INVALID_ITERATOR (HA_ERR_ROCKSDB_FIRST + 27)
 #define HA_ERR_ROCKSDB_LAST HA_ERR_ROCKSDB_INVALID_ITERATOR
 
-const char *const rocksdb_hton_name = "ROCKSDB";
+constexpr char hton_name[] = "ROCKSDB";
 
 using Index_id = uint32_t;
 constexpr size_t INDEX_NUMBER_SIZE = 4;

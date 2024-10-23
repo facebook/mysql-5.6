@@ -81,16 +81,8 @@ rocksdb::TransactionDB *rdb_get_rocksdb_db();
 class Rdb_cf_manager;
 Rdb_cf_manager &rdb_get_cf_manager();
 
-const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
-bool rdb_is_table_scan_index_stats_calculation_enabled();
-bool rdb_is_ttl_enabled();
-#ifndef NDEBUG
-int rdb_dbug_set_ttl_rec_ts();
-int rdb_dbug_set_ttl_snapshot_ts();
-bool rdb_dbug_set_ttl_ignore_pk();
-#endif
-bool rdb_is_ttl_compaction_filter_paused();
-bool rdb_is_binlog_ttl_enabled();
+const rocksdb::BlockBasedTableOptions &rdb_get_const_table_options();
+rocksdb::BlockBasedTableOptions &rdb_get_table_options();
 
 /* Whether WSEnvironment is enabled */
 bool rdb_has_wsenv();

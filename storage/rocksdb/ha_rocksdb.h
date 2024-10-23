@@ -40,15 +40,17 @@
 
 /* RocksDB header files */
 #include "rocksdb/merge_operator.h"
+#include "rocksdb/statistics.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 
 /* MyRocks header files */
-#include "./rdb_buff.h"
-#include "./rdb_global.h"
-#include "./rdb_index_merge.h"
-#include "./rdb_perf_context.h"
-#include "./rdb_sst_info.h"
-#include "./rdb_utils.h"
+#include "rdb_buff.h"
+#include "rdb_global.h"
+#include "rdb_index_merge.h"
+#include "rdb_perf_context.h"
+#include "rdb_sst_info.h"
+#include "rdb_utils.h"
+#include "sysvars.h"
 
 #ifndef __APPLE__
 #include "./rdb_io_watchdog.h"
@@ -61,8 +63,9 @@
   refinements (@see /storage/rocksdb/README file).
 */
 
-namespace myrocks {
+struct st_mysql_value;
 
+namespace myrocks {
 class Rdb_converter;
 class Rdb_iterator;
 class Rdb_iterator_base;
@@ -79,7 +82,6 @@ class Rdb_bulk_load_context;
 extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
 extern Regex_list_handler rdb_read_free_regex_handler;
-static bool rocksdb_column_default_value_as_expression = true;
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -126,13 +128,6 @@ enum Rdb_lock_type { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE };
 enum TABLE_TYPE {
   INTRINSIC_TMP = 0,
   USER_TABLE = 1,
-};
-
-enum file_checksums_type {
-  CHECKSUMS_OFF = 0,
-  CHECKSUMS_WRITE_ONLY,
-  CHECKSUMS_WRITE_AND_VERIFY,
-  CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE,
 };
 
 class Mrr_rowid_source;
@@ -465,7 +460,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   const char *table_type() const override {
     DBUG_ENTER_FUNC();
 
-    DBUG_RETURN(rocksdb_hton_name);
+    DBUG_RETURN(hton_name);
   }
 
   /*
@@ -496,7 +491,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                 HA_PRIMARY_KEY_REQUIRED_FOR_POSITION | HA_NULL_IN_KEY |
                 HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE |
                 HA_GENERATED_COLUMNS | HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN |
-                (rocksdb_column_default_value_as_expression
+                (sysvars::column_default_value_as_expression
                      ? HA_SUPPORTS_DEFAULT_EXPRESSION
                      : 0) |
                 HA_ATTACHABLE_TRX_COMPATIBLE | HA_NO_READ_LOCAL_LOCK);
@@ -1136,8 +1131,7 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
 // file name indicating RocksDB data corruption
 std::string rdb_corruption_marker_file_name();
 
-// get rocksdb_db_options
-rocksdb::DBOptions *get_rocksdb_db_options();
+[[nodiscard]] rocksdb::DBOptions &get_rocksdb_db_options() noexcept;
 
 struct Rdb_compaction_stats_record {
   time_t start_timestamp;
@@ -1176,36 +1170,6 @@ class Rdb_compaction_stats {
 };
 
 extern Rdb_compaction_stats compaction_stats;
-
-/* Whether ROCKSDB_ENABLE_SELECT_BYPASS is enabled */
-select_bypass_policy_type get_select_bypass_policy();
-
-/* Whether we should log unsupported SELECT bypass */
-bool should_fail_unsupported_select_bypass();
-
-/* Whether we should log rejected unsupported SELECT bypass */
-bool should_log_rejected_select_bypass();
-
-/* Whether we should log failed unsupported SELECT bypass */
-bool should_log_failed_select_bypass();
-
-/* Whether we should allow non-optimal filters in SELECT bypass */
-bool should_allow_filters_select_bypass();
-
-uint32_t get_select_bypass_rejected_query_history_size();
-
-uint32_t get_select_bypass_debug_row_delay();
-
-unsigned long long  // NOLINT(runtime/int)
-get_select_bypass_multiget_min();
-
-/* Whether ROCKSDB_BYPASS_RPC_ON is enabled */
-bool is_bypass_rpc_on();
-
-/* Whether we should log rejected unsupported bypass rpc */
-bool should_log_rejected_bypass_rpc();
-
-unsigned long long get_partial_index_sort_max_mem(THD *thd);
 
 Rdb_transaction *get_tx_from_thd(THD *const thd);
 Rdb_bulk_load_context *get_bulk_load_ctx_from_thd(THD *const thd);
@@ -1281,13 +1245,58 @@ int rdb_tx_set_read_timestamp(Rdb_transaction &tx, const uint64_t ts);
 int rocksdb_create_checkpoint(std::string_view checkpoint_dir_raw);
 int rocksdb_remove_checkpoint(std::string_view checkpoint_dir_raw);
 
-bool is_udt_compatible_cf(rocksdb::ColumnFamilyHandle &cf);
+[[nodiscard]] int rocksdb_finish_bulk_load_if_any(THD *thd);
+void rocksdb_flush_all_memtables();
+[[nodiscard]] int rocksdb_compact_lzero();
+void rocksdb_cancel_manual_compactions();
+[[nodiscard]] int rocksdb_compact_column_family(THD *thd,
+                                                const std::string &cf_name);
+[[nodiscard]] int rocksdb_delete_column_family(const std::string &cf_name);
+[[nodiscard]] bool rocksdb_validate_read_free_rpl_tables(const char *wlist);
+void rocksdb_update_read_free_rpl_tables(const char *wlist);
+void rocksdb_set_rate_limiter_bytes_per_sec(unsigned long long new_val);
+void rocksdb_set_sst_mgr_rate_bytes_per_sec(unsigned long long new_val);
+void rocksdb_set_delayed_write_rate(std::uint64_t new_val);
+void rocksdb_set_max_latest_deadlocks(std::uint32_t new_val);
+void rocksdb_set_info_log_level(ulong new_val);
+[[nodiscard]] rocksdb::StatsLevel rocksdb_set_stats_level(
+    rocksdb::StatsLevel new_val);
+void rocksdb_set_max_background_jobs(int new_val);
+void rocksdb_set_max_background_compactions(int new_val);
+void rocksdb_set_max_bottom_pri_background_compactions_internal(int val);
+void rocksdb_set_bytes_per_sync(std::uint64_t new_val);
+void rocksdb_set_wal_bytes_per_sync(std::uint64_t new_val);
+void rocksdb_set_block_cache_size(std::size_t new_val);
+[[nodiscard]] int rocksdb_validate_update_cf_options(
+    std::string_view option_str);
+void rocksdb_set_update_cf_options(std::string_view option_str);
+int rocksdb_validate_flush_log_at_trx_commit(uint new_val);
+[[nodiscard]] int rocksdb_create_temporary_checkpoint(
+    THD *thd, const char *new_checkpoint_dir);
+[[nodiscard]] int rocksdb_remove_temporary_checkpoint(
+    THD *thd, const char *current_checkpoint_dir);
+void rocksdb_reset_temporary_checkpoint(THD *thd);
+void rocksdb_signal_drop_idx_thread();
+void rocksdb_pause_or_continue_background_work(bool pause);
+void rocksdb_reset_stats();
+void rocksdb_set_io_write_timeout(std::uint32_t write_timeout);
+void rocksdb_set_compaction_options();
+void rocksdb_set_table_stats_sampling_pct(std::uint8_t val);
+[[nodiscard]] int rocksdb_index_stats_thread_renice(int nice_val);
+void rocksdb_update_table_stats_use_table_scan(bool new_val);
+void rocksdb_update_table_stats_skip_system_cf(bool new_val);
+[[nodiscard]] int rocksdb_tracing(void *const save, st_mysql_value *const value,
+                                  bool trace_block_cache_access);
+void rocksdb_max_compaction_history_update(std::uint64_t new_val);
+void rocksdb_disable_file_deletions_update(THD *thd, bool new_val);
+void rocksdb_select_bypass_rejected_query_history_size_update(
+    std::uint32_t val);
+void rocksdb_set_max_trash_db_ratio(double ratio);
 
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
 extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
 
-extern uint32_t rocksdb_bypass_rpc_rejected_log_ts_interval_secs;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_executed;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_rejected;
 extern std::atomic<uint64_t> rocksdb_bypass_rpc_failed;
@@ -1305,45 +1314,10 @@ extern std::atomic<uint64_t> rocksdb_vectors_rcvd_from_faiss;
 extern std::atomic<uint64_t> rocksdb_vectors_rows_read;
 extern std::atomic<uint64_t> rocksdb_vectors_centroid_lists_read;
 
-extern bool rocksdb_enable_tmp_table;
-extern bool rocksdb_enable_delete_range_for_drop_index;
-extern bool rocksdb_disable_instant_ddl;
-extern bool rocksdb_enable_instant_ddl;
-extern bool rocksdb_partial_index_ignore_killed;
-
-extern bool rocksdb_enable_instant_ddl_for_append_column;
-extern bool rocksdb_enable_instant_ddl_for_column_default_changes;
-extern bool rocksdb_enable_instant_ddl_for_table_comment_changes;
-extern bool rocksdb_enable_instant_ddl_for_drop_index_changes;
-extern bool rocksdb_enable_instant_ddl_for_update_index_visibility;
-extern bool rocksdb_enable_udt_in_mem;
-
-extern char *rocksdb_wal_dir;
-extern char *rocksdb_datadir;
-
-extern uint rocksdb_clone_checkpoint_max_age;
-extern uint rocksdb_clone_checkpoint_max_count;
-
-extern ulong rocksdb_file_checksums;
-
-extern unsigned long long rocksdb_converter_record_cached_length;
-
 /*
   The max value timestamp that is used to construct timestamp slice. This will
   be used in the case of using max timestamp as a special value.
 */
 extern char max_timestamp_uint64[ROCKSDB_SIZEOF_TTL_RECORD];
-
-[[nodiscard]] inline bool is_wal_dir_separate() noexcept {
-  return rocksdb_wal_dir && *rocksdb_wal_dir &&
-         // Prefer cheapness over accuracy by doing lexicographic path
-         // comparison only
-         strcmp(rocksdb_wal_dir, rocksdb_datadir);
-}
-
-[[nodiscard]] inline char *get_wal_dir() noexcept {
-  return (rocksdb_wal_dir && *rocksdb_wal_dir) ? rocksdb_wal_dir
-                                               : rocksdb_datadir;
-}
 
 }  // namespace myrocks
