@@ -3658,7 +3658,6 @@ class Rdb_transaction {
   ulonglong m_row_lock_count = 0;
   std::unordered_map<GL_INDEX_ID, ulonglong> m_auto_incr_map;
 
-  bool m_is_delayed_snapshot = false;
   bool m_is_two_phase = false;
 
  private:
@@ -3687,14 +3686,65 @@ class Rdb_transaction {
 
   Rdb_io_perf *m_tbl_io_perf;
 
-  bool m_tx_read_only = false;
-
   int m_timeout_sec = 0; /* Cached value of @@rocksdb_lock_wait_timeout */
 
   /* Maximum number of locks the transaction can have */
   ulonglong m_max_row_locks;
 
   bool m_rollback_only = false;
+
+  enum class snapshot_type {
+    NONE,
+    // A snapshot created through Tranaction API for regular transactions and by
+    // DB::GetSnapshot() for WB ones
+    CURRENT,
+    CURRENT_DELAYED,
+    // This is used by transactions started with "START TRANSACTION WITH
+    // CONSISTENT [ROCKSDB] SNAPSHOT". The snapshot has to be created via
+    // DB::GetSnapshot(), not via Transaction API. */
+    READ_ONLY_TRX,
+    // Explicit snapshot requests trump everything else
+    EXPLICIT
+  } statement_snapshot_type{snapshot_type::NONE};
+
+  void assert_snapshot_invariants() const noexcept {
+#ifndef NDEBUG
+    assert(m_read_opts[INTRINSIC_TMP].snapshot == nullptr);
+
+    switch (statement_snapshot_type) {
+      case snapshot_type::NONE:
+        assert(m_explicit_snapshot == nullptr);
+        assert(m_read_opts[USER_TABLE].snapshot == nullptr);
+        break;
+      case snapshot_type::CURRENT:
+        assert(m_explicit_snapshot == nullptr);
+        assert(m_read_opts[USER_TABLE].snapshot != nullptr);
+        break;
+      case snapshot_type::CURRENT_DELAYED:
+        assert(m_explicit_snapshot == nullptr);
+        assert(m_read_opts[USER_TABLE].snapshot == nullptr);
+        break;
+      case snapshot_type::READ_ONLY_TRX:
+        assert(m_explicit_snapshot == nullptr);
+        break;
+      case snapshot_type::EXPLICIT:
+        assert(m_explicit_snapshot != nullptr);
+        assert(m_read_opts[USER_TABLE].snapshot ==
+               m_explicit_snapshot->get_snapshot()->snapshot());
+        break;
+    }
+#endif
+  }
+
+#ifndef NDEBUG
+ public:
+  [[nodiscard]] bool is_delayed_snapshot() const noexcept {
+    assert_snapshot_invariants();
+    return statement_snapshot_type == snapshot_type::CURRENT_DELAYED;
+  }
+
+ protected:
+#endif
 
   std::shared_ptr<Rdb_snapshot_notifier> m_notifier;
 
@@ -3717,6 +3767,11 @@ class Rdb_transaction {
    */
   [[nodiscard]] rocksdb::Status merge_auto_incr_map(
       rocksdb::WriteBatchBase &wb) {
+    assert(statement_snapshot_type == snapshot_type::NONE ||
+           statement_snapshot_type == snapshot_type::CURRENT ||
+           statement_snapshot_type == snapshot_type::CURRENT_DELAYED ||
+           statement_snapshot_type == snapshot_type::EXPLICIT);
+
     // Iterate through the merge map merging all keys into data dictionary.
     rocksdb::Status s;
     for (auto &it : m_auto_incr_map) {
@@ -3731,6 +3786,8 @@ class Rdb_transaction {
   }
 
   void reset_flags() {
+    assert(statement_snapshot_type == snapshot_type::NONE);
+
     m_bulk_index_transaction = false;
     m_dd_transaction = false;
   }
@@ -3914,6 +3971,8 @@ class Rdb_transaction {
   }
 
   [[nodiscard]] std::int64_t get_snapshot_ts() const {
+    assert_snapshot_invariants();
+
     const auto *const snapshot = m_read_opts[USER_TABLE].snapshot;
     const auto result = snapshot != nullptr ? snapshot->GetUnixTime() : 0;
 
@@ -3978,6 +4037,7 @@ class Rdb_transaction {
   [[nodiscard]] bool is_ac_nl_ro_rc_transaction() const {
     const auto result = get_max_row_lock_count() == 0;
     if (result) {
+      assert(statement_snapshot_type == snapshot_type::NONE);
       assert(is_autocommit(*get_thd()));
       assert(get_row_lock_count() == 0);
       assert(thd_tx_is_read_only(get_thd()));
@@ -4000,8 +4060,11 @@ class Rdb_transaction {
     if (get_write_count() == 0) {
       rollback();
       return false;
-    } else if (m_rollback_only) {
-      assert(!is_ac_nl_ro_rc_transaction());
+    }
+
+    assert(!is_ac_nl_ro_rc_transaction());
+
+    if (m_rollback_only) {
       /* Transactions marked as rollback_only are expected to be rolled back at
       prepare(). But there are some exceptions like below that prepare() is
       never called and commit() is called instead.
@@ -4013,7 +4076,6 @@ class Rdb_transaction {
       rollback();
       return true;
     } else {
-      assert(!is_ac_nl_ro_rc_transaction());
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, nullptr, &m_mysql_max_gtid);
       if (m_thd->rli_slave && command_generates_myrocks_row_events(*m_thd) &&
@@ -4059,8 +4121,29 @@ class Rdb_transaction {
                : snapshot.GetUnixTime();
   }
 
-  void snapshot_created(const rocksdb::Snapshot *const snapshot) {
+  void assign_snapshot(const rocksdb::Snapshot *const snapshot) {
     assert(snapshot != nullptr);
+
+    switch (statement_snapshot_type) {
+      case snapshot_type::CURRENT:
+        assert(m_read_opts[USER_TABLE].snapshot == nullptr);
+        break;
+      case snapshot_type::CURRENT_DELAYED:
+        assert(m_read_opts[USER_TABLE].snapshot == nullptr);
+        statement_snapshot_type = snapshot_type::CURRENT;
+        break;
+      case snapshot_type::READ_ONLY_TRX:
+        assert(m_read_opts[USER_TABLE].snapshot == nullptr);
+        break;
+      case snapshot_type::EXPLICIT:
+        assert(snapshot ==
+               m_explicit_snapshot->get_snapshot()->snapshot());
+        break;
+      case snapshot_type::NONE:
+        assert(false);
+        __builtin_unreachable();
+        break;
+    }
 
     m_read_opts[USER_TABLE].snapshot = snapshot;
 
@@ -4071,7 +4154,8 @@ class Rdb_transaction {
     } else {
       assert(earliest_ts <= binlog_hlc_or_snapshot_ts(*snapshot));
     }
-    m_is_delayed_snapshot = false;
+
+    assert_snapshot_invariants();
   }
 
   virtual void acquire_snapshot(bool acquire_now, TABLE_TYPE table_type) = 0;
@@ -4082,28 +4166,43 @@ class Rdb_transaction {
   virtual rocksdb::Slice *get_tx_read_timestamp_slice() = 0;
 
   bool has_snapshot(TABLE_TYPE table_type) const {
-    assert(m_read_opts[INTRINSIC_TMP].snapshot == nullptr);
+    assert_snapshot_invariants();
     if (table_type == INTRINSIC_TMP) return false;
-    return m_read_opts[table_type].snapshot != nullptr;
+    return m_read_opts[USER_TABLE].snapshot != nullptr;
   }
 
   void share_explicit_snapshot(
       std::shared_ptr<Rdb_explicit_snapshot> snapshot) noexcept {
-    assert(m_explicit_snapshot == nullptr);
+    assert_snapshot_invariants();
+
     m_explicit_snapshot = std::move(snapshot);
+    statement_snapshot_type = snapshot_type::EXPLICIT;
+    auto *const rdb_snapshot = m_explicit_snapshot->get_snapshot()->snapshot();
+    assign_snapshot(rdb_snapshot);
+
+    assert_snapshot_invariants();
   }
 
   void create_explicit_snapshot(snapshot_info_st &ss_info) {
-    assert(m_explicit_snapshot == nullptr);
-    m_explicit_snapshot = Rdb_explicit_snapshot::create(
-        m_thd, ss_info, rdb, m_read_opts[TABLE_TYPE::USER_TABLE].snapshot);
+    assert(statement_snapshot_type == snapshot_type::NONE);
+    assert_snapshot_invariants();
+
+    auto *const rdb_snapshot = rdb->GetSnapshot();
+    m_explicit_snapshot =
+        Rdb_explicit_snapshot::create(m_thd, ss_info, rdb, rdb_snapshot);
+    statement_snapshot_type = snapshot_type::EXPLICIT;
+    assign_snapshot(rdb_snapshot);
+
+    assert_snapshot_invariants();
   }
 
   [[nodiscard]] bool has_explicit_snapshot() const noexcept {
-    return m_explicit_snapshot != nullptr;
+    assert_snapshot_invariants();
+    return statement_snapshot_type == snapshot_type::EXPLICIT;
   }
 
   [[nodiscard]] snapshot_info_st clone_explicit_snapshot_info() const noexcept {
+    assert(has_explicit_snapshot());
     return m_explicit_snapshot->ss_info;
   }
 
@@ -4821,6 +4920,8 @@ class Rdb_transaction {
 
 #ifndef NDEBUG
   ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
+    assert(statement_snapshot_type != snapshot_type::NONE);
+
     auto iter = m_auto_incr_map.find(gl_index_id);
     if (m_auto_incr_map.end() != iter) {
       return iter->second;
@@ -4872,6 +4973,7 @@ class Rdb_transaction {
       const rocksdb::Slice &eq_cond_lower_bound,
       const rocksdb::Slice &eq_cond_upper_bound, TABLE_TYPE table_type,
       bool read_current = false, bool create_snapshot = true) {
+    assert(statement_snapshot_type != snapshot_type::NONE || create_snapshot);
     // Make sure we are not doing both read_current (which implies we don't
     // want a snapshot) and create_snapshot which makes sure we create
     // a snapshot
@@ -4928,6 +5030,9 @@ class Rdb_transaction {
 
  private:
   void on_finish() noexcept {
+    assert(statement_snapshot_type == snapshot_type::NONE);
+    assert_snapshot_invariants();
+
     modified_tables.clear();
 
     m_binlog_ttl_read_filtering_ts = m_thd->binlog_ttl_read_filtering_ts = 0;
@@ -5011,6 +5116,9 @@ class Rdb_transaction {
     // one. This is very important for long transactions doing lots of
     // SELECTs.
     if (m_writes_at_last_savepoint != m_write_count[USER_TABLE]) {
+      assert(statement_snapshot_type == snapshot_type::CURRENT ||
+             statement_snapshot_type == snapshot_type::CURRENT_DELAYED ||
+             statement_snapshot_type == snapshot_type::EXPLICIT);
       assert(!is_ac_nl_ro_rc_transaction());
 
       rocksdb::Status status = rocksdb::Status::NotFound();
@@ -5033,6 +5141,8 @@ class Rdb_transaction {
   */
   void rollback_to_stmt_savepoint() {
     if (m_writes_at_last_savepoint != m_write_count[USER_TABLE]) {
+      assert(statement_snapshot_type == snapshot_type::CURRENT ||
+             statement_snapshot_type == snapshot_type::EXPLICIT);
       assert(!is_ac_nl_ro_rc_transaction());
 
       do_rollback_to_savepoint();
@@ -5060,6 +5170,9 @@ class Rdb_transaction {
 
   int rollback_to_savepoint(void *const savepoint MY_ATTRIBUTE((__unused__))) {
     if (has_modifications()) {
+      assert(statement_snapshot_type == snapshot_type::CURRENT ||
+             statement_snapshot_type == snapshot_type::EXPLICIT);
+
       my_error(ER_ROLLBACK_TO_SAVEPOINT, MYF(0));
       m_rollback_only = true;
       return HA_EXIT_FAILURE;
@@ -5067,19 +5180,25 @@ class Rdb_transaction {
     return HA_EXIT_SUCCESS;
   }
 
-  /*
-    This is used by transactions started with "START TRANSACTION WITH "
-    "CONSISTENT [ROCKSDB] SNAPSHOT". When tx_read_only is turned on,
-    snapshot has to be created via DB::GetSnapshot(), not via Transaction
-    API.
-  */
-  bool is_tx_read_only() const { return m_tx_read_only; }
+  [[nodiscard]] bool is_tx_read_only() const noexcept {
+    // May be called from other threads in the middle of statement snapshot
+    // transition, thus do not assert its invariants
+    return statement_snapshot_type == snapshot_type::READ_ONLY_TRX;
+  }
 
   bool is_two_phase() const { return m_is_two_phase; }
 
-  void set_tx_read_only(bool val) { m_tx_read_only = val; }
+  void set_tx_read_only() {
+    assert(statement_snapshot_type == snapshot_type::NONE);
+    assert_snapshot_invariants();
+
+    statement_snapshot_type = snapshot_type::READ_ONLY_TRX;
+    acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
+  }
 
   void remove_from_global_trx_list(void) {
+    assert(statement_snapshot_type == snapshot_type::NONE);
+
     DBUG_EXECUTE_IF("rocksdb_trx_list_crash", {
       if (!m_thd->is_system_thread() &&
           !m_thd->is_attachable_transaction_active()) {
@@ -5106,7 +5225,10 @@ class Rdb_transaction {
         !rocksdb_enable_delete_range_for_drop_index;
   }
 
-  virtual ~Rdb_transaction() { assert(!Rdb_transaction_list::contains(this)); }
+  virtual ~Rdb_transaction() {
+    assert(statement_snapshot_type == snapshot_type::NONE);
+    assert(!Rdb_transaction_list::contains(this));
+  }
 };
 
 #ifndef NDEBUG
@@ -5142,6 +5264,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void set_sync(bool sync) override {
+    assert(statement_snapshot_type == snapshot_type::NONE ||
+           statement_snapshot_type == snapshot_type::CURRENT_DELAYED ||
+           statement_snapshot_type == snapshot_type::CURRENT ||
+           statement_snapshot_type == snapshot_type::EXPLICIT);
     m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetWriteOptions()->sync = sync;
   }
 
@@ -5168,7 +5294,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
   void release_tx(size_t wb_size) {
     // We are done with the current active transaction object.  Preserve it
     // for later reuse.
+    assert(statement_snapshot_type == snapshot_type::NONE);
+    assert_snapshot_invariants();
     assert(m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE] == nullptr);
+
     auto tx = m_rocksdb_tx[TABLE_TYPE::USER_TABLE];
     if (rocksdb_write_batch_mem_free_threshold > 0 &&
         wb_size > rocksdb_write_batch_mem_free_threshold) {
@@ -5185,11 +5314,14 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   bool prepare() override {
-    rocksdb::Status s;
+    assert(statement_snapshot_type == snapshot_type::NONE ||
+           statement_snapshot_type == snapshot_type::CURRENT ||
+           statement_snapshot_type == snapshot_type::CURRENT_DELAYED ||
+           statement_snapshot_type == snapshot_type::EXPLICIT);
 
-    s = merge_auto_incr_map(*m_rocksdb_tx[TABLE_TYPE::USER_TABLE]
-                                 ->GetWriteBatch()
-                                 ->GetWriteBatch());
+    auto s = merge_auto_incr_map(*m_rocksdb_tx[TABLE_TYPE::USER_TABLE]
+                                      ->GetWriteBatch()
+                                      ->GetWriteBatch());
 #ifndef NDEBUG
     DBUG_EXECUTE_IF("myrocks_prepare_io_error",
                     dbug_change_status_to_io_error(&s););
@@ -5295,7 +5427,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
       m_update_count = 0;
       m_delete_count = 0;
       m_row_lock_count = 0;
-      set_tx_read_only(false);
       m_rollback_only = false;
     } else {
       m_write_count[INTRINSIC_TMP] = 0;
@@ -5311,15 +5442,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
  public:
   void rollback() override {
-    on_rollback();
-    m_write_count[USER_TABLE] = 0;
-    m_write_count[INTRINSIC_TMP] = 0;
-    m_insert_count = 0;
-    m_update_count = 0;
-    m_delete_count = 0;
-    m_row_lock_count = 0;
-    m_auto_incr_map.clear();
-    reset_flags();
     if (m_rocksdb_tx[TABLE_TYPE::USER_TABLE]) {
       release_snapshot(TABLE_TYPE::USER_TABLE);
       // Record the writebatch size before it is rolled back. The size changes
@@ -5332,7 +5454,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
       /* Save the transaction object to be reused */
       release_tx(wb_size);
 
-      set_tx_read_only(false);
       m_rollback_only = false;
     } else {
       if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
@@ -5341,6 +5462,38 @@ class Rdb_transaction_impl : public Rdb_transaction {
         m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
       }
     }
+    on_rollback();
+    m_write_count[USER_TABLE] = 0;
+    m_write_count[INTRINSIC_TMP] = 0;
+    m_insert_count = 0;
+    m_update_count = 0;
+    m_delete_count = 0;
+    m_row_lock_count = 0;
+    m_auto_incr_map.clear();
+    reset_flags();
+  }
+
+ private:
+  void acquire_snapshot_now() {
+    assert(statement_snapshot_type == snapshot_type::NONE ||
+           statement_snapshot_type == snapshot_type::CURRENT_DELAYED);
+
+    m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetSnapshot();
+    statement_snapshot_type = snapshot_type::CURRENT;
+    assign_snapshot(m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->GetSnapshot());
+
+    assert_snapshot_invariants();
+  }
+
+  void acquire_snapshot_on_next_op() {
+    assert(statement_snapshot_type == snapshot_type::NONE ||
+           statement_snapshot_type == snapshot_type::CURRENT);
+
+    m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetSnapshotOnNextOperation(
+        m_notifier);
+    statement_snapshot_type = snapshot_type::CURRENT_DELAYED;
+
+    assert_snapshot_invariants();
   }
 
   void acquire_snapshot(bool acquire_now, TABLE_TYPE table_type) override {
@@ -5348,44 +5501,60 @@ class Rdb_transaction_impl : public Rdb_transaction {
       return;
     }
 
-    if (!has_snapshot(table_type)) {
-      auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
-          m_thd->get_explicit_snapshot());
-      if (thd_ss) {
-        share_explicit_snapshot(std::move(thd_ss));
-      }
-      if (has_explicit_snapshot()) {
-        auto snapshot = m_explicit_snapshot->get_snapshot()->snapshot();
-        snapshot_created(snapshot);
-      } else if (is_tx_read_only()) {
-        snapshot_created(rdb->GetSnapshot());
-      } else if (acquire_now) {
-        m_rocksdb_tx[table_type]->SetSnapshot();
-        snapshot_created(m_rocksdb_tx[table_type]->GetSnapshot());
-      } else if (!m_is_delayed_snapshot) {
-        m_rocksdb_tx[table_type]->SetSnapshotOnNextOperation(m_notifier);
-        m_is_delayed_snapshot = true;
-      }
+    if (m_read_opts[USER_TABLE].snapshot != nullptr) {
+      assert_snapshot_invariants();
+      return;
+    }
 
-      /*
-       When UDT-IN-MEM is enabled, we get a read_opts.timestamp for all queries.
-       However, not every query needs a timestamp. For example:
-        - Write queries (GetforUpdate)
-        - Read when cf = system/system-tmp/tmp.
-       Miss a timestamp will cause a query failure.
-        - Hit an assertion for get (point query)
-        - Get an invalid iterator for get_iterator (range query)
-       To simplify the logic, we assign timestamp here anyway. When we do
-       get/get_iterator, we do some additional check around the cf. If cf is
-       system/tmp related, we assign timestamp to nullptr.
-      */
-      if (rocksdb_enable_udt_in_mem &&
-          m_read_opts[table_type].timestamp == nullptr) {
-        set_tx_read_timestamp(table_type);
-      }
+    auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
+        m_thd->get_explicit_snapshot());
+    if (thd_ss) {
+      share_explicit_snapshot(std::move(thd_ss));
+    }
+
+    switch (statement_snapshot_type) {
+      case Rdb_transaction::snapshot_type::NONE:
+        if (acquire_now)
+          acquire_snapshot_now();
+        else
+          acquire_snapshot_on_next_op();
+        break;
+      case Rdb_transaction::snapshot_type::READ_ONLY_TRX:
+        assign_snapshot(rdb->GetSnapshot());
+        break;
+      case Rdb_transaction::snapshot_type::EXPLICIT:
+        break;
+      case Rdb_transaction::snapshot_type::CURRENT_DELAYED:
+        if (acquire_now) {
+          acquire_snapshot_now();
+        }
+        break;
+      case Rdb_transaction::snapshot_type::CURRENT:
+        assert(false);
+        __builtin_unreachable();
+    }
+
+    assert_snapshot_invariants();
+
+    /*
+     When UDT-IN-MEM is enabled, we get a read_opts.timestamp for all queries.
+     However, not every query needs a timestamp. For example:
+      - Write queries (GetforUpdate)
+      - Read when cf = system/system-tmp/tmp.
+     Miss a timestamp will cause a query failure.
+      - Hit an assertion for get (point query)
+      - Get an invalid iterator for get_iterator (range query)
+     To simplify the logic, we assign timestamp here anyway. When we do
+     get/get_iterator, we do some additional check around the cf. If cf is
+     system/tmp related, we assign timestamp to nullptr.
+    */
+    if (rocksdb_enable_udt_in_mem &&
+        m_read_opts[table_type].timestamp == nullptr) {
+      set_tx_read_timestamp(table_type);
     }
   }
 
+ public:
   /*
    There will be three types of read HLC.
    1. std::numeric_limits<uint64_t>::max()
@@ -5412,28 +5581,37 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   void release_snapshot(TABLE_TYPE table_type) override {
+    assert_snapshot_invariants();
+
     if (table_type == INTRINSIC_TMP) {
       return;
     }
 
-    bool need_clear = m_is_delayed_snapshot;
-
-    if (has_snapshot(table_type)) {
-      if (has_explicit_snapshot()) {
-        m_explicit_snapshot.reset();
-        need_clear = false;
-      } else if (is_tx_read_only()) {
-        rdb->ReleaseSnapshot(m_read_opts[table_type].snapshot);
-        need_clear = false;
-      } else {
-        need_clear = true;
+    switch (statement_snapshot_type) {
+      case Rdb_transaction::snapshot_type::NONE:
+        break;
+      case Rdb_transaction::snapshot_type::CURRENT:
+      case Rdb_transaction::snapshot_type::CURRENT_DELAYED: {
+        if (m_rocksdb_tx[table_type] != nullptr) {
+          m_rocksdb_tx[table_type]->ClearSnapshot();
+        }
+        m_read_opts[table_type].snapshot = nullptr;
+        statement_snapshot_type = snapshot_type::NONE;
+        break;
       }
-      m_read_opts[table_type].snapshot = nullptr;
+      case Rdb_transaction::snapshot_type::READ_ONLY_TRX:
+        rdb->ReleaseSnapshot(m_read_opts[table_type].snapshot);
+        m_read_opts[table_type].snapshot = nullptr;
+        statement_snapshot_type = snapshot_type::NONE;
+        break;
+      case Rdb_transaction::snapshot_type::EXPLICIT:
+        m_explicit_snapshot.reset();
+        m_read_opts[table_type].snapshot = nullptr;
+        statement_snapshot_type = snapshot_type::NONE;
+        break;
     }
 
-    if (need_clear && m_rocksdb_tx[table_type] != nullptr)
-      m_rocksdb_tx[table_type]->ClearSnapshot();
-    m_is_delayed_snapshot = false;
+    assert_snapshot_invariants();
 
     if (rocksdb_enable_udt_in_mem &&
         m_read_opts[table_type].timestamp != nullptr) {
@@ -5718,7 +5896,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
       set_initial_savepoint();
 
       reset_flags();
-      m_is_delayed_snapshot = false;
     }
   }
 
@@ -5774,6 +5951,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
     continues
   */
   void rollback_stmt() override {
+    assert_snapshot_invariants();
+
     /* TODO: here we must release the locks taken since the start_stmt() call */
     if (m_rocksdb_tx[TABLE_TYPE::USER_TABLE]) {
       const rocksdb::Snapshot *const org_snapshot =
@@ -5785,12 +5964,13 @@ class Rdb_transaction_impl : public Rdb_transaction {
       if (org_snapshot != cur_snapshot) {
         m_read_opts[TABLE_TYPE::USER_TABLE].snapshot = cur_snapshot;
         if (cur_snapshot == nullptr) {
-          m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->SetSnapshotOnNextOperation(
-              m_notifier);
-          m_is_delayed_snapshot = true;
+          assert(statement_snapshot_type == snapshot_type::CURRENT);
+          acquire_snapshot_on_next_op();
         }
       }
     }
+
+    assert_snapshot_invariants();
   }
 
   explicit Rdb_transaction_impl(THD *const thd)
@@ -5877,7 +6057,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_insert_count = 0;
     m_update_count = 0;
     m_delete_count = 0;
-    set_tx_read_only(false);
     m_rollback_only = false;
     return res;
   }
@@ -5885,9 +6064,15 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   /* Implementations of do_*savepoint based on rocksdB::WriteBatch savepoints */
   void do_set_savepoint() override { m_batch.SetSavePoint(); }
 
-  rocksdb::Status do_pop_savepoint() override { return m_batch.PopSavePoint(); }
+  rocksdb::Status do_pop_savepoint() override {
+    assert(!is_ac_nl_ro_rc_transaction());
+    return m_batch.PopSavePoint();
+  }
 
-  void do_rollback_to_savepoint() override { m_batch.RollbackToSavePoint(); }
+  void do_rollback_to_savepoint() override {
+    assert(!is_ac_nl_ro_rc_transaction());
+    m_batch.RollbackToSavePoint();
+  }
 
  public:
   bool is_writebatch_trx() const override { return true; }
@@ -5910,16 +6095,15 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
   void rollback() override {
+    release_snapshot(TABLE_TYPE::USER_TABLE);
     on_rollback();
     m_write_count[TABLE_TYPE::USER_TABLE] = 0;
     m_insert_count = 0;
     m_update_count = 0;
     m_delete_count = 0;
     m_row_lock_count = 0;
-    release_snapshot(TABLE_TYPE::USER_TABLE);
 
     reset();
-    set_tx_read_only(false);
     m_rollback_only = false;
   }
 
@@ -5929,7 +6113,13 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       assert(false);
       return;
     }
-    if (!has_snapshot(table_type)) snapshot_created(rdb->GetSnapshot());
+    assert_snapshot_invariants();
+    if (!has_snapshot(table_type)) {
+      assert(statement_snapshot_type == snapshot_type::NONE);
+      statement_snapshot_type = snapshot_type::CURRENT;
+      assign_snapshot(rdb->GetSnapshot());
+    }
+    assert_snapshot_invariants();
   }
 
   void release_snapshot(TABLE_TYPE table_type) override {
@@ -5937,10 +6127,14 @@ class Rdb_writebatch_impl : public Rdb_transaction {
       assert(false);
       return;
     }
+    assert_snapshot_invariants();
     if (has_snapshot(table_type)) {
+      assert(statement_snapshot_type == snapshot_type::CURRENT);
+      statement_snapshot_type = snapshot_type::NONE;
       rdb->ReleaseSnapshot(m_read_opts[table_type].snapshot);
       m_read_opts[table_type].snapshot = nullptr;
     }
+    assert_snapshot_invariants();
   }
 
   rocksdb::Status set_tx_read_timestamp(TABLE_TYPE, uint64_t) override {
@@ -6021,6 +6215,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                     const rocksdb::Slice &key,
                                     rocksdb::PinnableSlice *const value,
                                     TABLE_TYPE table_type) override {
+    assert(statement_snapshot_type == snapshot_type::CURRENT);
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return rocksdb::Status::NotSupported(
@@ -6035,6 +6231,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                  const rocksdb::Slice *keys, rocksdb::PinnableSlice *values,
                  TABLE_TYPE table_type, rocksdb::Status *statuses,
                  bool sorted_input) override {
+    assert(statement_snapshot_type == snapshot_type::CURRENT);
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return;
@@ -6050,6 +6248,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                  TABLE_TYPE table_type, bool /* exclusive */,
                                  const bool /* do_validate */,
                                  bool /* no_wait */) override {
+    assert(statement_snapshot_type == snapshot_type::CURRENT);
     assert(!is_ac_nl_ro_rc_transaction());
 
     if (table_type == INTRINSIC_TMP) {
@@ -6071,6 +6270,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   [[nodiscard]] std::unique_ptr<rocksdb::Iterator> get_iterator(
       const rocksdb::ReadOptions &options, rocksdb::ColumnFamilyHandle &,
       TABLE_TYPE table_type) override {
+    assert(statement_snapshot_type == snapshot_type::CURRENT);
+
     if (table_type == INTRINSIC_TMP) {
       assert(false);
       return nullptr;
@@ -6384,7 +6585,8 @@ std::int64_t Rdb_transaction_list::check_node(const Rdb_transaction *tx,
 void Rdb_snapshot_notifier::SnapshotCreated(
     const rocksdb::Snapshot *const snapshot) {
   if (m_owning_tx != nullptr) {
-    m_owning_tx->snapshot_created(snapshot);
+    assert(m_owning_tx->is_delayed_snapshot());
+    m_owning_tx->assign_snapshot(snapshot);
   }
 }
 
@@ -7407,18 +7609,19 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker {
     if (tx->is_writebatch_trx()) {
       const auto wb_impl = static_cast<const Rdb_writebatch_impl *>(tx);
       assert(wb_impl);
-      m_trx_info->push_back(
-          {"",                            /* name */
-           0,                             /* trx_id */
-           wb_impl->get_write_count(), 0, /* lock_count */
-           0,                             /* timeout_sec */
-           "",                            /* state */
-           "",                            /* waiting_key */
-           0,                             /* waiting_cf_id */
-           1,                             /*is_replication */
-           1,                             /* skip_trx_api */
-           wb_impl->is_tx_read_only(), 0, /* deadlock detection */
-           wb_impl->num_ongoing_bulk_load(), thread_id, "" /* query string */});
+      m_trx_info->push_back({"",                            /* name */
+                             0,                             /* trx_id */
+                             wb_impl->get_write_count(), 0, /* lock_count */
+                             0,                             /* timeout_sec */
+                             "",                            /* state */
+                             "",                            /* waiting_key */
+                             0,                             /* waiting_cf_id */
+                             1,                             /* is_replication */
+                             1,                             /* skip_trx_api */
+                             wb_impl->is_tx_read_only(),    /* read only */
+                             0, /* deadlock detection */
+                             wb_impl->num_ongoing_bulk_load(), thread_id,
+                             "" /* query string */});
     } else {
       const auto tx_impl = static_cast<const Rdb_transaction_impl *>(tx);
       assert(tx_impl);
@@ -7977,10 +8180,8 @@ static int rocksdb_start_tx_and_assign_read_view(
   Rdb_transaction *const tx = get_or_create_tx(thd, TABLE_TYPE::USER_TABLE);
   Rdb_perf_context_guard guard(tx, thd);
 
-  assert(!tx->has_snapshot(TABLE_TYPE::USER_TABLE));
-  tx->set_tx_read_only(true);
+  tx->set_tx_read_only();
   rocksdb_register_tx(hton, thd, tx);
-  tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
 
   const uint64_t client_provided_read_filtering_ts =
       rdb_is_binlog_ttl_enabled()
@@ -8054,11 +8255,6 @@ static int rocksdb_start_tx_with_shared_read_view(
       tx->share_explicit_snapshot(std::move(explicit_snapshot));
     }
 
-    assert(!tx->has_snapshot(TABLE_TYPE::USER_TABLE));
-    tx->set_tx_read_only(true);
-    rocksdb_register_tx(hton, thd, tx);
-    tx->acquire_snapshot(true, TABLE_TYPE::USER_TABLE);
-
     // case: an explicit snapshot was not assigned to this transaction
     if (!tx->has_explicit_snapshot()) {
       tx->create_explicit_snapshot(*ss_info);
@@ -8067,6 +8263,8 @@ static int rocksdb_start_tx_with_shared_read_view(
         error = HA_EXIT_FAILURE;
       }
     }
+
+    rocksdb_register_tx(hton, thd, tx);
   }
 
   // case: unlock the binlog
@@ -15163,7 +15361,8 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
 
-      if (thd->get_explicit_snapshot()) {
+      if (unlikely(tx->has_explicit_snapshot() ||
+                   thd->get_explicit_snapshot())) {
         my_error(ER_UPDATES_WITH_EXPLICIT_SNAPSHOT, MYF(0));
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
