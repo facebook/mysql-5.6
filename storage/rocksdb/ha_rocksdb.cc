@@ -5128,9 +5128,6 @@ static void dbug_change_status_to_incomplete(rocksdb::Status *status) {
   this object commits them on commit.
 */
 class Rdb_transaction_impl : public Rdb_transaction {
-  std::vector<rocksdb::Transaction *> m_rocksdb_tx{nullptr, nullptr};
-  std::vector<rocksdb::Transaction *> m_rocksdb_reuse_tx{nullptr, nullptr};
-
  public:
   void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
@@ -5165,23 +5162,40 @@ class Rdb_transaction_impl : public Rdb_transaction {
   bool is_writebatch_trx() const override { return false; }
 
  private:
+  std::array<std::unique_ptr<rocksdb::Transaction>, 2> m_rocksdb_tx{nullptr,
+                                                                    nullptr};
+  std::array<std::unique_ptr<rocksdb::Transaction>, 2> m_rocksdb_reuse_tx{
+      nullptr, nullptr};
+
+  void begin_rdb_tx(TABLE_TYPE table_type,
+                    const rocksdb::WriteOptions &write_opts,
+                    const rocksdb::TransactionOptions &tx_opts) {
+    assert(m_rocksdb_tx[table_type] == nullptr);
+    // If m_rocksdb_reuse_tx[table_type] is nullptr this will create a new
+    // transaction object. Otherwise it will reuse the existing one.
+    m_rocksdb_tx[table_type].reset(rdb->BeginTransaction(
+        write_opts, tx_opts, m_rocksdb_reuse_tx[table_type].release()));
+  }
+
+  void release_intrinsic_table_tx() noexcept {
+    if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
+      assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
+      m_rocksdb_reuse_tx[INTRINSIC_TMP] =
+          std::move(m_rocksdb_tx[INTRINSIC_TMP]);
+    }
+  }
+
   void release_tx(size_t wb_size) {
     // We are done with the current active transaction object.  Preserve it
     // for later reuse.
     assert(m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE] == nullptr);
-    auto tx = m_rocksdb_tx[TABLE_TYPE::USER_TABLE];
+    auto tx = std::move(m_rocksdb_tx[TABLE_TYPE::USER_TABLE]);
     if (rocksdb_write_batch_mem_free_threshold > 0 &&
         wb_size > rocksdb_write_batch_mem_free_threshold) {
-      delete tx;
-      tx = nullptr;
+      tx.reset();
     }
-    m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE] = tx;
-    m_rocksdb_tx[TABLE_TYPE::USER_TABLE] = nullptr;
-    if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
-      assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
-      m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-      m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
-    }
+    m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE] = std::move(tx);
+    release_intrinsic_table_tx();
   }
 
   bool prepare() override {
@@ -5300,11 +5314,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     } else {
       m_write_count[INTRINSIC_TMP] = 0;
       // clean up only tmp table tx
-      if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
-        assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
-        m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-        m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
-      }
+      release_intrinsic_table_tx();
     }
     return res;
   }
@@ -5329,17 +5339,12 @@ class Rdb_transaction_impl : public Rdb_transaction {
       /* This will also release all of the locks: */
       m_rocksdb_tx[TABLE_TYPE::USER_TABLE]->Rollback();
 
-      /* Save the transaction object to be reused */
       release_tx(wb_size);
 
       set_tx_read_only(false);
       m_rollback_only = false;
     } else {
-      if (m_rocksdb_tx[INTRINSIC_TMP] != nullptr) {
-        assert(m_rocksdb_reuse_tx[INTRINSIC_TMP] == nullptr);
-        m_rocksdb_reuse_tx[INTRINSIC_TMP] = m_rocksdb_tx[INTRINSIC_TMP];
-        m_rocksdb_tx[INTRINSIC_TMP] = nullptr;
-      }
+      release_intrinsic_table_tx();
     }
   }
 
@@ -5662,7 +5667,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   const rocksdb::Transaction *get_rdb_trx() const {
-    return m_rocksdb_tx[USER_TABLE];
+    return m_rocksdb_tx[USER_TABLE].get();
   }
 
   bool is_tx_started(TABLE_TYPE table_type) const override {
@@ -5691,9 +5696,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
       write_opts.sync = false;
       write_opts.disableWAL = true;
       tx_opts.skip_concurrency_control = true;
-      m_rocksdb_tx[table_type] = rdb->BeginTransaction(
-          write_opts, tx_opts, m_rocksdb_reuse_tx[table_type]);
-      m_rocksdb_reuse_tx[table_type] = nullptr;
+
+      begin_rdb_tx(table_type, write_opts, tx_opts);
       m_read_opts[table_type] = rocksdb::ReadOptions();
     } else {
       write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC) &&
@@ -5703,14 +5707,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
           THDVAR(m_thd, write_ignore_missing_column_families);
       m_is_two_phase = true;
 
-      /*
-        If m_rocksdb_reuse_tx is null this will create a new transaction object.
-        Otherwise it will reuse the existing one.
-      */
-      m_rocksdb_tx[table_type] = rdb->BeginTransaction(
-          write_opts, tx_opts, m_rocksdb_reuse_tx[table_type]);
-      m_rocksdb_reuse_tx[table_type] = nullptr;
-
+      begin_rdb_tx(table_type, write_opts, tx_opts);
       m_read_opts[table_type] = rocksdb::ReadOptions();
       m_read_opts[table_type].ignore_range_deletions =
           !rocksdb_enable_delete_range_for_drop_index;
@@ -5794,7 +5791,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
   }
 
   explicit Rdb_transaction_impl(THD *const thd)
-      : Rdb_transaction(thd), m_rocksdb_tx({nullptr, nullptr}) {
+      : Rdb_transaction(thd) {
     // Create a notifier that can be called when a snapshot gets generated.
     m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
   }
@@ -5811,11 +5808,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     // the transaction anymore.
     m_notifier->detach();
 
-    // Free any transaction memory that is still hanging around.
-    delete m_rocksdb_reuse_tx[TABLE_TYPE::USER_TABLE];
     assert(m_rocksdb_tx[TABLE_TYPE::USER_TABLE] == nullptr);
-
-    delete m_rocksdb_reuse_tx[TABLE_TYPE::INTRINSIC_TMP];
     assert(m_rocksdb_tx[TABLE_TYPE::INTRINSIC_TMP] == nullptr);
   }
 };
