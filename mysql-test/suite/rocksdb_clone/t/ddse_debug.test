@@ -1,0 +1,47 @@
+--source include/have_rocksdb.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+call mtr.add_suppression("Clone removing all user data for provisioning: Started");
+call mtr.add_suppression("Clone removing all user data for provisioning: Finished");
+
+--let $HOST = 127.0.0.1
+--let $PORT = `select @@port`
+--let $USER = root
+--let remote_clone = 1
+--let clone_remote_replace = 1
+--let clone_inst_number = 2
+--let inst_monitor = 1
+--let clone_connections = 2
+
+--source ../../clone/include/clone_connection_begin.inc
+
+--replace_result $CLONE_PLUGIN CLONE_PLUGIN
+--eval INSTALL PLUGIN clone SONAME '$CLONE_PLUGIN'
+
+--connection clone_conn_1
+select @@default_dd_system_storage_engine;
+SET DEBUG_SYNC = 'clone_after_drop_user_data SIGNAL check_user_table WAIT_FOR resume_clone';
+
+--replace_result $HOST HOST $PORT PORT
+--eval SET GLOBAL clone_valid_donor_list = '$HOST:$PORT'
+
+--replace_result $HOST HOST $PORT PORT $USER USER
+--send_eval CLONE INSTANCE FROM $USER@$HOST:$PORT IDENTIFIED BY '' 
+
+--connection clone_conn_2  
+SET DEBUG_SYNC = 'now WAIT_FOR check_user_table';
+
+# quick check mysql.user table still exists
+select count(*) > 0 from mysql.user;
+
+SET DEBUG_SYNC = 'now SIGNAL resume_clone';
+
+--connection clone_conn_1
+--reap
+
+--source ../../clone/include/clone_connection_end.inc
+
+# cleanup
+--connection default 
+UNINSTALL PLUGIN clone;
