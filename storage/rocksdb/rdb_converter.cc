@@ -106,7 +106,7 @@ int Rdb_convert_to_record_value_decoder::decode_instant(
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
+int Rdb_convert_to_record_value_decoder::decode(uchar *buf, const TABLE &table,
                                                 Rdb_field_encoder *field_dec,
                                                 Rdb_string_reader *reader,
                                                 bool decode, bool is_null) {
@@ -122,7 +122,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
         Besides that, set the field value to default value. CHECKSUM TABLE
         depends on this.
       */
-      memcpy(ptr, table->s->default_values + field_dec->m_field_offset,
+      memcpy(ptr, table.s->default_values + field_dec->m_field_offset,
              field_dec->m_field_pack_length);
     }
   } else {
@@ -134,7 +134,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
     if (!field_dec->m_is_virtual_gcol) {
       if (field_dec->m_field_type == MYSQL_TYPE_BLOB ||
           field_dec->m_field_type == MYSQL_TYPE_JSON) {
-        err = decode_blob(table, ptr, field_dec, reader, decode);
+        err = decode_blob(ptr, field_dec, reader, decode);
       } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
         err = decode_varchar(ptr, field_dec, reader, decode);
       } else {
@@ -157,8 +157,8 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
     other  HA_ERR error code (can be SE-specific)
 */
 int Rdb_convert_to_record_value_decoder::decode_blob(
-    TABLE *table MY_ATTRIBUTE((__unused__)), uchar *const buf,
-    Rdb_field_encoder *field_dec, Rdb_string_reader *reader, bool decode) {
+    uchar *buf, Rdb_field_encoder *field_dec, Rdb_string_reader *reader,
+    bool decode) {
   // Get the number of bytes needed to store length
   const uint length_bytes =
       field_dec->m_field_pack_length - portable_sizeof_char_ptr;
@@ -262,14 +262,12 @@ int Rdb_convert_to_record_value_decoder::decode_varchar(
 
 template <typename value_field_decoder, typename dst_type>
 Rdb_value_field_iterator<value_field_decoder, dst_type>::
-    Rdb_value_field_iterator(TABLE *table,
+    Rdb_value_field_iterator(const TABLE &table,
                              Rdb_string_reader *value_slice_reader,
                              const Rdb_converter *rdb_converter, dst_type buf)
-    : m_buf(buf) {
-  assert(table != nullptr);
+    : m_table(table), m_buf(buf) {
   assert(buf != nullptr);
 
-  m_table = table;
   m_value_slice_reader = value_slice_reader;
   auto fields = rdb_converter->get_decode_fields();
   m_field_iter = fields->begin();
@@ -360,11 +358,10 @@ bool Rdb_value_field_iterator<value_field_decoder, dst_type>::is_null() const {
   @param    table      IN      Current open table
 */
 Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
-                             TABLE *table, const dd::Table *dd_table)
+                             const TABLE &table, const dd::Table *dd_table)
     : m_thd(thd), m_tbl_def(tbl_def), m_table(table) {
   assert(thd != nullptr);
   assert(tbl_def != nullptr);
-  assert(table != nullptr);
   m_key_requested = false;
   m_verify_row_debug_checksums = false;
   m_maybe_unpack_info = false;
@@ -374,7 +371,7 @@ Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
 }
 
 Rdb_converter::~Rdb_converter() {
-  for (uint i = 0; i < m_table->s->fields; i++) {
+  for (uint i = 0; i < m_table.s->fields; i++) {
     my_free(m_encoder_arr[i].m_instant_default_value);
   }
   my_free(m_encoder_arr);
@@ -390,7 +387,7 @@ Rdb_converter::~Rdb_converter() {
 void Rdb_converter::get_storage_type(Rdb_field_encoder *const encoder,
                                      const uint kp) {
   auto pk_descr =
-      m_tbl_def->m_key_descr_arr[ha_rocksdb::pk_index(*m_table, *m_tbl_def)];
+      m_tbl_def->m_key_descr_arr[ha_rocksdb::pk_index(m_table, *m_tbl_def)];
 
   // STORE_SOME uses unpack_info.
   if (pk_descr->has_unpack_info(kp)) {
@@ -431,26 +428,26 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
   // We also have to load the fields that are required to decode the requested
   // virtual fields.
 
-  std::vector<bool> bases(m_table->s->fields);
+  std::vector<bool> bases(m_table.s->fields);
 
-  for (uint i = 0; i < m_table->s->fields; i++) {
+  for (uint i = 0; i < m_table.s->fields; i++) {
     const bool field_requested =
         decode_all_fields || m_verify_row_debug_checksums ||
-        bitmap_is_set(field_map, m_table->field[i]->field_index());
+        bitmap_is_set(field_map, m_table.field[i]->field_index());
 
-    if (field_requested && m_table->field[i]->is_virtual_gcol()) {
-      for (uint j = 0; j < m_table->s->fields; j++) {
-        if (bitmap_is_set(&m_table->field[i]->gcol_info->base_columns_map, j)) {
+    if (field_requested && m_table.field[i]->is_virtual_gcol()) {
+      for (uint j = 0; j < m_table.s->fields; j++) {
+        if (bitmap_is_set(&m_table.field[i]->gcol_info->base_columns_map, j)) {
           bases[j] = true;
         }
       }
     }
   }
 
-  for (uint i = 0; i < m_table->s->fields; i++) {
+  for (uint i = 0; i < m_table.s->fields; i++) {
     bool field_requested =
         decode_all_fields || m_verify_row_debug_checksums ||
-        bitmap_is_set(field_map, m_table->field[i]->field_index()) || bases[i];
+        bitmap_is_set(field_map, m_table.field[i]->field_index()) || bases[i];
 
     // We only need the decoder if the whole record is stored.
     if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
@@ -486,7 +483,7 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
   m_decoders_vect.erase(m_decoders_vect.begin() + last_useful,
                         m_decoders_vect.end());
 
-  if (!keyread_only && active_index != m_table->s->primary_key) {
+  if (!keyread_only && active_index != m_table.s->primary_key) {
     m_tbl_def->m_key_descr_arr[active_index]->get_lookup_bitmap(
         m_table, &m_lookup_bitmap);
   }
@@ -498,7 +495,7 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
 
   m_encoder_arr = static_cast<Rdb_field_encoder *>(
       my_malloc(PSI_NOT_INSTRUMENTED,
-                m_table->s->fields * sizeof(Rdb_field_encoder), MYF(0)));
+                m_table.s->fields * sizeof(Rdb_field_encoder), MYF(0)));
   if (m_encoder_arr == nullptr) {
     return;
   }
@@ -516,8 +513,8 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
     }
   }
 
-  for (uint i = 0; i < m_table->s->fields; i++) {
-    Field *const field = m_table->field[i];
+  for (uint i = 0; i < m_table.s->fields; i++) {
+    const auto *const field = m_table.field[i];
     m_encoder_arr[i].m_storage_type = Rdb_field_encoder::STORE_ALL;
 
     /*
@@ -530,8 +527,8 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
       If hidden pk exists, we skip this check since the field will never be
       part of the hidden pk.
     */
-    if (!Rdb_key_def::table_has_hidden_pk(*m_table)) {
-      KEY *const pk_info = &m_table->key_info[m_table->s->primary_key];
+    if (!Rdb_key_def::table_has_hidden_pk(m_table)) {
+      const auto *const pk_info = &m_table.key_info[m_table.s->primary_key];
       for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
         // key_part->fieldnr is counted from 1
         if (field->field_index() + 1 == pk_info->key_part[kp].fieldnr) {
@@ -557,7 +554,7 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
     m_encoder_arr[i].m_field_type = field_type;
     m_encoder_arr[i].m_field_index = i;
     m_encoder_arr[i].m_field_pack_length = field->pack_length();
-    m_encoder_arr[i].m_field_offset = field->field_ptr() - m_table->record[0];
+    m_encoder_arr[i].m_field_offset = field->field_ptr() - m_table.record[0];
     m_encoder_arr[i].m_is_virtual_gcol = field->is_virtual_gcol();
 
     if (field_type == MYSQL_TYPE_VARCHAR) {
@@ -610,8 +607,8 @@ void Rdb_converter::setup_field_encoders(const dd::Table *dd_table) {
   // update ha_rocksdb::rocksdb_support_instant()
   // For temporary table, its null_fields value maybe different than normal
   // table. see create_tmp_table()
-  assert(m_table->s->table_category == TABLE_CATEGORY_TEMPORARY ||
-         ceil((double)m_table->s->null_fields / 8) ==
+  assert(m_table.s->table_category == TABLE_CATEGORY_TEMPORARY ||
+         ceil((double)m_table.s->null_fields / 8) ==
              (uint)m_null_bytes_length_in_record);
 }
 
@@ -848,7 +845,7 @@ int Rdb_converter::encode_value_slice(
     char *const data = const_cast<char *>(m_storage_record.ptr());
     if (has_ttl_column) {
       assert(pk_def.get_ttl_field_index() != UINT_MAX);
-      const auto *const field = m_table->field[pk_def.get_ttl_field_index()];
+      const auto *const field = m_table.field[pk_def.get_ttl_field_index()];
       assert(field->real_type() == MYSQL_TYPE_LONGLONG ||
              field->type() == MYSQL_TYPE_TIMESTAMP);
 
@@ -915,14 +912,14 @@ int Rdb_converter::encode_value_slice(
     m_storage_record.append(reinterpret_cast<char *>(pk_unpack_info->ptr()),
                             pk_unpack_info->get_current_pos());
   }
-  for (uint i = 0; i < m_table->s->fields; i++) {
+  for (uint i = 0; i < m_table.s->fields; i++) {
     Rdb_field_encoder &encoder = m_encoder_arr[i];
     /* Don't pack decodable PK key parts */
     if (encoder.m_storage_type != Rdb_field_encoder::STORE_ALL) {
       continue;
     }
 
-    Field *const field = m_table->field[i];
+    const auto *const field = m_table.field[i];
 
     if (field->is_virtual_gcol()) {
       continue;
@@ -943,13 +940,12 @@ int Rdb_converter::encode_value_slice(
 
     if (encoder.m_field_type == MYSQL_TYPE_BLOB ||
         encoder.m_field_type == MYSQL_TYPE_JSON) {
-      my_core::Field_blob *blob =
-          reinterpret_cast<my_core::Field_blob *>(field);
+      const auto *const blob = reinterpret_cast<const Field_blob *>(field);
       /* Get the number of bytes needed to store length*/
       const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
 
       /* Store the length of the value */
-      m_storage_record.append(reinterpret_cast<char *>(blob->field_ptr()),
+      m_storage_record.append(reinterpret_cast<const char *>(blob->field_ptr()),
                               length_bytes);
 
       /* Store the blob value itself */
@@ -957,8 +953,8 @@ int Rdb_converter::encode_value_slice(
       memcpy(&data_ptr, blob->field_ptr() + length_bytes, sizeof(uchar **));
       m_storage_record.append(data_ptr, blob->get_length());
     } else if (encoder.m_field_type == MYSQL_TYPE_VARCHAR) {
-      Field_varstring *const field_var =
-          reinterpret_cast<Field_varstring *>(field);
+      const auto *const field_var =
+          reinterpret_cast<const Field_varstring *>(field);
       uint data_len;
       /* field_var->get_length_bytes() is 1 or 2 */
       if (field_var->get_length_bytes() == 1) {
@@ -967,13 +963,14 @@ int Rdb_converter::encode_value_slice(
         assert(field_var->get_length_bytes() == 2);
         data_len = uint2korr(field_var->field_ptr());
       }
-      m_storage_record.append(reinterpret_cast<char *>(field_var->field_ptr()),
-                              field_var->get_length_bytes() + data_len);
+      m_storage_record.append(
+          reinterpret_cast<const char *>(field_var->field_ptr()),
+          field_var->get_length_bytes() + data_len);
     } else {
       /* Copy the field data */
       const uint len = field->pack_length();
-      m_storage_record.append(reinterpret_cast<char *>(field->field_ptr()),
-                              len);
+      m_storage_record.append(
+          reinterpret_cast<const char *>(field->field_ptr()), len);
     }
   }
 

@@ -184,7 +184,7 @@ class Rdb_iterator_base : public Rdb_iterator {
 
 class Rdb_iterator_partial : public Rdb_iterator_base {
  private:
-  TABLE *m_table;
+  const TABLE &m_table;
   MEM_ROOT m_mem_root;
 
   Rdb_iterator_base m_iterator_pk;
@@ -262,7 +262,7 @@ class Rdb_iterator_partial : public Rdb_iterator_base {
 
  public:
   Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd, const Rdb_key_def &pkd,
-                       const Rdb_tbl_def *tbl_def, TABLE *table,
+                       const Rdb_tbl_def *tbl_def, const TABLE &table,
                        const dd::Table *dd_table);
   ~Rdb_iterator_partial() override;
 

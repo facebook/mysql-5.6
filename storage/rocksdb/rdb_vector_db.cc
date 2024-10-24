@@ -79,7 +79,7 @@ static void write_inverted_list_item_key(Rdb_string_writer &writer,
 class Rdb_faiss_inverted_list_context {
  public:
   explicit Rdb_faiss_inverted_list_context(
-      Rdb_vector_search_params &search_params)
+      const Rdb_vector_search_params &search_params)
       : m_search_params{search_params} {}
   // the context object lives beyond the initial search call,
   // need to keep a copy of search params here
@@ -251,7 +251,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
          */
         const auto min_key_packed_size =
             search_params.m_pk_descr->pack_index_tuple(
-                const_cast<TABLE *>(search_params.m_tbl),
+                *search_params.m_tbl,
                 search_params.m_pack_buffer, search_params.m_sk_packed_tuple,
                 min_key.key, min_key.keypart_map);
 
@@ -270,7 +270,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
          */
         const auto max_key_packed_size =
             search_params.m_pk_descr->pack_index_tuple(
-                const_cast<TABLE *>(search_params.m_tbl),
+                *search_params.m_tbl,
                 search_params.m_pack_buffer,
                 search_params.m_end_key_packed_tuple, max_key.key,
                 max_key.keypart_map);
@@ -323,7 +323,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
       std::string buf;
       buf.resize(search_params.m_sk_descr->max_storage_fmt_length());
       const uint pack_size = search_params.m_sk_descr->pack_index_tuple(
-          const_cast<TABLE *>(search_params.m_tbl), search_params.m_pack_buffer,
+          *search_params.m_tbl, search_params.m_pack_buffer,
           reinterpret_cast<uchar *>(buf.data()),
           search_params.m_start_range.key,
           search_params.m_start_range.keypart_map);
@@ -399,8 +399,8 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
 
        */
       m_context->m_error = params.m_sk_descr->unpack_record(
-          const_cast<TABLE *>(params.m_tbl), params.m_tbl->record[0],
-          &key_slice, &value_slice, false);
+          *params.m_tbl, params.m_tbl->record[0], &key_slice, &value_slice,
+          false);
 
       /* propagate error and terminate iterator in case of unpacking error */
       if (m_context->m_error) break;
@@ -457,8 +457,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
 
     auto key_descr = m_context->m_search_params.m_sk_descr;
     auto unpack_rtn = key_descr->extract_vector_codes(
-        const_cast<TABLE *const>(m_context->m_search_params.m_tbl), key, value,
-        codes);
+        *m_context->m_search_params.m_tbl, key, value, codes);
 
     if (unpack_rtn) {
       return unpack_rtn;
@@ -675,11 +674,13 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     return m_index_def.dimension();
   }
 
-  uint code_size() const override { return m_index_l2->code_size; }
+  [[nodiscard]] uint code_size() const noexcept override {
+    return m_index_l2->code_size;
+  }
 
-  virtual uint index_scan(Rdb_vector_search_params &params,
-                          std::unique_ptr<Rdb_vector_db_iterator>
-                              &index_scan_result_iter) override {
+  [[nodiscard]] virtual uint index_scan(const Rdb_vector_search_params &params,
+                                        std::unique_ptr<Rdb_vector_db_iterator>
+                                            &index_scan_result_iter) override {
     m_hit++;
 
     constexpr faiss::idx_t vector_count = 1;

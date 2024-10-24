@@ -55,15 +55,15 @@ class Rdb_convert_to_record_value_decoder {
   Rdb_convert_to_record_value_decoder &operator=(
       const Rdb_convert_to_record_value_decoder &decoder) = delete;
 
-  static int decode(uchar *const buf, TABLE *table,
-                    Rdb_field_encoder *field_dec, Rdb_string_reader *reader,
-                    bool decode, bool is_null);
+  [[nodiscard]] static int decode(uchar *buf, const TABLE &table,
+                                  Rdb_field_encoder *field_dec,
+                                  Rdb_string_reader *reader, bool decode,
+                                  bool is_null);
   static int decode_instant(uchar *const buf, Rdb_field_encoder *field_dec);
 
  private:
-  static int decode_blob(TABLE *table, uchar *const buf,
-                         Rdb_field_encoder *field_dec,
-                         Rdb_string_reader *reader, bool decode);
+  [[nodiscard]] static int decode_blob(uchar *buf, Rdb_field_encoder *field_dec,
+                                       Rdb_string_reader *reader, bool decode);
   static int decode_fixed_length_field(uchar *const buf,
                                        Rdb_field_encoder *field_dec,
                                        Rdb_string_reader *const reader,
@@ -89,7 +89,7 @@ class Rdb_value_field_iterator {
   // null value map
   const char *m_null_bytes;
   // The current open table
-  TABLE *m_table;
+  const TABLE &m_table;
   // The current field
   Field *m_field;
   Rdb_field_encoder *m_field_dec;
@@ -97,7 +97,8 @@ class Rdb_value_field_iterator {
   uint m_offset;
 
  public:
-  Rdb_value_field_iterator(TABLE *table, Rdb_string_reader *value_slice_reader,
+  Rdb_value_field_iterator(const TABLE &table,
+                           Rdb_string_reader *value_slice_reader,
                            const Rdb_converter *rdb_converter, dst_type buf);
   Rdb_value_field_iterator(const Rdb_value_field_iterator &field_iterator) =
       delete;
@@ -128,7 +129,7 @@ class Rdb_converter {
   /*
     Initialize converter with table data
   */
-  Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def, TABLE *table,
+  Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def, const TABLE &table,
                 const dd::Table *dd_table);
   Rdb_converter(const Rdb_converter &) = delete;
   Rdb_converter(Rdb_converter &&) = delete;
@@ -220,7 +221,7 @@ class Rdb_converter {
   /* MyRocks table definition*/
   const Rdb_tbl_def *m_tbl_def;
   /* The current open table */
-  TABLE *m_table;
+  const TABLE &m_table;
   /*
     Number of bytes in on-disk (storage) record format that are used for
     storing SQL NULL flags.

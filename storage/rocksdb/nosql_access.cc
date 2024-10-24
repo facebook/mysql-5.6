@@ -1461,17 +1461,16 @@ class select_exec {
  public:
   explicit select_exec(const base_select_parser &parser,
                        const base_protocol &protocol)
-      : m_parser(parser), m_protocol(protocol) {
-    m_table = parser.get_table();
-    m_table_share = m_table->s;
+      : m_parser(parser), m_protocol(protocol), m_table(*parser.get_table()) {
+    m_table_share = m_table.s;
     m_index = parser.get_index();
-    m_index_info = &m_table->key_info[m_index];
-    m_pk_info = &m_table->key_info[m_table_share->primary_key];
+    m_index_info = &m_table.key_info[m_index];
+    m_pk_info = &m_table.key_info[m_table_share->primary_key];
     m_is_point_query = true;
     m_start_full_key = m_end_full_key = true;
     m_ddl_manager = rdb_get_ddl_manager();
     m_index_is_pk = (m_index == m_table_share->primary_key);
-    m_handler = static_cast<ha_rocksdb *>(m_table->file);
+    m_handler = static_cast<ha_rocksdb *>(m_table.file);
     m_thd = parser.get_thd();
     m_examined_rows = 0;
     m_rows_sent = 0;
@@ -1611,7 +1610,7 @@ class select_exec {
 
       // Since we bypassed prepare function, read_set might not be set.
       // Let's set it before calling eval_cond().
-      bitmap_set_bit(m_table->read_set, field->field_index());
+      bitmap_set_bit(m_table.read_set, field->field_index());
     }
     return false;
   }
@@ -1619,7 +1618,7 @@ class select_exec {
  private:
   const base_select_parser &m_parser;
   const base_protocol &m_protocol;
-  TABLE *m_table;
+  const TABLE &m_table;
   TABLE_SHARE *m_table_share;
   Rdb_ddl_manager *m_ddl_manager;
   Rdb_tbl_def *m_tbl_def;
@@ -2197,7 +2196,7 @@ void INLINE_ATTR select_exec::scan_value() {
   const auto &field_list = m_parser.get_field_list();
   for (uint i = 0; i < field_list.size(); i++) {
     // bitmap is not set yet because we skips prepare function
-    bitmap_set_bit(m_table->read_set, field_list[i]->field_index());
+    bitmap_set_bit(m_table.read_set, field_list[i]->field_index());
   }
 
   std::vector<bool> index_cover_bitmap(m_table_share->fields, false);
@@ -2209,7 +2208,7 @@ void INLINE_ATTR select_exec::scan_value() {
 
   m_keyread_only = true;
   for (uint i = 0; i < m_table_share->fields; i++) {
-    if (bitmap_is_set(m_table->read_set, i) && !index_cover_bitmap[i]) {
+    if (bitmap_is_set(m_table.read_set, i) && !index_cover_bitmap[i]) {
       m_keyread_only = false;
       break;
     }
@@ -2219,7 +2218,7 @@ void INLINE_ATTR select_exec::scan_value() {
     m_key_def->get_lookup_bitmap(m_table, &m_lookup_bitmap);
   }
 
-  m_converter->setup_field_decoders(m_table->read_set, m_index,
+  m_converter->setup_field_decoders(m_table.read_set, m_index,
                                     false /* keyread_only */);
 }
 
@@ -2492,7 +2491,8 @@ bool INLINE_ATTR select_exec::eval_cond() {
 bool INLINE_ATTR select_exec::unpack_for_pk(const rocksdb::Slice &rkey,
                                             const rocksdb::Slice &rvalue) {
   // decode will handle key/value decoding for PK
-  int rc = m_converter->decode(*m_key_def, m_table->record[0], &rkey, &rvalue);
+  const auto rc =
+      m_converter->decode(*m_key_def, m_table.record[0], &rkey, &rvalue);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
@@ -2514,7 +2514,7 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
   if (covers_lookup) {
     // SK covers the entire lookup
     rc =
-        m_key_def->unpack_record(m_table, m_table->record[0], &rkey, &rvalue,
+        m_key_def->unpack_record(m_table, m_table.record[0], &rkey, &rvalue,
                                  m_converter->get_verify_row_debug_checksums());
     if (rc) {
       m_handler->print_error(rc, 0);
@@ -2544,7 +2544,7 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
     return true;
   }
 
-  rc = m_converter->decode(*m_pk_def, m_table->record[0], &pk_key, &m_pk_value);
+  rc = m_converter->decode(*m_pk_def, m_table.record[0], &pk_key, &m_pk_value);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;

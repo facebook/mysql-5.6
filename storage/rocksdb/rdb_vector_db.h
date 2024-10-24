@@ -69,10 +69,9 @@ class Rdb_vector_index_info {
   uint m_median_list_size{0};
 };
 
-class Rdb_vector_search_params {
- public:
+struct Rdb_vector_search_params {
   THD *m_thd = nullptr;
-  const TABLE *const m_tbl = nullptr;
+  const TABLE *m_tbl = nullptr;
   const Rdb_key_def *m_pk_descr = nullptr;
 
   // buffers
@@ -114,11 +113,11 @@ class Rdb_vector_index {
   virtual void assign_vector(const float *data,
                              Rdb_vector_index_assignment &assignment) = 0;
 
-  virtual uint index_scan(
-      Rdb_vector_search_params &params,
+  [[nodiscard]] virtual uint index_scan(
+      const Rdb_vector_search_params &params,
       std::unique_ptr<Rdb_vector_db_iterator> &index_scan_result_iter) = 0;
 
-  virtual uint knn_search(
+  [[nodiscard]] virtual uint knn_search(
       Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) = 0;
   /**
@@ -185,7 +184,8 @@ class Rdb_vector_db_handler {
 
   uint current_key(std::string &key) const;
 
-  uint search(Rdb_vector_index *index, const Rdb_key_def *sk_descr);
+  [[nodiscard]] uint search(Rdb_vector_index *index,
+                            const Rdb_key_def *sk_descr);
 
   int vector_index_orderby_init(Item *sort_func, AccessPath *rangePath) {
     if (!sort_func) {
