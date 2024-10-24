@@ -884,10 +884,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   bool contains_foreign_key()
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int inplace_populate_sk(
-      TABLE *const table_arg,
-      const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  [[nodiscard]] int inplace_populate_sk(
+      const TABLE &table_arg,
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
 
   void inc_table_n_rows();
   void dec_table_n_rows();
@@ -972,10 +971,11 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int create(const char *const name, TABLE *const form,
              HA_CREATE_INFO *const create_info, dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
-  int truncate_table(Rdb_tbl_def *tbl_def,
-                     const std::string &actual_user_table_name,
-                     TABLE *table_arg, ulonglong auto_increment_value,
-                     dd::Table *table_def);
+  [[nodiscard]] int truncate_table(Rdb_tbl_def *tbl_def,
+                                   const std::string &actual_user_table_name,
+                                   const TABLE &table_arg,
+                                   ulonglong auto_increment_value,
+                                   dd::Table *table_def);
   int delete_all_rows() override;
   bool check_if_incompatible_data(HA_CREATE_INFO *const info,
                                   uint table_changes) override

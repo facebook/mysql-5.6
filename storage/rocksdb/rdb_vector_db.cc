@@ -304,7 +304,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
          */
         const auto min_key_packed_size =
             m_context->m_pk_descr->pack_index_tuple(
-                const_cast<TABLE *>(m_context->m_tbl), m_context->m_pack_buffer,
+                *m_context->m_tbl, m_context->m_pack_buffer,
                 m_context->m_sk_packed_tuple, min_key.key, min_key.keypart_map);
 
         min_key_slice = rocksdb::Slice((char *)m_context->m_sk_packed_tuple,
@@ -322,7 +322,7 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
          */
         const auto max_key_packed_size =
             m_context->m_pk_descr->pack_index_tuple(
-                const_cast<TABLE *>(m_context->m_tbl), m_context->m_pack_buffer,
+                *m_context->m_tbl, m_context->m_pack_buffer,
                 m_context->m_end_key_packed_tuple, max_key.key,
                 max_key.keypart_map);
 
@@ -444,8 +444,8 @@ class Rdb_vector_iterator : public faiss::InvertedListsIterator {
 
        */
       m_context->m_error = m_context->m_sk_descr->unpack_record(
-          const_cast<TABLE *>(m_context->m_tbl), m_context->m_tbl->record[0],
-          &key_slice, &value_slice, false);
+          *m_context->m_tbl, m_context->m_tbl->record[0], &key_slice,
+          &value_slice, false);
 
       /* propagate error and terminate iterator in case of unpacking error */
       if (m_context->m_error) break;
@@ -824,7 +824,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
     return m_index_def.dimension();
   }
 
-  virtual uint index_scan(THD *thd, const TABLE *const tbl, Item *pk_index_cond,
+  virtual uint index_scan(THD *thd, const TABLE &tbl, Item *pk_index_cond,
                           AccessPath *rangePath, uchar *const pack_buffer,
                           uchar *const sk_packed_tuple,
                           uchar *const end_key_packed_tuple,
@@ -847,7 +847,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
                         distances.data(), vector_ids.data());
 
     Rdb_faiss_inverted_list_context context(
-        thd, tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
+        thd, &tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
         end_key_packed_tuple, pk_descr, sk_descr);
 
     /*
@@ -862,9 +862,8 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
   }
 
   virtual uint knn_search(
-      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      AccessPath *rangePath, uchar *const pack_buffer,
-      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+      THD *thd, const TABLE &tbl, Item *pk_index_cond, AccessPath *rangePath,
+      uchar *pack_buffer, uchar *sk_packed_tuple, uchar *end_key_packed_tuple,
       const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
       std::vector<float> &query_vector, Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) override {
@@ -881,7 +880,7 @@ class Rdb_vector_index_ivf : public Rdb_vector_index {
 
     search_params.nprobe = params.m_nprobe;
     Rdb_faiss_inverted_list_context context(
-        thd, tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
+        thd, &tbl, pk_index_cond, rangePath, pack_buffer, sk_packed_tuple,
         end_key_packed_tuple, pk_descr, sk_descr);
     search_params.inverted_list_context = &context;
     index->search(vector_count, query_vector.data(), k, distances.data(),
@@ -1168,7 +1167,7 @@ uint create_vector_index(Rdb_cmd_srv_helper &cmd_srv_helper [[maybe_unused]],
 
 // Rdb_vector_db_handler::Rdb_vector_db_handler() {}
 
-uint Rdb_vector_db_handler::search(THD *thd, const TABLE *const tbl,
+uint Rdb_vector_db_handler::search(THD *thd, const TABLE &tbl,
                                    Rdb_vector_index *index,
                                    const Rdb_key_def *pk_descr,
                                    const Rdb_key_def *sk_descr,
@@ -1183,7 +1182,7 @@ uint Rdb_vector_db_handler::search(THD *thd, const TABLE *const tbl,
   }
 }
 
-uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE *const tbl,
+uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE &tbl,
                                        Rdb_vector_index *index,
                                        const Rdb_key_def *pk_descr,
                                        const Rdb_key_def *sk_descr,
@@ -1204,7 +1203,7 @@ uint Rdb_vector_db_handler::index_scan(THD *thd, const TABLE *const tbl,
                            m_index_scan_result_iter);
 }
 
-uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE *const tbl,
+uint Rdb_vector_db_handler::knn_search(THD *thd, const TABLE &tbl,
                                        Rdb_vector_index *index,
                                        const Rdb_key_def *pk_descr,
                                        const Rdb_key_def *sk_descr,
