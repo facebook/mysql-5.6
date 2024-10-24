@@ -1889,8 +1889,8 @@ class Fixup_data {
     }
 
     /* Skip DD system tables. */
-    if (table->is_explicit_tablespace() &&
-        table->tablespace_id() == dd::Dictionary_impl::dd_tablespace_id()) {
+    if (dd::get_dictionary()->is_dd_table_name(schema_name, table_name) ||
+        dd::get_dictionary()->is_system_table_name(schema_name, table_name)) {
       return (true);
     }
 
@@ -2458,6 +2458,7 @@ static int clone_drop_user_data(THD *thd, bool allow_threads) {
   }
   ib::info(ER_IB_CLONE_SQL) << "Clone Drop: finished successfully";
   ib::warn(ER_IB_CLONE_USER_DATA, "Finished");
+  DEBUG_SYNC_C("clone_after_drop_user_data");
   return (0);
 }
 

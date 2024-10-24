@@ -1,0 +1,23 @@
+call mtr.add_suppression("Clone removing all user data for provisioning: Started");
+call mtr.add_suppression("Clone removing all user data for provisioning: Finished");
+Install clone plugin on recipient server
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+CREATE TABLE t_recipient(col1 INT PRIMARY KEY, col2 int);
+INSERT INTO t_recipient VALUES(1, 10);
+CREATE UNDO TABLESPACE undo_005 ADD DATAFILE 'undo_005.ibu';
+CREATE TABLESPACE tbs1_recipient ADD DATAFILE 'tbs1_data1.ibd';
+INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
+select @@default_dd_system_storage_engine;
+@@default_dd_system_storage_engine
+InnoDB
+SET DEBUG_SYNC = 'clone_after_drop_user_data SIGNAL check_user_table WAIT_FOR resume_clone';
+SET GLOBAL clone_valid_donor_list = 'HOST:PORT';
+CLONE INSTANCE FROM USER@HOST:PORT IDENTIFIED BY '' ;
+SET DEBUG_SYNC = 'now WAIT_FOR check_user_table';
+select count(*) > 0 from mysql.user;
+count(*) > 0
+1
+SET DEBUG_SYNC = 'now SIGNAL resume_clone';
+Uninstall clone plugin on recipient server
+UNINSTALL PLUGIN clone;
+UNINSTALL PLUGIN clone;
