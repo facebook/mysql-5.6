@@ -99,18 +99,16 @@ class Rdb_vector_index {
   virtual void assign_vector(const float *data,
                              Rdb_vector_index_assignment &assignment) = 0;
 
-  virtual uint index_scan(
-      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      AccessPath *rangePath, uchar *const pack_buffer,
-      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+  [[nodiscard]] virtual uint index_scan(
+      THD *thd, const TABLE &tbl, Item *pk_index_cond, AccessPath *rangePath,
+      uchar *pack_buffer, uchar *sk_packed_tuple, uchar *end_key_packed_tuple,
       const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
       std::vector<float> &query_vector, uint nprobe,
       std::unique_ptr<Rdb_vector_db_iterator> &index_scan_result_iter) = 0;
 
-  virtual uint knn_search(
-      THD *thd, const TABLE *const tbl, Item *pk_index_cond,
-      AccessPath *rangePath, uchar *const pack_buffer,
-      uchar *const sk_packed_tuple, uchar *const end_key_packed_tuple,
+  [[nodiscard]] virtual uint knn_search(
+      THD *thd, const TABLE &tbl, Item *pk_index_cond, AccessPath *rangePath,
+      uchar *pack_buffer, uchar *sk_packed_tuple, uchar *end_key_packed_tuple,
       const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
       std::vector<float> &query_vector, Rdb_vector_search_params &params,
       std::vector<std::pair<std::string, float>> &result) = 0;
@@ -171,17 +169,21 @@ class Rdb_vector_db_handler {
 
   uint current_key(std::string &key) const;
 
-  uint search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-              const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
-              Item *pk_index_cond);
+  [[nodiscard]] uint search(THD *thd, const TABLE &tbl, Rdb_vector_index *index,
+                            const Rdb_key_def *pk_descr,
+                            const Rdb_key_def *sk_descr, Item *pk_index_cond);
 
-  uint index_scan(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-                  const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
-                  Item *pk_index_cond);
+  [[nodiscard]] uint index_scan(THD *thd, const TABLE &tbl,
+                                Rdb_vector_index *index,
+                                const Rdb_key_def *pk_descr,
+                                const Rdb_key_def *sk_descr,
+                                Item *pk_index_cond);
 
-  uint knn_search(THD *thd, const TABLE *const tbl, Rdb_vector_index *index,
-                  const Rdb_key_def *pk_descr, const Rdb_key_def *sk_descr,
-                  Item *pk_index_cond);
+  [[nodiscard]] uint knn_search(THD *thd, const TABLE &tbl,
+                                Rdb_vector_index *index,
+                                const Rdb_key_def *pk_descr,
+                                const Rdb_key_def *sk_descr,
+                                Item *pk_index_cond);
 
   int vector_index_orderby_init(Item *sort_func, AccessPath *rangePath) {
     auto *distance_func = down_cast<Item_func_fb_vector_distance *>(sort_func);

@@ -490,7 +490,7 @@ void Rdb_iterator_base::multi_get(
 Rdb_iterator_partial::Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd,
                                            const Rdb_key_def &pkd,
                                            const Rdb_tbl_def *tbl_def,
-                                           TABLE *table,
+                                           const TABLE &table,
                                            const dd::Table *dd_table)
     : Rdb_iterator_base(thd, nullptr, kd, pkd, tbl_def),
       m_table(table),
@@ -511,7 +511,7 @@ Rdb_iterator_partial::Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd,
   if (max_mem) {
     m_mem_root.set_max_capacity(max_mem);
   }
-  m_converter.setup_field_decoders(table->read_set, table->s->primary_key,
+  m_converter.setup_field_decoders(table.read_set, table.s->primary_key,
                                    true /* keyread_only */,
                                    true /* decode all */);
 
@@ -520,7 +520,7 @@ Rdb_iterator_partial::Rdb_iterator_partial(THD *thd, const Rdb_key_def &kd,
   m_cur_prefix_key = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, packed_len, MYF(0)));
   m_record_buf = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, table->s->reclength, MYF(0)));
+      my_malloc(PSI_NOT_INSTRUMENTED, table.s->reclength, MYF(0)));
   m_pack_buffer = reinterpret_cast<uchar *>(
       my_malloc(PSI_NOT_INSTRUMENTED, packed_len, MYF(0)));
   m_sk_packed_tuple = reinterpret_cast<uchar *>(
@@ -553,7 +553,7 @@ int Rdb_iterator_partial::get_prefix_len(const rocksdb::Slice &start_key,
       return HA_EXIT_SUCCESS;
     }
 
-    if (m_kd.read_memcmp_key_part(&reader, i) > 0) {
+    if (m_kd.read_memcmp_key_part(reader, i) > 0) {
       return HA_ERR_INTERNAL_ERROR;
     }
   }
