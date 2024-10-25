@@ -83,9 +83,10 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
       bool *value_changed MY_ATTRIBUTE((unused))) const override {
     assert(key.size() >= sizeof(uint32));
 
-    GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id = m_cf_id;
-    gl_index_id.index_id = rdb_netbuf_to_uint32((const uchar *)key.data());
+    const auto gl_index_id = GL_INDEX_ID{
+        .cf_id = m_cf_id,
+        .index_id =
+            rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(key.data()))};
     assert(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index) {
@@ -125,7 +126,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
 
   virtual const char *Name() const override { return "Rdb_compact_filter"; }
 
-  void get_ttl_duration_and_offset(const GL_INDEX_ID &gl_index_id,
+  void get_ttl_duration_and_offset(GL_INDEX_ID gl_index_id,
                                    uint64 *ttl_duration,
                                    uint32 *ttl_offset) const {
     assert(ttl_duration != nullptr);

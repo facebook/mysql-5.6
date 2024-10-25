@@ -1485,7 +1485,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
     field[RDB_DDL_FIELD::INDEX_NAME]->store(kd.m_name.c_str(), kd.m_name.size(),
                                             system_charset_info);
 
-    GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
+    const auto gl_index_id = kd.get_gl_index_id();
     field[RDB_DDL_FIELD::COLUMN_FAMILY]->store(gl_index_id.cf_id, true);
     field[RDB_DDL_FIELD::INDEX_NUMBER]->store(gl_index_id.index_id, true);
     field[RDB_DDL_FIELD::INDEX_TYPE]->store(kd.m_index_type, true);
@@ -1728,7 +1728,7 @@ int Rdb_vector_index_scanner::add_table(Rdb_tbl_def *tdef) {
     field[RDB_VECTOR_INDEX_FIELD::INDEX_NAME]->store(
         kd.m_name.c_str(), kd.m_name.size(), system_charset_info);
 
-    GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
+    const auto gl_index_id = kd.get_gl_index_id();
     field[RDB_VECTOR_INDEX_FIELD::INDEX_NUMBER]->store(gl_index_id.index_id,
                                                        true);
 

@@ -370,32 +370,35 @@ const char *const rocksdb_hton_name = "ROCKSDB";
 using Index_id = uint32_t;
 constexpr size_t INDEX_NUMBER_SIZE = 4;
 
-typedef struct _gl_index_id_s {
+struct [[nodiscard]] GL_INDEX_ID {
   uint32_t cf_id;
   Index_id index_id;
-  bool operator==(const struct _gl_index_id_s &other) const {
+
+  [[nodiscard]] bool operator==(GL_INDEX_ID other) const noexcept {
     return cf_id == other.cf_id && index_id == other.index_id;
   }
-  bool operator!=(const struct _gl_index_id_s &other) const {
+  [[nodiscard]] bool operator!=(GL_INDEX_ID other) const noexcept {
     return cf_id != other.cf_id || index_id != other.index_id;
   }
-  bool operator<(const struct _gl_index_id_s &other) const {
+  [[nodiscard]] bool operator<(GL_INDEX_ID other) const noexcept {
     return cf_id < other.cf_id ||
            (cf_id == other.cf_id && index_id < other.index_id);
   }
-  bool operator<=(const struct _gl_index_id_s &other) const {
+  [[nodiscard]] bool operator<=(GL_INDEX_ID other) const noexcept {
     return cf_id < other.cf_id ||
            (cf_id == other.cf_id && index_id <= other.index_id);
   }
-  bool operator>(const struct _gl_index_id_s &other) const {
+  [[nodiscard]] bool operator>(GL_INDEX_ID other) const noexcept {
     return cf_id > other.cf_id ||
            (cf_id == other.cf_id && index_id > other.index_id);
   }
-  bool operator>=(const struct _gl_index_id_s &other) const {
+  [[nodiscard]] bool operator>=(GL_INDEX_ID other) const noexcept {
     return cf_id > other.cf_id ||
            (cf_id == other.cf_id && index_id >= other.index_id);
   }
-} GL_INDEX_ID;
+};
+// Fits into a single word. Pass around by value.
+static_assert(sizeof(GL_INDEX_ID) == 8);
 
 enum operation_type : int {
   ROWS_DELETED = 0,

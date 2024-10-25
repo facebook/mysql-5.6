@@ -216,13 +216,11 @@ inline uint16 rdb_netbuf_read_uint16(const uchar **netbuf_ptr) {
   return host_val;
 }
 
-inline void rdb_netbuf_read_gl_index(const uchar **netbuf_ptr,
-                                     GL_INDEX_ID *const gl_index_id) {
-  assert(gl_index_id != nullptr);
+[[nodiscard]] inline GL_INDEX_ID rdb_netbuf_read_gl_index(
+    const uchar **netbuf_ptr) {
   assert(netbuf_ptr != nullptr);
-
-  gl_index_id->cf_id = rdb_netbuf_read_uint32(netbuf_ptr);
-  gl_index_id->index_id = rdb_netbuf_read_uint32(netbuf_ptr);
+  return {.cf_id = rdb_netbuf_read_uint32(netbuf_ptr),
+          .index_id = rdb_netbuf_read_uint32(netbuf_ptr)};
 }
 
 /*

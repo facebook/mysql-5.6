@@ -109,9 +109,10 @@ void Rdb_tbl_prop_coll::AdjustDeletedRows(rocksdb::EntryType type) {
 }
 
 Rdb_index_stats *Rdb_tbl_prop_coll::AccessStats(const rocksdb::Slice &key) {
-  GL_INDEX_ID gl_index_id = {.cf_id = m_cf_id,
-                             .index_id = rdb_netbuf_to_uint32(
-                                 reinterpret_cast<const uchar *>(key.data()))};
+  const auto gl_index_id = GL_INDEX_ID{
+      .cf_id = m_cf_id,
+      .index_id =
+          rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(key.data()))};
 
   if (m_last_stats == nullptr || m_last_stats->m_gl_index_id != gl_index_id) {
     m_keydef = nullptr;
@@ -418,7 +419,7 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
     if (p + needed > p2) {
       return HA_EXIT_FAILURE;
     }
-    rdb_netbuf_read_gl_index(&p, &stats.m_gl_index_id);
+    stats.m_gl_index_id = rdb_netbuf_read_gl_index(&p);
     stats.m_data_size = rdb_netbuf_read_uint64(&p);
     stats.m_rows = rdb_netbuf_read_uint64(&p);
     stats.m_actual_disk_size = rdb_netbuf_read_uint64(&p);

@@ -4308,7 +4308,7 @@ class Rdb_transaction {
       rocksdb::Slice merge_val;
       auto &key_merges = ctx->key_merge();
       for (auto it = key_merges.begin(); it != key_merges.end(); it++) {
-        GL_INDEX_ID index_id = it->first;
+        const auto index_id = it->first;
         Rdb_index_merge &rdb_merge = it->second;
         std::string table_name = rdb_merge.get_table_name();
         // there was a race here between dropping the table
@@ -4812,7 +4812,7 @@ class Rdb_transaction {
     return false;
   }
 
-  void set_auto_incr(const GL_INDEX_ID &gl_index_id, ulonglong curr_id) {
+  void set_auto_incr(GL_INDEX_ID gl_index_id, ulonglong curr_id) {
     assert(!is_ac_nl_ro_rc_transaction());
 
     auto &existing = m_auto_incr_map[gl_index_id];
@@ -4820,12 +4820,9 @@ class Rdb_transaction {
   }
 
 #ifndef NDEBUG
-  ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
-    auto iter = m_auto_incr_map.find(gl_index_id);
-    if (m_auto_incr_map.end() != iter) {
-      return iter->second;
-    }
-    return 0;
+  [[nodiscard]] ulonglong get_auto_incr(GL_INDEX_ID gl_index_id) const {
+    const auto iter = m_auto_incr_map.find(gl_index_id);
+    return (iter != m_auto_incr_map.cend()) ? iter->second : 0;
   }
 #endif
 
@@ -7211,8 +7208,8 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
            "=========================================\n";
   }
 
-  static Rdb_deadlock_info::Rdb_dl_trx_info get_dl_txn_info(
-      const rocksdb::DeadlockInfo &txn, const GL_INDEX_ID &gl_index_id) {
+  [[nodiscard]] static Rdb_deadlock_info::Rdb_dl_trx_info get_dl_txn_info(
+      const rocksdb::DeadlockInfo &txn, GL_INDEX_ID gl_index_id) {
     Rdb_deadlock_info::Rdb_dl_trx_info txn_data;
 
     txn_data.trx_id = txn.m_txn_id;
@@ -7251,9 +7248,10 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
 
     for (auto it = path_entry.path.begin(); it != path_entry.path.end(); it++) {
       const auto &txn = *it;
-      const GL_INDEX_ID gl_index_id = {
-          txn.m_cf_id, rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(
-                           txn.m_waiting_key.c_str()))};
+      const auto gl_index_id = GL_INDEX_ID{
+          .cf_id = txn.m_cf_id,
+          .index_id = rdb_netbuf_to_uint32(
+              reinterpret_cast<const uchar *>(txn.m_waiting_key.c_str()))};
       deadlock_info.path.push_back(get_dl_txn_info(txn, gl_index_id));
     }
     assert_IFF(path_entry.limit_exceeded, path_entry.path.empty());
@@ -9567,7 +9565,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
 #ifndef NDEBUG
     ulonglong dd_val;
     if (last_val <= max_val) {
-      const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
+      const auto gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
       if (dict_manager.get_dict_manager_selector_const(gl_index_id.cf_id)
               ->get_auto_incr_val(gl_index_id, &dd_val) &&
           tx->get_auto_incr(gl_index_id) == 0) {
@@ -9876,7 +9874,7 @@ bool rdb_should_hide_ttl_rec(const Rdb_key_def &kd,
     std::string buf;
     buf = rdb_hexdump(ttl_rec_val->data(), ttl_rec_val->size(),
                       RDB_MAX_HEXDUMP_LEN);
-    const GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
+    const auto gl_index_id = kd.get_gl_index_id();
     // NO_LINT_DEBUG
     LogPluginErrMsg(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "Decoding ttl from PK value failed, "
@@ -10715,7 +10713,7 @@ uint ha_rocksdb::create_inplace_key_defs(
       */
       const Rdb_key_def &okd = *old_key_descr[it->second];
 
-      const GL_INDEX_ID gl_index_id = okd.get_gl_index_id();
+      const auto gl_index_id = okd.get_gl_index_id();
       struct Rdb_index_info index_info;
       if (!dict_manager.get_dict_manager_selector_const(gl_index_id.cf_id)
                ->get_index_info(gl_index_id, &index_info)) {
@@ -14603,7 +14601,7 @@ int ha_rocksdb::update_stats(ha_statistics *ha_stats, Rdb_tbl_def *tbl_def,
       // Unfortunately in this case we don't know if we actually have auto
       // increment without opening the table, so we'd have to load the value
       // always even if the table doesn't have auto increment
-      const GL_INDEX_ID &gl_index_id = tbl_def->get_autoincr_gl_index_id();
+      const auto gl_index_id = tbl_def->get_autoincr_gl_index_id();
       if (!dict_manager.get_dict_manager_selector_const(gl_index_id.cf_id)
                ->get_auto_incr_val(gl_index_id,
                                    &ha_stats->auto_increment_value)) {
@@ -15257,7 +15255,7 @@ static int delete_range(const std::unordered_set<GL_INDEX_ID> &indices) {
   int ret = 0;
   size_t default_cf_ts_sz = rocksdb_enable_udt_in_mem ? ROCKSDB_SIZEOF_UDT : 0;
   rocksdb::WriteBatch batch = rocksdb::WriteBatch(0, 0, 0, default_cf_ts_sz);
-  for (const auto &d : indices) {
+  for (const auto d : indices) {
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(d.cf_id);
     uint32 cf_flags = 0;
@@ -15575,6 +15573,7 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
     std::lock_guard<Rdb_dict_manager> dm_lock(*local_dict_manager);
     if (rocksdb_enable_delete_range_for_drop_index) {
       std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+      dropped_index_ids.reserve(tbl->m_key_count);
       for (uint32 i = 0; i < tbl->m_key_count; i++) {
         dropped_index_ids.insert(tbl->m_key_descr_arr[i]->get_gl_index_id());
         local_dict_manager->delete_index_info(
@@ -15995,7 +15994,7 @@ static void init_stats(
         &to_recalc,
     std::unordered_map<GL_INDEX_ID, Rdb_index_stats> *stats) {
   for (const auto &it : to_recalc) {
-    const GL_INDEX_ID index_id = it.first;
+    const auto index_id = it.first;
     auto &kd = it.second;
 
     (*stats).emplace(index_id, Rdb_index_stats(index_id));
@@ -16037,7 +16036,7 @@ static int calculate_cardinality_table_scan(
   Rdb_tbl_card_coll cardinality_collector(rocksdb_table_stats_sampling_pct);
 
   for (const auto &it_kd : to_recalc) {
-    const GL_INDEX_ID index_id = it_kd.first;
+    const auto index_id = it_kd.first;
 
     if (!ddl_manager.safe_find(index_id)) {
       // If index id is not in ddl manager, then it has been dropped.
@@ -16144,7 +16143,7 @@ static void merge_stats(
   assert(stats->size() == card_stats.size());
 
   for (auto &src : *stats) {
-    auto index_id = src.first;
+    const auto index_id = src.first;
     Rdb_index_stats &stat = src.second;
     auto it = card_stats.find(index_id);
     assert(it != card_stats.end());
@@ -16228,7 +16227,7 @@ static int read_stats_from_ssts(
         continue;
       }
 
-      auto it_index = to_recalc.find(it1.m_gl_index_id);
+      const auto it_index = to_recalc.find(it1.m_gl_index_id);
       assert(it_index != to_recalc.end());
       if (it_index == to_recalc.end()) {
         continue;
@@ -16308,11 +16307,12 @@ static int calculate_stats_for_table(
   }
 
   std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>> to_recalc;
-  for (const auto &index : indexes) {
+  for (const auto index : indexes) {
     std::shared_ptr<const Rdb_key_def> keydef = ddl_manager.safe_find(index);
 
     if (keydef) {
-      to_recalc.insert(std::make_pair(keydef->get_gl_index_id(), keydef));
+      assert(index == keydef->get_gl_index_id());
+      to_recalc.insert(std::make_pair(index, keydef));
     }
   }
 
@@ -17296,6 +17296,7 @@ int ha_rocksdb::inplace_populate_sk(
 
     /* Update the data dictionary */
     std::unordered_set<GL_INDEX_ID> create_index_ids;
+    create_index_ids.reserve(indexes.size());
     for (const auto &index : indexes) {
       create_index_ids.insert(index->get_gl_index_id());
     }
@@ -17606,6 +17607,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
           local_dict_manager->add_drop_index(ctx->m_dropped_index_ids, batch);
         }
 
+        create_index_ids.reserve(ctx->m_added_indexes.size());
         for (const auto &index : ctx->m_added_indexes) {
           create_index_ids.insert(index->get_gl_index_id());
         }
@@ -17661,7 +17663,6 @@ bool ha_rocksdb::commit_inplace_alter_table(
     auto local_dict_manager =
         dict_manager.get_dict_manager_selector_non_const(table_default_cf_id);
     auto batch = Rdb_dict_manager::begin();
-    std::unordered_set<GL_INDEX_ID> create_index_ids;
 
     ulonglong auto_incr_val = ha_alter_info->create_info->auto_increment_value;
 
@@ -17669,9 +17670,12 @@ bool ha_rocksdb::commit_inplace_alter_table(
       Rdb_inplace_alter_ctx *const ctx =
           static_cast<Rdb_inplace_alter_ctx *>(*pctx);
       auto_incr_val = std::max(auto_incr_val, ctx->m_max_auto_incr);
-      local_dict_manager->put_auto_incr_val(
+      const auto status = local_dict_manager->put_auto_incr_val(
           batch, ctx->m_new_tdef->get_autoincr_gl_index_id(), auto_incr_val,
           true /* overwrite */);
+      if (unlikely(!status.ok())) {
+        assert(0);
+      }
       ctx->m_new_tdef->m_auto_incr_val = auto_incr_val;
     }
 

@@ -106,7 +106,7 @@ struct Rdb_table_handler {
 namespace std {
 template <>
 struct hash<myrocks::GL_INDEX_ID> {
-  std::size_t operator()(const myrocks::GL_INDEX_ID &gl_index_id) const {
+  std::size_t operator()(myrocks::GL_INDEX_ID gl_index_id) const noexcept {
     const uint64_t val =
         ((uint64_t)gl_index_id.cf_id << 32 | (uint64_t)gl_index_id.index_id);
     return std::hash<uint64_t>()(val);
@@ -392,9 +392,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   ulonglong load_auto_incr_value_from_index();
   void update_auto_incr_val(ulonglong val);
   void update_auto_incr_val_from_field();
-  rocksdb::Status get_datadic_auto_incr(Rdb_transaction *const tx,
-                                        const GL_INDEX_ID &gl_index_id,
-                                        ulonglong *new_val) const;
   longlong update_hidden_pk_val();
   int load_hidden_pk_value() MY_ATTRIBUTE((__warn_unused_result__));
   int read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id)
@@ -1120,7 +1117,7 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
         m_old_n_keys(old_n_keys),
         m_new_n_keys(new_n_keys),
         m_added_indexes(added_indexes),
-        m_dropped_index_ids(dropped_index_ids),
+        m_dropped_index_ids(std::move(dropped_index_ids)),
         m_n_added_keys(n_added_keys),
         m_n_dropped_keys(n_dropped_keys),
         m_max_auto_incr(max_auto_incr) {}
