@@ -138,6 +138,7 @@ using std::unique_ptr;
 
 // Static objects.
 MDL_mutex THD::mutex_thd_security_ctx[THD::mutex_thd_security_ctx_partitions];
+MDL_mutex THD::mutex_thd_status_aggregation;
 
 /*
   The following is used to initialise Table_ident with a internal
@@ -913,6 +914,21 @@ MDL_mutex *THD::get_mutex_thd_security_ctx() {
   return &mutex_thd_security_ctx[partition];
 }
 
+/**
+ Initialize mutex_thd_status_aggregation.
+ */
+void THD::init_mutex_thd_status_aggregation() {
+  std::string thd_status_aggregation{"STATUS_AGGREGATION"};
+  mutex_thd_status_aggregation.init(thd_status_aggregation);
+}
+
+/**
+ Return mutex_thd_status_aggregation.
+ */
+MDL_mutex *THD::get_mutex_thd_status_aggregation() {
+  return &mutex_thd_status_aggregation;
+}
+
 void THD::copy_table_access_properties(THD *thd) {
   thread_stack = thd->thread_stack;
   variables.option_bits = thd->variables.option_bits & OPTION_BIN_LOG;
@@ -1386,10 +1402,12 @@ void THD::cleanup_connection(void) {
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::ACTIVE;
 
   /* Aggregate to global status now that cleanup is done. */
-  mysql_mutex_lock(&LOCK_status);
-  add_to_status(&global_status_var, &status_var);
-  reset_system_status_vars(&status_var);
-  mysql_mutex_unlock(&LOCK_status);
+  {
+    MDL_mutex_guard guard(get_mutex_thd_status_aggregation(), this,
+                          &LOCK_status, use_status_mdl_mutex);
+    add_to_status(&global_status_var, &status_var);
+    reset_system_status_vars(&status_var);
+  }
 
   propagate_pending_global_disk_usage();
 
@@ -1673,19 +1691,21 @@ void THD::release_resources() {
 
   reset_connection_certificate();
 
-  mysql_mutex_lock(&LOCK_status);
-  /* Add thread status to the global totals. */
-  add_to_status(&global_status_var, &status_var);
+  {
+    MDL_mutex_guard guard(get_mutex_thd_status_aggregation(), this,
+                          &LOCK_status, use_status_mdl_mutex);
+    /* Add thread status to the global totals. */
+    add_to_status(&global_status_var, &status_var);
 #ifdef HAVE_PSI_THREAD_INTERFACE
-  /* Aggregate thread status into the Performance Schema. */
-  if (m_psi != nullptr) {
-    PSI_THREAD_CALL(aggregate_thread_status)(m_psi);
-  }
+    /* Aggregate thread status into the Performance Schema. */
+    if (m_psi != nullptr) {
+      PSI_THREAD_CALL(aggregate_thread_status)(m_psi);
+    }
 #endif /* HAVE_PSI_THREAD_INTERFACE */
-  /* Ensure that the thread status is not re-aggregated to the global totals. */
-  status_var_aggregated = true;
-
-  mysql_mutex_unlock(&LOCK_status);
+    /* Ensure that the thread status is not re-aggregated to the global totals.
+     */
+    status_var_aggregated = true;
+  }
 
   propagate_pending_global_disk_usage();
 

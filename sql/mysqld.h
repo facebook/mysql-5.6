@@ -139,7 +139,7 @@ extern bool dynamic_plugins_are_initialized;
 
 bool signal_restart_server();
 void kill_mysql(void);
-void refresh_status();
+void refresh_status(THD *thd);
 void reset_status_by_thd();
 bool is_secure_file_path(const char *path);
 ulong sql_rnd_with_mutex();
@@ -456,6 +456,7 @@ extern std::vector<std::string> authentication_policy_list;
 extern bool opt_log_ddl;
 extern bool slave_high_priority_ddl;
 extern bool use_mdl_mutex;
+extern bool use_status_mdl_mutex;
 extern bool install_plugin_skip_registration;
 extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
 extern double slave_high_priority_lock_wait_timeout_double;

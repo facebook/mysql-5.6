@@ -10415,6 +10415,14 @@ static Sys_var_bool Sys_use_mdl_mutex(
     "instrumented. If disabled, the regular mutex is used.",
     READ_ONLY GLOBAL_VAR(use_mdl_mutex), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_use_status_mdl_mutex(
+    "use_status_mdl_mutex",
+    "Use thread pool friendly MDL lock instead of regular mutex where "
+    "instrumented for status variables. If disabled, the regular mutex is "
+    "used.",
+    READ_ONLY GLOBAL_VAR(use_status_mdl_mutex), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static bool check_mta_binlog_statement_workers(sys_var * /*self*/, THD *thd,
                                                set_var *var) {
   uint prev_val = thd->variables.mta_binlog_statement_workers;

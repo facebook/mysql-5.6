@@ -3270,6 +3270,10 @@ The following options may be given as the first argument:
  mutex where instrumented. If disabled, the regular mutex
  is used.
  (Defaults to on; use --skip-use-mdl-mutex to disable.)
+ --use-status-mdl-mutex 
+ Use thread pool friendly MDL lock instead of regular
+ mutex where instrumented for status variables. If
+ disabled, the regular mutex is used.
  -u, --user=name     Run mysqld daemon as user.
  --validate-config   Validate the server configuration specified by the user.
  --validate-schema-from-attributes 
@@ -4282,6 +4286,7 @@ update-table-create-timestamp-on-truncate FALSE
 upgrade AUTO
 use-fb-json-functions 
 use-mdl-mutex TRUE
+use-status-mdl-mutex FALSE
 validate-config FALSE
 validate-schema-from-attributes FALSE
 validate-user-plugins TRUE

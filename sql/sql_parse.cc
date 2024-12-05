@@ -2904,9 +2904,11 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
       query_logger.general_log_print(thd, command, NullS);
       thd->status_var.com_stat[SQLCOM_SHOW_STATUS]++;
-      mysql_mutex_lock(&LOCK_status);
-      calc_sum_of_all_status(&current_global_status_var);
-      mysql_mutex_unlock(&LOCK_status);
+      {
+        MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), thd,
+                              &LOCK_status, use_status_mdl_mutex);
+        calc_sum_of_all_status(&current_global_status_var);
+      }
       if (!(uptime = (ulong)(thd->query_start_in_secs() - server_start_time)))
         queries_per_second1000 = 0;
       else

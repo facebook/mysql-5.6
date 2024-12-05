@@ -1863,7 +1863,9 @@ class MDL_mutex {
 */
 class MDL_mutex_guard {
  public:
-  MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd, mysql_mutex_t *mutex);
+  MDL_mutex_guard(MDL_mutex *mdl_mutex, THD *thd, mysql_mutex_t *mutex,
+                  bool allow_caller_to_use_mdl_mutex = true,
+                  bool allow_bypass = false);
   ~MDL_mutex_guard();
 
  private:
@@ -1878,6 +1880,9 @@ class MDL_mutex_guard {
 
   // Regular mutex to lock and unlock if MDL mutex is disabled.
   mysql_mutex_t *m_mutex{nullptr};
+
+  // Should the guard bypass the incoming request?
+  bool m_allow_bypass{false};
 };
 
 #endif

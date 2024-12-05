@@ -73,6 +73,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 
 #include "my_dbug.h"
+#include "mysql/plugin.h"
 
 /** Maximum number of rows to prefetch; MySQL interface has another parameter */
 constexpr uint32_t SEL_MAX_N_PREFETCH = 16;
@@ -4909,6 +4910,8 @@ rec_loop:
   ut_ad(trx_can_be_handled_by_current_thread(trx));
   DEBUG_SYNC_C("row_search_rec_loop");
 
+  /* We are in a loop, so don't hog. */
+  thd_check_yield(trx && trx->mysql_thd ? trx->mysql_thd : nullptr);
   prebuilt->lob_undo_reset();
 
   if (trx_is_interrupted(trx)) {

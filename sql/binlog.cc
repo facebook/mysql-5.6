@@ -13455,10 +13455,13 @@ bool show_raft_status(THD *thd) {
   std::vector<std::pair<std::string, std::string>> var_value_pairs;
   std::vector<std::pair<std::string, std::string>>::const_iterator itr;
 
-  mysql_mutex_lock(&LOCK_status);
-  int error = RUN_HOOK_STRICT(raft_replication, show_raft_status,
-                              (current_thd, &var_value_pairs));
-  mysql_mutex_unlock(&LOCK_status);
+  int error = 0;
+  {
+    MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), current_thd,
+                          &LOCK_status, use_status_mdl_mutex);
+    error = RUN_HOOK_STRICT(raft_replication, show_raft_status,
+                            (current_thd, &var_value_pairs));
+  }
   if (error) {
     errmsg = "Failure to run plugin hook";
     goto err;

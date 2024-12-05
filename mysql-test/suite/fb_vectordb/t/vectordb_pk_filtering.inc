@@ -39,6 +39,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 1a. OPEN ENDED RANGE
 --echo ---------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+explain format=tree
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk > 4 order by dis limit 10;
 
 --echo
@@ -52,6 +55,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 1b. BOUNDED RANGE
 --echo -----------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk >= 5 and pk < 10 order by dis limit 10;
 
 --echo
@@ -65,6 +71,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 1c. IN list
 --echo -----------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 3, 5) order by dis limit 10;
 
 --echo
@@ -78,6 +87,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 1d. IN list with EQ condition
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk = '3' order by dis limit 10;
 
 --echo
@@ -91,6 +103,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 1e. IN list with LIKE clause
 --echo ----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
 
 --echo
@@ -101,16 +116,7 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
 --echo
---echo 1f. Test EXPLAIN FORMAT=TREE
---echo ----------------------------
---echo
-
---replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE
-SELECT *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk in (1, 5) or pk like '1%' order by dis limit 10;
-
---echo
---echo 1g. Test EXPLAIN FORMAT=JSON
+--echo 1f. Test EXPLAIN FORMAT=JSON
 --echo ----------------------------
 --echo
 
@@ -159,6 +165,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2a. OPEN ENDED RANGE
 --echo ---------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 4 order by dis limit 10;
 
 --echo
@@ -172,6 +181,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2b. BOUNDED RANGE
 --echo -----------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 >= 5 and pk_keypart_1 < 10 order by dis limit 10;
 
 --echo
@@ -185,6 +197,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2c. IN list
 --echo -----------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 3, 5) order by dis limit 10;
 
 --echo
@@ -198,6 +213,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2d. IN list with EQ condition
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 = '3' order by dis limit 10;
 
 --echo
@@ -211,6 +229,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2e. IN list with LIKE clause
 --echo ----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 in (1, 5) or pk_keypart_1 like '1%' order by dis limit 10;
 
 --echo
@@ -224,6 +245,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2f. Filter on pk_keypart_2 EQ condition (negative test)
 --echo -------------------------------------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 = '115'  order by dis limit 10;
 
 --echo
@@ -237,6 +261,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2g. Filter on pk_keypart_2 through IN list
 --echo ------------------------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 in (11, 15)  order by dis limit 10;
 
 --echo
@@ -250,6 +277,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2h. Filter on pk_keypart_1 LIKE clause and pk_keypart_2 open range condition
 --echo ----------------------------------------------------------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 
 --echo
@@ -263,6 +293,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 2i. Filter on pk_keypart_1 bounded range condition and pk_keypart_2 LIKE clause
 --echo -------------------------------------------------------------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_1 > 3 and pk_keypart_1 <= 10 and  pk_keypart_2 like '%2' order by dis limit 10;
 
 --echo
@@ -279,6 +312,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
 SET @@SESSION.fb_vector_index_cond_pushdown = false;
 
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 
 --echo
@@ -289,12 +325,34 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
   MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
 
 --echo
---echo 2k. Turn PK pre-filtering ON through query hint and check results
+--echo 2k. Variation on 2j, with range tree possible 
+--echo -----------------------------------------------
+--echo
+SELECT @@SESSION.fb_vector_index_cond_pushdown;
+SET @@SESSION.fb_vector_index_cond_pushdown = false;
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 like '%2' and pk_keypart_1 > 5 order by dis limit 10;
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 like '%2' and pk_keypart_1 > 5 order by dis limit 10;
+
+--echo
+--source include/show_status.inc
+
+ 
+select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE, 
+  MIN_LIST_SIZE, MAX_LIST_SIZE from information_schema.ROCKSDB_VECTOR_INDEX;
+
+--echo
+--echo 2i. Turn PK pre-filtering ON through query hint and check results
 --echo -----------------------------------------------------------------
 --echo
 SELECT @@SESSION.fb_vector_index_cond_pushdown;
 
-select /*+ SET_VAR(fb_vector_index_cond_pushdown=ON) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select /*+ SET_VAR(fb_vector_index_cond_pushdown=ON) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 like '%2' and pk_keypart_1 > 5 order by dis limit 10;
+select /*+ SET_VAR(fb_vector_index_cond_pushdown=ON) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 like '%2' and pk_keypart_1 > 5 order by dis limit 10;
 
 --echo
 --source include/show_status.inc
@@ -305,14 +363,6 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 
 # reset variables
 SET @@SESSION.fb_vector_index_cond_pushdown = true;
-
---echo
---echo Test EXPLAIN FORMAT=TREE
---echo
-
---replace_regex /\(cost=[0-9. ]*/(/
-EXPLAIN FORMAT=TREE
-select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_keypart_2 > 20 and pk_keypart_1 like '1%' order by dis limit 10;
 
 --echo
 --echo Test EXPLAIN FORMAT=JSON
@@ -359,6 +409,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 3a. OPEN ENDED RANGE
 --echo ---------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char > 'f' order by dis limit 10;
 
 --echo
@@ -372,6 +425,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 3b. BOUNDED RANGE
 --echo -----------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char >= 'eleven' and pk_char < 'two' order by dis limit 10;
 
 --echo
@@ -385,6 +441,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 3c. IN list
 --echo -----------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'three', 'five') order by dis limit 10;
 
 --echo
@@ -398,6 +457,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 3d. IN list with EQ condition
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char = 'three' order by dis limit 10;
 
 --echo
@@ -410,6 +472,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo
 --echo 3e. IN list with LIKE clause
 --echo ----------------------------
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char in ('one', 'five') or pk_char like 'e%' order by dis limit 10;
 
 --echo
@@ -456,6 +521,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 4a. OPEN ENDED RANGE
 --echo ---------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar > 'f' order by dis limit 10;
 
 --echo
@@ -469,6 +537,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 4b. BOUNDED RANGE
 --echo -----------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar >= 'eleven' and pk_varchar < 'two' order by dis limit 10;
 
 --echo
@@ -482,6 +553,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 4c. IN list
 --echo -----------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'three', 'five') order by dis limit 10;
 
 --echo
@@ -495,6 +569,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 4d. IN list with EQ condition
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar = 'three' order by dis limit 10;
 
 --echo
@@ -508,6 +585,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 4e. IN list with LIKE clause
 --echo ----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar in ('one', 'five') or pk_varchar like 'e%' order by dis limit 10;
 
 --echo
@@ -562,6 +642,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo
 --echo 5a. OPEN ENDED RANGE
 --echo --------------------
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 
 --echo
@@ -575,6 +658,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 5b. BOUNDED RANGE
 --echo -----------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 >= 'eleven' and pk_char_keypart_1 < 'two' order by dis limit 10;
 
 --echo
@@ -588,6 +674,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 5c. IN list
 --echo -----------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five') order by dis limit 10;
 
 --echo
@@ -601,6 +690,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 5d. IN list with EQ condition
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'three', 'five', 'seven', 'nine') and pk_bigint_keypart_2 <= 7 order by dis limit 10;
 
 --echo
@@ -614,6 +706,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 5e. IN list with LIKE clause
 --echo ----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 
 --echo
@@ -632,7 +727,6 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 6a.   Ordered vector index scan (KNN_FIRST) will be chosen by default
 --echo ---------------------------------------------------------------------
 --echo
-
 
 --replace_regex /\(cost=[0-9. ]*/(/
 EXPLAIN FORMAT=TREE
@@ -656,7 +750,6 @@ set session fb_vector_search_type = AUTO;
 --echo -------------------------------------------
 --echo
 
-
 --replace_regex /\(cost=[0-9. ]*/(/
 EXPLAIN FORMAT=TREE
 select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 
@@ -665,6 +758,26 @@ select /*+ SET_VAR(fb_vector_search_type=iterator) */ *, fb_vector_l2(vector1, '
     where pk_char_keypart_1 in ('one', 'five') or pk_bigint_keypart_2 in (2, 6) or pk_bigint_keypart_2 like '1%' order by dis limit 10;
 
 --source include/show_status.inc
+
+--echo
+--echo 6d.   Variation on 6a where cond can be pushed down as ranges (entirely) 
+--echo ------------------------------------------------------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') and pk_bigint_keypart_2 in (2, 6) order by dis limit 10;
+
+--echo
+--echo 6e.   Variation on 6a where cond can be pushed down as ranges (partly): 
+--echo       The rest will appear as an additional index condition
+--echo ----------------------------------------------------------------------
+--echo
+
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 in ('one', 'five') and pk_bigint_keypart_2 in (2, 6) and pk_char_keypart_1 like '%e' order by dis limit 10;
+
 
 --echo
 --echo -------------------------------------------------------------------------
@@ -853,6 +966,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 10a. OPEN ENDED RANGE
 --echo ---------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_char_keypart_1 > 'f' order by dis limit 10;
 
 --echo
@@ -865,6 +981,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo
 --echo 10b. BOUNDED RANGE
 --echo ------------------
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 >= 'eleven' and pk_varchar_keypart_2 < 'two' order by dis limit 10;
 
 --echo
@@ -878,6 +997,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 10c. IN list
 --echo ------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five') order by dis limit 10;
 
 --echo
@@ -891,6 +1013,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 10d. IN list with EQ condition
 --echo ------------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'three', 'five', 'seven', 'nine', 'eleven') and pk_char_keypart_1 like 'd%' order by dis limit 10;
 
 --echo
@@ -904,6 +1029,9 @@ select TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, INDEX_TYPE,
 --echo 10e. IN list with LIKE clause
 --echo -----------------------------
 --echo
+--replace_regex /\(cost=[0-9. ]*/(/
+EXPLAIN FORMAT=TREE
+select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
 select *, fb_vector_l2(vector1, '[12.5, 3.5, 2.5]') as dis from t1 where pk_varchar_keypart_2 in ('one', 'five') or pk_char_keypart_1 = 'doubles' order by dis limit 10;
 
 --echo

@@ -1692,6 +1692,7 @@ bool enable_optimizer_cputime_with_wallclock = true;
 bool enable_pfs_global_select = false;
 bool enable_rocksdb_intrinsic_tmp_table = false;
 bool use_mdl_mutex = true;
+bool use_status_mdl_mutex = false;
 bool install_plugin_skip_registration = false;
 
 /**
@@ -6331,6 +6332,7 @@ static int init_thread_environment() {
 
   // Init THD static objects.
   THD::init_mutex_thd_security_ctx();
+  THD::init_mutex_thd_status_aggregation();
 
   return 0;
 }
@@ -13729,25 +13731,26 @@ class Reset_thd_status : public Do_THD_Impl {
 /**
   Reset global and session status variables.
 */
-void refresh_status() {
-  mysql_mutex_lock(&LOCK_status);
+void refresh_status(THD *thd) {
+  {
+    MDL_mutex_guard guard(THD::get_mutex_thd_status_aggregation(), thd,
+                          &LOCK_status);
 
-  /* For all threads, add status to global status and then reset. */
-  Reset_thd_status reset_thd_status;
-  Global_THD_manager::get_instance()->do_for_all_thd_copy(&reset_thd_status);
+    /* For all threads, add status to global status and then reset. */
+    Reset_thd_status reset_thd_status;
+    Global_THD_manager::get_instance()->do_for_all_thd_copy(&reset_thd_status);
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
-  /* Reset aggregated status counters. */
-  reset_pfs_status_stats();
+    /* Reset aggregated status counters. */
+    reset_pfs_status_stats();
 #endif
 
-  /* Reset some global variables. */
-  reset_status_vars();
+    /* Reset some global variables. */
+    reset_status_vars();
 
-  /* Reset the counters of all key caches (default and named). */
-  process_key_caches(reset_key_cache_counters);
-  flush_status_time = time((time_t *)nullptr);
-  mysql_mutex_unlock(&LOCK_status);
-
+    /* Reset the counters of all key caches (default and named). */
+    process_key_caches(reset_key_cache_counters);
+    flush_status_time = time((time_t *)nullptr);
+  }
   /*
     Set max_used_connections to the number of currently open
     connections.  Do this out of LOCK_status to avoid deadlocks.

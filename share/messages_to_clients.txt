@@ -10115,7 +10115,7 @@ ER_ON_DUPLICATE_DISABLED
   eng "When unique checking is disabled in MyRocks, INSERT,UPDATE,LOAD statements with clauses that update or replace the key (i.e. INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not allowed. Query: %s"
 
 ER_UPDATES_WITH_CONSISTENT_SNAPSHOT
-  eng "Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT."
+  eng "Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT [ROCKSDB] SNAPSHOT."
 
 ER_ROLLBACK_ONLY
   eng "This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction."
@@ -10178,7 +10178,7 @@ ER_DB_METADATA_READ_ERROR
   eng "Error reading db metadata option: '%-.64s'"
 
 ER_UPDATES_WITH_EXPLICIT_SNAPSHOT
-  eng "Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT"
+  eng "Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT|START TRANSACTION WITH SHARED|EXISTING [ROCKSDB] SNAPSHOT"
 
 # RPC detached session errors start here
 ER_PLACEHOLDER_50067
