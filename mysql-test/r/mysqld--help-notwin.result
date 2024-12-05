@@ -2015,7 +2015,7 @@ The following options may be given as the first argument:
  to the binlog. Default: 1 hour
  --rocksdb-binlog-ttl-compaction-ts-offset-secs=# 
  Offset in seconds which is subtracted from the compaction
- ts when it's written to the binlogDefault: 60s
+ ts when it's written to the binlog. Default: 60s
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -2355,7 +2355,7 @@ The following options may be given as the first argument:
  --rocksdb-info-log-level=name 
  Filter level for info logs to be written mysqld error
  log. Valid values include 'debug_level', 'info_level',
- 'warn_level''error_level' and 'fatal_level'.
+ 'warn_level', 'error_level' and 'fatal_level'.
  --rocksdb-invalid-create-option-action=name 
  Control behavior when creating the table hits some error.
  We can log the error only, pass the query and give users
@@ -2429,9 +2429,9 @@ The following options may be given as the first argument:
  --rocksdb-max-file-opening-threads=# 
  DBOptions::max_file_opening_threads for RocksDB
  --rocksdb-max-intrinsic-tmp-table-write-count=# 
- Intrinsic tmp table max allowed write batch size.After
+ Intrinsic tmp table max allowed write batch size. After
  this, current transaction holding write batch will commit
- and newtransaction will be started.
+ and new transaction will be started.
  --rocksdb-max-latest-deadlocks=# 
  Maximum number of recent deadlocks to store
  --rocksdb-max-log-file-size=# 
@@ -2465,7 +2465,7 @@ The following options may be given as the first argument:
  once when index creation is complete can cause trim
  stalls on Flash.  This variable specifies a duration to
  sleep (in milliseconds) between calling chsize() to
- truncate the file in chunks.  The chunk size is  the same
+ truncate the file in chunks.  The chunk size is the same
  as merge_buf_size.
  --rocksdb-mrr-batch-size=# 
  maximum number of keys to fetch during each MRR

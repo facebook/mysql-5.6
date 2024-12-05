@@ -24,7 +24,6 @@ namespace myrocks {
 
 void rdb_bulk_load_init();
 void rdb_bulk_load_deinit();
-constexpr uint RDB_BULK_LOAD_HISTORY_DEFAULT_SIZE = 10;
 void rdb_set_bulk_load_history_size(uint size);
 
 enum class Rdb_bulk_load_status { NONE, ACTIVE, COMPLETED, FAILED, ABORTED };

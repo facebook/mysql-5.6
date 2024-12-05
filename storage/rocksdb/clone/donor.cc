@@ -36,6 +36,7 @@
 // MyRocks includes
 #include "../ha_rocksdb.h"
 #include "../ha_rocksdb_proto.h"
+#include "../sysvars.h"
 #include "common.h"
 
 using namespace std::string_view_literals;
@@ -480,20 +481,21 @@ class [[nodiscard]] donor final : public myrocks::clone::session {
     assert(m_state != donor_state::INITIAL);
     assert(m_checkpoint_count > 0);
 
+    const auto checkpoint_max_age = myrocks::sysvars::clone_checkpoint_max_age;
     if (m_state == donor_state::FINAL_CHECKPOINT ||
         m_state == donor_state::FINAL_CHECKPOINT_WITH_LOGS ||
-        myrocks::rocksdb_clone_checkpoint_max_age == 0)
+        checkpoint_max_age == 0)
       return false;
 
     assert(m_state == donor_state::ROLLING_CHECKPOINT);
-    if (myrocks::rocksdb_clone_checkpoint_max_count != 0 &&
-        m_checkpoint_count >= myrocks::rocksdb_clone_checkpoint_max_count)
+    const auto checkpoint_max_count =
+        myrocks::sysvars::clone_checkpoint_max_count;
+    if (checkpoint_max_count != 0 && m_checkpoint_count >= checkpoint_max_count)
       return false;
 
     const auto checkpoint_age =
         std::chrono::steady_clock::now() - m_checkpoint_start_time;
-    const std::chrono::seconds max_age{
-        myrocks::rocksdb_clone_checkpoint_max_age};
+    const std::chrono::seconds max_age{checkpoint_max_age};
     return checkpoint_age >= max_age;
   }
 
@@ -543,7 +545,7 @@ class [[nodiscard]] donor final : public myrocks::clone::session {
     assert(m_state != donor_state::INITIAL);
 
     return myrocks::has_file_extension(fn, ".log"sv)
-               ? myrocks::rdb_concat_paths(myrocks::get_wal_dir(), fn)
+               ? myrocks::rdb_concat_paths(myrocks::sysvars::get_wal_dir(), fn)
                : m_checkpoint.path(fn);
   }
 

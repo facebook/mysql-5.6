@@ -1478,7 +1478,7 @@ class select_exec {
     m_row_count = 0;
     m_offset_limit = m_parser.get_offset_limit();
     m_select_limit = m_parser.get_select_limit() + m_offset_limit;
-    m_debug_row_delay = get_select_bypass_debug_row_delay();
+    m_debug_row_delay = sysvars::get_select_bypass_debug_row_delay();
     m_field_index_to_where.resize(m_table_share->fields,
                                   std::make_pair(-1, -1));
     m_error_msg = "UNKNOWN";
@@ -2173,7 +2173,7 @@ select_exec_result INLINE_ATTR select_exec::scan_where() {
     }
   }
 
-  if (!should_allow_filters_select_bypass() && m_filter_count > 0 &&
+  if (!sysvars::should_allow_filters_select_bypass() && m_filter_count > 0 &&
       key_part_no < m_index_info->user_defined_key_parts) {
     // Only support filter usage in well supported cases such as point query
     // or simple range query where key is fully specified with well defined
@@ -2349,7 +2349,7 @@ bool INLINE_ATTR select_exec::run_query() {
 }
 
 bool INLINE_ATTR select_exec::run_pk_point_query() {
-  if (m_key_index_tuples.size() > get_select_bypass_multiget_min()) {
+  if (m_key_index_tuples.size() > sysvars::get_select_bypass_multiget_min()) {
     size_t size = m_key_index_tuples.size();
     std::vector<rocksdb::Slice> key_slices;
     key_slices.reserve(size);
@@ -2743,18 +2743,18 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
 }  // namespace
 
 bool inline is_bypass_on(Query_block *select_lex) {
-  auto policy = get_select_bypass_policy();
+  const auto policy = sysvars::get_select_bypass_policy();
 
-  if ((policy & SELECT_BYPASS_POLICY_DEFAULT_MASK) == 0) {
+  if ((policy & sysvars::SELECT_BYPASS_POLICY_DEFAULT_MASK) == 0) {
     // Force on/off ignoring statement level hint
-    return (policy & SELECT_BYPASS_POLICY_ON_MASK);
+    return (policy & sysvars::SELECT_BYPASS_POLICY_ON_MASK);
   }
 
   if (select_lex->select_bypass_hint ==
       Query_block::SELECT_BYPASS_HINT_DEFAULT) {
     // Whether it is FORCE / DEFAULT mode, ON/OFF MASK gives the right answer
     // if no hint is given
-    return (policy & SELECT_BYPASS_POLICY_ON_MASK);
+    return (policy & sysvars::SELECT_BYPASS_POLICY_ON_MASK);
   }
 
   return (select_lex->select_bypass_hint == Query_block::SELECT_BYPASS_HINT_ON);
@@ -2768,10 +2768,10 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
   bool should_log_rejected_bypass;
   if (btype == bypass_type::SQL) {
     rocksdb_select_bypass_rejected++;
-    should_log_rejected_bypass = should_log_rejected_select_bypass();
+    should_log_rejected_bypass = sysvars::should_log_rejected_select_bypass();
   } else {
     rocksdb_bypass_rpc_rejected++;
-    should_log_rejected_bypass = should_log_rejected_bypass_rpc();
+    should_log_rejected_bypass = sysvars::should_log_rejected_bypass_rpc();
   }
 
   if (should_log_rejected_bypass) {
@@ -2781,9 +2781,11 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
     // Rate throttling formatting and logging for Bypass RPC
     if (btype == bypass_type::RPC) {
       const std::time_t now = std::time(nullptr);
-      if (rocksdb_bypass_rpc_rejected_log_ts_interval_secs > 0 &&
+      const auto rejected_log_ts_interval_secs =
+          sysvars::bypass_rpc_rejected_log_ts_interval_secs;
+      if (rejected_log_ts_interval_secs > 0 &&
           now - last_bypass_rpc_rejected_log_ts <
-              rocksdb_bypass_rpc_rejected_log_ts_interval_secs) {
+              rejected_log_ts_interval_secs) {
         return true;
       }
 
@@ -2796,7 +2798,7 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
 
     // Record the rejected query into the error log if rejected query history
     // size equals zero
-    if (get_select_bypass_rejected_query_history_size() == 0) {
+    if (sysvars::get_select_bypass_rejected_query_history_size() == 0) {
       if (btype == bypass_type::SQL) {
         // NO_LINT_DEBUG
         LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -2808,7 +2810,7 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
       const std::lock_guard<std::mutex> lock(rejected_bypass_query_lock);
 
       while (rejected_bypass_queries.size() >=
-             get_select_bypass_rejected_query_history_size()) {
+             sysvars::get_select_bypass_rejected_query_history_size()) {
         rejected_bypass_queries.pop_back();
       }
 
@@ -2831,7 +2833,8 @@ bool handle_unsupported_bypass(THD *thd, const char *error_msg,
   // During parse you can just let unsupported scenario fallback to MySQL
   // implementation - but keep in mind it may regress performance
   // Default is TRUE - let unsupported SELECT scenario just fail
-  if (btype == bypass_type::SQL && should_fail_unsupported_select_bypass()) {
+  if (btype == bypass_type::SQL &&
+      sysvars::should_fail_unsupported_select_bypass()) {
     my_printf_error(ER_NOT_SUPPORTED_YET,
                     "SELECT statement pattern not supported: %s", MYF(0),
                     error_msg);
@@ -2871,7 +2874,7 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
       // error code in all layers but that is not the case
       my_printf_error(ER_UNKNOWN_ERROR, "Unknown error", 0);
     }
-    if (should_log_failed_select_bypass()) {
+    if (sysvars::should_log_failed_select_bypass()) {
       // NO_LINT_DEBUG
       LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                       "[FAILED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
@@ -2890,7 +2893,7 @@ bypass_rpc_exception rocksdb_select_by_key(
     THD *thd, myrocks_columns *columns, const myrocks_select_from_rpc &param) {
   bypass_rpc_exception ret;
 
-  if (!is_bypass_rpc_on()) {
+  if (!sysvars::is_bypass_rpc_on()) {
     ret.errnum = ER_FEATURE_DISABLED;
     ret.sqlstate = "MYF(0)";
     ret.message = "Bypass RPC is disabled.";

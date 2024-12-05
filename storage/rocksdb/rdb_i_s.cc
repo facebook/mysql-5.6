@@ -211,7 +211,7 @@ static int rdb_i_s_dbstats_fill_table(
   }
 
   const rocksdb::BlockBasedTableOptions &table_options =
-      rdb_get_table_options();
+      rdb_get_const_table_options();
 
   for (const auto &property : db_properties) {
     if (!rdb->GetIntProperty(property.first, &val)) {

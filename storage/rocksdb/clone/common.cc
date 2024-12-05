@@ -27,6 +27,7 @@
 #include "sql/sql_class.h"
 
 #include "../ha_rocksdb.h"
+#include "../sysvars.h"
 
 namespace {
 
@@ -179,7 +180,9 @@ std::atomic<std::uint64_t> locator::m_next_id{1};
 
 std::atomic<uint> session::m_next_task_id{session::m_main_task_id + 1};
 
-std::string checkpoint_base_dir() { return std::string{rocksdb_datadir}; }
+std::string checkpoint_base_dir() {
+  return std::string{sysvars::rocksdb_datadir};
+}
 
 [[nodiscard]] bool remove_dir(const std::string &dir, bool fatal_error) {
   LogPluginErrMsg(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "Removing %s",
@@ -231,31 +234,31 @@ void fixup_on_startup() {
   }
 
   const auto current_datadir_in_progress_marker_path =
-      rdb_concat_paths(rocksdb_datadir, in_progress_marker_file);
+      rdb_concat_paths(sysvars::rocksdb_datadir, in_progress_marker_file);
   if (path_exists(current_datadir_in_progress_marker_path))
     rdb_fatal_error("In-progress clone marker found in the MyRocks datadir");
 
   // Enable sst file checksum verification if
   // CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE flag is enabled and this restart is
   // after a clone.
-  if (myrocks::rocksdb_file_checksums ==
-          myrocks::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE &&
+  if (sysvars::file_checksums ==
+          sysvars::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY_ON_CLONE &&
       temp_dir_exists_abort_if_not_dir(in_place_temp_datadir)) {
-    myrocks::rocksdb_file_checksums =
-        myrocks::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY;
+    sysvars::file_checksums =
+        sysvars::file_checksums_type::CHECKSUMS_WRITE_AND_VERIFY;
   }
 
   move_temp_dir_to_destination(in_place_temp_datadir, in_place_old_datadir,
-                               rocksdb_datadir);
+                               sysvars::rocksdb_datadir);
 
-  if (is_wal_dir_separate()) {
-    move_temp_dir_contents_to_dest(in_place_temp_wal_dir, rocksdb_wal_dir);
+  if (sysvars::is_wal_dir_separate()) {
+    move_temp_dir_contents_to_dest(in_place_temp_wal_dir, sysvars::wal_dir);
   } else if (path_exists(in_place_temp_wal_dir)) {
     for_each_in_dir(in_place_temp_wal_dir, MY_FAE, [](const fileinfo &f_info) {
       const auto fn = std::string_view{f_info.name};
 
       const auto old_log_path = rdb_concat_paths(in_place_temp_wal_dir, fn);
-      const auto new_log_path = rdb_concat_paths(rocksdb_datadir, fn);
+      const auto new_log_path = rdb_concat_paths(sysvars::rocksdb_datadir, fn);
       myrocks::rdb_path_rename_or_abort(old_log_path, new_log_path);
       return true;
     });
@@ -304,7 +307,7 @@ void fixup_on_startup() {
   const auto is_sst = has_file_extension(file_name, ".sst"sv);
   if (!is_sst) return false;
 
-  const auto &rdb_opts = *myrocks::get_rocksdb_db_options();
+  const auto &rdb_opts = myrocks::get_rocksdb_db_options();
   switch (mode) {
     case mode_for_direct_io::DONOR:
       return rdb_opts.use_direct_reads;

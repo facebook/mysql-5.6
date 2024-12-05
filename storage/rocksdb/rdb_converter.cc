@@ -27,11 +27,13 @@
 #include "sql/field.h"
 
 /* MyRocks header files */
-#include "./ha_rocksdb.h"
-#include "./ha_rocksdb_proto.h"
-#include "./rdb_datadic.h"
-#include "./rdb_utils.h"
-#include "./sql_dd.h"
+#include "ha_rocksdb.h"
+#include "rdb_datadic.h"
+#include "rdb_utils.h"
+#include "sql_dd.h"
+#ifndef NDEBUG
+#include "sysvars.h"
+#endif
 
 namespace myrocks {
 
@@ -874,7 +876,7 @@ int Rdb_converter::encode_value_slice(
       }
 
 #ifndef NDEBUG
-      ts += rdb_dbug_set_ttl_rec_ts();
+      ts += sysvars::debug_set_ttl_rec_ts();
 #endif
       rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
       if (is_update_row) {
@@ -896,7 +898,7 @@ int Rdb_converter::encode_value_slice(
       } else {
         uint64 ts = static_cast<uint64>(std::time(nullptr));
 #ifndef NDEBUG
-        ts += rdb_dbug_set_ttl_rec_ts();
+        ts += sysvars::debug_set_ttl_rec_ts();
 #endif
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
         // Also store in m_ttl_bytes to propagate to update_write_sk

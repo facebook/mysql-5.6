@@ -142,9 +142,10 @@ class Rdb_converter {
     Releases any excessive memory in m_storage_record
   */
   void reset_buffer() {
-    if (rocksdb_converter_record_cached_length > 0 &&
-        m_storage_record.alloced_length() >
-            rocksdb_converter_record_cached_length) {
+    const auto converter_record_cached_length =
+        sysvars::converter_record_cached_length;
+    if (converter_record_cached_length > 0 &&
+        m_storage_record.alloced_length() > converter_record_cached_length) {
       m_storage_record.mem_free();
     }
   }

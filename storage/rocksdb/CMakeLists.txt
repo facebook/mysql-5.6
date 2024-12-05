@@ -183,6 +183,7 @@ SET(ROCKSDB_SE_SOURCES
   rdb_vector_db.cc rdb_vector_db.h
   rdb_bulk_load.cc rdb_bulk_load.h
   clone/common.h clone/common.cc clone/donor.h clone/donor.cc clone/client.cc
+  sysvars.h sysvars.cc
 )
 
 IF(WITH_FB_TSAN OR ROCKSDB_DYNAMIC_PLUGIN)

@@ -53,10 +53,11 @@
 #include "sql/sql_table.h"
 
 /* MyRocks header files */
-#include "./ha_rocksdb.h"
-#include "./ha_rocksdb_proto.h"
-#include "./rdb_cf_manager.h"
-#include "./rdb_utils.h"
+#include "ha_rocksdb.h"
+#include "ha_rocksdb_proto.h"
+#include "rdb_cf_manager.h"
+#include "rdb_utils.h"
+#include "sysvars.h"
 
 extern CHARSET_INFO my_charset_utf16_bin;
 extern CHARSET_INFO my_charset_utf16le_bin;
@@ -4541,8 +4542,8 @@ bool Rdb_validate_tbls::validate(void) {
 
   for (const dd::Schema *schema : schema_vector) {
     std::vector<dd::String_type> tables;
-    if (thd->dd_client()->fetch_schema_table_names_by_engine(
-            schema, rocksdb_hton_name, &tables))
+    if (thd->dd_client()->fetch_schema_table_names_by_engine(schema, hton_name,
+                                                             &tables))
       return false;
 
     if (tables.size() == 0) continue;
@@ -6441,7 +6442,7 @@ bool Rdb_dict_manager_selector::init(
   if (ret) {
     return ret;
   }
-  if (rocksdb_enable_tmp_table) {
+  if (sysvars::enable_tmp_table) {
     return m_tmp_dict_manager.init(
         rdb_dict, cf_manager, enable_remove_orphaned_cf_flags,
         DEFAULT_TMP_SYSTEM_CF_NAME, DEFAULT_TMP_CF_NAME);
@@ -6452,14 +6453,14 @@ bool Rdb_dict_manager_selector::init(
 
 void Rdb_dict_manager_selector::cleanup() {
   m_user_table_dict_manager.cleanup();
-  if (rocksdb_enable_tmp_table) m_tmp_dict_manager.cleanup();
+  if (sysvars::enable_tmp_table) m_tmp_dict_manager.cleanup();
 }
 
 std::vector<Rdb_dict_manager *>
 Rdb_dict_manager_selector::get_all_dict_manager_selector() {
   std::vector<Rdb_dict_manager *> output;
   output.push_back(&m_user_table_dict_manager);
-  if (rocksdb_enable_tmp_table) {
+  if (sysvars::enable_tmp_table) {
     output.push_back(&m_tmp_dict_manager);
   }
   return output;

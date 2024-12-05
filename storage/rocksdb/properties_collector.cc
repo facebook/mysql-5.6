@@ -27,6 +27,7 @@
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
+#include "sysvars.h"
 
 namespace myrocks {
 
@@ -36,7 +37,6 @@ std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_merge(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_other(0);
 std::atomic<uint64_t> rocksdb_additional_compaction_triggers(0);
-bool rocksdb_compaction_sequential_deletes_count_sd = true;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(const Rdb_ddl_manager &ddl_manager,
                                      const Rdb_compact_params &params,
@@ -88,7 +88,7 @@ void Rdb_tbl_prop_coll::AdjustDeletedRows(rocksdb::EntryType type) {
     // --update the counter for the element which will be overridden
     const bool is_delete = (type == rocksdb::kEntryDelete ||
                             (type == rocksdb::kEntrySingleDelete &&
-                             rocksdb_compaction_sequential_deletes_count_sd) ||
+                             sysvars::compaction_sequential_deletes_count_sd) ||
                             type == rocksdb::kEntryDeleteWithTimestamp);
 
     // Only make changes if the value at the current position needs to change
@@ -265,7 +265,7 @@ bool Rdb_tbl_prop_coll::FilledWithDeletions() const {
                            m_total_singledeletes + m_total_merges +
                            m_total_others;
   uint64_t total_deletes = m_total_deletes;
-  if (rocksdb_compaction_sequential_deletes_count_sd) {
+  if (sysvars::compaction_sequential_deletes_count_sd) {
     total_deletes += m_total_singledeletes;
   }
 
