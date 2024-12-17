@@ -594,7 +594,7 @@ uint Rdb_key_def::setup(const TABLE &tbl, const Rdb_tbl_def &tbl_def,
     m_stats.m_distinct_keys_per_prefix.resize(get_key_parts());
 
     /* Cache prefix extractor for bloom filter usage later */
-    const auto opt = rdb_get_rocksdb_db()->GetOptions(&get_cf());
+    const auto opt = rdb_get_rocksdb_db().GetOptions(&get_cf());
     m_prefix_extractor = opt.prefix_extractor;
 
     /*
@@ -5555,17 +5555,16 @@ bool Rdb_binlog_manager::unpack_value(const std::string &value_str,
   return false;
 }
 
-bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
-                            Rdb_cf_manager *const cf_manager,
-                            const bool enable_remove_orphaned_dropped_cfs,
+bool Rdb_dict_manager::init(rocksdb::TransactionDB &rdb_dict,
+                            Rdb_cf_manager *cf_manager,
+                            bool enable_remove_orphaned_dropped_cfs,
                             const std::string &system_cf_name,
                             const std::string &default_cf_name) {
-  assert(rdb_dict != nullptr);
   assert(cf_manager != nullptr);
 
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
 
-  m_db = rdb_dict;
+  m_db = &rdb_dict;
 
   // It is safe to get raw pointers here since:
   // 1. System CF and default CF cannot be dropped
@@ -6494,9 +6493,9 @@ Rdb_dict_manager_selector::get_dict_manager_selector_const(
   return &m_user_table_dict_manager;
 }
 
-bool Rdb_dict_manager_selector::init(
-    rocksdb::TransactionDB *const rdb_dict, Rdb_cf_manager *const cf_manager,
-    const bool enable_remove_orphaned_cf_flags) {
+bool Rdb_dict_manager_selector::init(rocksdb::TransactionDB &rdb_dict,
+                                     Rdb_cf_manager *cf_manager,
+                                     bool enable_remove_orphaned_cf_flags) {
   m_cf_manager = cf_manager;
   bool ret = m_user_table_dict_manager.init(
       rdb_dict, cf_manager, enable_remove_orphaned_cf_flags,

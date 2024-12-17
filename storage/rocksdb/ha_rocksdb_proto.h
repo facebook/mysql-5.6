@@ -72,11 +72,36 @@ void rdb_queue_save_stats_request();
 
 extern const std::string TRUNCATE_TABLE_PREFIX;
 
-/*
-  Access to singleton objects.
-*/
+// Do not use declarations in this namespace outside of ha_rocksdb.cc
+namespace detail {
 
-rocksdb::TransactionDB *rdb_get_rocksdb_db();
+extern rocksdb::TransactionDB *rdb;
+
+}  //  namespace detail
+
+// Safe to call between successful call to rocksdb_init_internal and
+// rocksdb_shutdown
+[[nodiscard]] inline rocksdb::TransactionDB &rdb_get_rocksdb_db() {
+  return *detail::rdb;
+}
+
+namespace detail {
+struct rdb_snapshot_deleter {
+  void operator()(const rocksdb::Snapshot *snapshot) {
+    rdb_get_rocksdb_db().ReleaseSnapshot(snapshot);
+  }
+};
+
+}  //  namespace detail
+
+// Similar to rocksdb::ManagedSnapshot but taking less space and supporting move
+// semantics too
+using rdb_snapshot_unique_ptr =
+    std::unique_ptr<const rocksdb::Snapshot, detail::rdb_snapshot_deleter>;
+
+[[nodiscard]] inline rdb_snapshot_unique_ptr get_rdb_snapshot() {
+  return rdb_snapshot_unique_ptr{rdb_get_rocksdb_db().GetSnapshot()};
+}
 
 class Rdb_cf_manager;
 Rdb_cf_manager &rdb_get_cf_manager();

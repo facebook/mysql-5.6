@@ -1705,11 +1705,11 @@ class Rdb_dict_manager : public Ensure_initialized {
   Rdb_dict_manager &operator=(const Rdb_dict_manager &) = delete;
   Rdb_dict_manager() = default;
 
-  bool init(rocksdb::TransactionDB *const rdb_dict,
-            Rdb_cf_manager *const cf_manager,
-            const bool enable_remove_orphaned_cf_flags,
-            const std::string &system_cf_name,
-            const std::string &default_cf_name);
+  [[nodiscard]] bool init(rocksdb::TransactionDB &rdb_dict,
+                          Rdb_cf_manager *cf_manager,
+                          bool enable_remove_orphaned_cf_flags,
+                          const std::string &system_cf_name,
+                          const std::string &default_cf_name);
 
   inline void cleanup() {
     if (!initialized) return;
@@ -2001,9 +2001,9 @@ class Rdb_dict_manager_selector {
   const Rdb_dict_manager *get_dict_manager_selector_const(
       bool fetch_tmp_dict_manager) const;
 
-  bool init(rocksdb::TransactionDB *const rdb_dict,
-            Rdb_cf_manager *const cf_manager,
-            const bool enable_remove_orphaned_cf_flags);
+  [[nodiscard]] bool init(rocksdb::TransactionDB &rdb_dict,
+                          Rdb_cf_manager *cf_manager,
+                          bool enable_remove_orphaned_cf_flags);
 
   void cleanup();
 };

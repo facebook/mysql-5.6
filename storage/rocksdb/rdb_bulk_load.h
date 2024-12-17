@@ -149,7 +149,7 @@ class Rdb_bulk_load_session {
       rocksdb::ColumnFamilyHandle *cf =
           rdb_get_cf_manager().get_cf(convert_temp_cf_to_cf_name(pair.first));
       auto *const sst_partitioner_factory =
-          rdb_get_rocksdb_db()->GetOptions(cf).sst_partitioner_factory.get();
+          rdb_get_rocksdb_db().GetOptions(cf).sst_partitioner_factory.get();
       auto *const rdb_sst_partitioner_factory =
           dynamic_cast<Rdb_sst_partitioner_factory *>(sst_partitioner_factory);
       for (auto &index : pair.second) {
@@ -262,10 +262,12 @@ class Rdb_bulk_load_context {
     return it->second.get();
   }
 
-  Rdb_sst_info *add_sst_info(rocksdb::DB *rdb, const std::string &tablename,
-                             const Rdb_key_def &kd,
-                             rocksdb::DBOptions &db_option, bool trace_sst_api,
-                             bool compression_parallel_threads);
+  [[nodiscard]] Rdb_sst_info *add_sst_info(rocksdb::DB &rdb,
+                                           const std::string &tablename,
+                                           const Rdb_key_def &kd,
+                                           rocksdb::DBOptions &db_option,
+                                           bool trace_sst_api,
+                                           bool compression_parallel_threads);
 
   Rdb_index_merge *find_key_merge(GL_INDEX_ID index_id) {
     const auto it = m_key_merge.find(index_id);

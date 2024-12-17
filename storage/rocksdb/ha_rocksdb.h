@@ -49,6 +49,7 @@
 #include "./rdb_perf_context.h"
 #include "./rdb_sst_info.h"
 #include "./rdb_utils.h"
+#include "ha_rocksdb_proto.h"
 
 #ifndef __APPLE__
 #include "./rdb_io_watchdog.h"
@@ -1218,7 +1219,7 @@ void rdb_tx_acquire_snapshot(Rdb_transaction &tx);
     THD *thd, rocksdb::ColumnFamilyHandle &cf, bool skip_bloom_filter,
     const rocksdb::Slice &eq_cond_lower_bound,
     const rocksdb::Slice &eq_cond_upper_bound,
-    const rocksdb::Snapshot **snapshot, TABLE_TYPE table_type,
+    rdb_snapshot_unique_ptr *snapshot, TABLE_TYPE table_type,
     bool read_current = false, bool create_snapshot = true);
 
 [[nodiscard]] rocksdb::Status rdb_tx_get(

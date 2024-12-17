@@ -161,7 +161,7 @@ class Rdb_iterator_base : public Rdb_iterator {
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
-  const rocksdb::Snapshot *m_scan_it_snapshot;
+  rdb_snapshot_unique_ptr m_scan_it_snapshot;
 
   /* Buffers used for upper/lower bounds for m_scan_it. */
   uchar *m_scan_it_lower_bound;

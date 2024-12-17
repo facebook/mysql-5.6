@@ -264,7 +264,7 @@ class Rdb_bulk_load_index_registry {
    * not already registered.
    * returns true when success.
    */
-  [[nodiscard]] bool add_index(rocksdb::TransactionDB *rdb,
+  [[nodiscard]] bool add_index(rocksdb::TransactionDB &rdb,
                                rocksdb::ColumnFamilyHandle &cf,
                                Index_id index_id) {
     if (m_partitioner_factories.count(index_id) != 0) {
@@ -273,7 +273,7 @@ class Rdb_bulk_load_index_registry {
     }
 
     auto *const sst_partitioner_factory =
-        rdb->GetOptions(&cf).sst_partitioner_factory.get();
+        rdb.GetOptions(&cf).sst_partitioner_factory.get();
     auto *const rdb_sst_partitioner_factory =
         dynamic_cast<Rdb_sst_partitioner_factory *>(sst_partitioner_factory);
     if (rdb_sst_partitioner_factory == nullptr) {
@@ -328,9 +328,9 @@ class Rdb_bulk_load_index_registry {
    * trigger compaction that covers all indexes registered in
    * this object
    */
-  rocksdb::Status compact_index_ranges(
-      rocksdb::TransactionDB *rdb,
-      const rocksdb::CompactRangeOptions compact_range_options) {
+  [[nodiscard]] rocksdb::Status compact_index_ranges(
+      rocksdb::TransactionDB &rdb,
+      const rocksdb::CompactRangeOptions &compact_range_options) {
     rocksdb::Status status;
     for (auto &entry : m_cf_indexes) {
       auto cf = entry.first;
@@ -358,8 +358,8 @@ class Rdb_bulk_load_index_registry {
                       compact_begin_key.ToString(/*hex*/ true).c_str(),
                       compact_end_key.ToString(/*hex*/ true).c_str());
 
-      status = rdb->CompactRange(compact_range_options, cf, &compact_begin_key,
-                                 &compact_end_key);
+      status = rdb.CompactRange(compact_range_options, cf, &compact_begin_key,
+                                &compact_end_key);
       if (!status.ok()) {
         break;
       }

@@ -118,11 +118,7 @@ static int rdb_i_s_cfstats_fill_table(
       {rocksdb::DB::Properties::kEstimatePendingCompactionBytes,
        "ESTIMATE_PENDING_COMPACTION_BYTES"}};
 
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
+  auto &rdb = rdb_get_rocksdb_db();
 
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
@@ -136,7 +132,7 @@ static int rdb_i_s_cfstats_fill_table(
     // It is safe if the CF is removed from cf_manager at
     // this point. The CF handle object is valid and sufficient here.
     for (const auto &property : cf_properties) {
-      if (!rdb->GetIntProperty(cfh, property.first, &val)) {
+      if (!rdb.GetIntProperty(cfh, property.first, &val)) {
         continue;
       }
 
@@ -203,17 +199,13 @@ static int rdb_i_s_dbstats_fill_table(
       {rocksdb::DB::Properties::kOldestSnapshotTime,
        "DB_OLDEST_SNAPSHOT_TIME"}};
 
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
+  auto &rdb = rdb_get_rocksdb_db();
 
   const rocksdb::BlockBasedTableOptions &table_options =
       rdb_get_table_options();
 
   for (const auto &property : db_properties) {
-    if (!rdb->GetIntProperty(property.first, &val)) {
+    if (!rdb.GetIntProperty(property.first, &val)) {
       continue;
     }
 
@@ -294,12 +286,6 @@ static int rdb_i_s_perf_context_fill_table(
   int ret = 0;
   Field **field = tables->table->field;
   assert(field != nullptr);
-
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
 
   const std::vector<std::string> tablenames = rdb_get_open_table_names();
 
@@ -391,12 +377,6 @@ static int rdb_i_s_perf_context_global_fill_table(
 
   int ret = 0;
 
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
   // Get a copy of the global perf counters.
   Rdb_perf_counters global_counters;
   rdb_get_global_perf_counters(&global_counters);
@@ -456,12 +436,6 @@ static int rdb_i_s_cfoptions_fill_table(
   assert(tables != nullptr);
 
   int ret = 0;
-
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
 
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
@@ -747,12 +721,6 @@ static int rdb_i_s_global_info_fill_table(
 
   int ret = 0;
 
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
   /* binlog info */
   Rdb_binlog_manager *const blm = rdb_get_binlog_manager();
   assert(blm != nullptr);
@@ -870,11 +838,7 @@ static int rdb_i_s_compact_stats_fill_table(
   DBUG_ENTER_FUNC();
 
   int ret = 0;
-  rocksdb::DB *rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
+  auto &rdb = rdb_get_rocksdb_db();
 
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
@@ -889,7 +853,7 @@ static int rdb_i_s_compact_stats_fill_table(
     // this point. The CF handle object is valid and sufficient here.
     std::map<std::string, std::string> props;
     bool bool_ret MY_ATTRIBUTE((__unused__));
-    bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
+    bool_ret = rdb.GetMapProperty(cfh, "rocksdb.cfstats", &props);
 
     assert(bool_ret);
 
@@ -1221,14 +1185,10 @@ static int rdb_i_s_live_files_metadata_fill_table(
   DBUG_ENTER_FUNC();
 
   int ret = 0;
-  rocksdb::DB *rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
+  auto &rdb = rdb_get_rocksdb_db();
 
   std::vector<rocksdb::LiveFileMetaData> metadata;
-  rdb->GetLiveFilesMetaData(&metadata);
+  rdb.GetLiveFilesMetaData(&metadata);
 
   for (const auto &file : metadata) {
     Field **field = tables->table->field;
@@ -1296,10 +1256,6 @@ static int rdb_i_s_live_files_metadata_fill_table(
     if (ret != 0) {
       DBUG_RETURN(ret);
     }
-  }
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
   }
 
   DBUG_RETURN(ret);
@@ -1522,14 +1478,8 @@ static int rdb_i_s_ddl_fill_table(
   assert(tables->table != nullptr);
 
   int ret = 0;
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
 
   Rdb_ddl_scanner ddl_arg;
-
   ddl_arg.m_thd = thd;
   ddl_arg.m_table = tables->table;
 
@@ -1776,11 +1726,6 @@ static int rdb_i_s_vector_index_config_fill_table(
   assert(tables->table != nullptr);
 
   int ret = HA_EXIT_SUCCESS;
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
 
   Rdb_vector_index_scanner ddl_arg(thd, tables->table);
   Rdb_ddl_manager *ddl_manager = rdb_get_ddl_manager();
@@ -1890,19 +1835,14 @@ static int rdb_i_s_sst_props_fill_table(
   assert(field != nullptr);
 
   /* Iterate over all the column families */
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
+  auto &rdb = rdb_get_rocksdb_db();
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
     const rocksdb::Status s =
-        rdb->GetPropertiesOfAllTables(cf_handle, &table_props_collection);
+        rdb.GetPropertiesOfAllTables(cf_handle, &table_props_collection);
 
     if (!s.ok()) {
       continue;
@@ -2055,13 +1995,8 @@ static int rdb_i_s_index_file_map_fill_table(
   assert(field != nullptr);
 
   /* Iterate over all the column families */
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
-  const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
+  auto &rdb = rdb_get_rocksdb_db();
+  const auto &cf_manager = rdb_get_cf_manager();
 
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
@@ -2070,7 +2005,7 @@ static int rdb_i_s_index_file_map_fill_table(
     // It is safe if the CF is removed from cf_manager at
     // this point. The CF handle object is valid and sufficient here.
     const rocksdb::Status s =
-        rdb->GetPropertiesOfAllTables(cf_handle, &table_props_collection);
+        rdb.GetPropertiesOfAllTables(cf_handle, &table_props_collection);
 
     if (!s.ok()) {
       continue;
@@ -2193,15 +2128,11 @@ static int rdb_i_s_lock_info_fill_table(
 
   int ret = 0;
 
-  rocksdb::TransactionDB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
+  auto &rdb = rdb_get_rocksdb_db();
 
   /* cf id -> rocksdb::KeyLockInfo */
   std::unordered_multimap<uint32_t, rocksdb::KeyLockInfo> lock_info =
-      rdb->GetLockStatusData();
+      rdb.GetLockStatusData();
 
   for (const auto &lock : lock_info) {
     const uint32_t cf_id = lock.first;
@@ -2306,12 +2237,6 @@ static int rdb_i_s_trx_info_fill_table(
   assert(tables->table->field != nullptr);
 
   int ret = 0;
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
   const std::vector<Rdb_trx_info> &all_trx_info = rdb_get_all_trx_info();
 
   for (const auto &info : all_trx_info) {
@@ -2425,13 +2350,7 @@ static int rdb_i_s_deadlock_info_fill_table(
   static const std::string str_shared("SHARED");
 
   int ret = 0;
-  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-
-  if (!rdb) {
-    DBUG_RETURN(ret);
-  }
-
-  const std::vector<Rdb_deadlock_info> &all_dl_info = rdb_get_deadlock_info();
+  const auto &all_dl_info = rdb_get_deadlock_info();
 
   ulonglong id = 0;
   for (const auto &info : all_dl_info) {
