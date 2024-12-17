@@ -180,10 +180,12 @@ class Rdb_bulk_load_context {
     return it->second.get();
   }
 
-  Rdb_sst_info *add_sst_info(rocksdb::DB *rdb, const std::string &tablename,
-                             const Rdb_key_def &kd,
-                             rocksdb::DBOptions &db_option, bool trace_sst_api,
-                             bool compression_parallel_threads);
+  [[nodiscard]] Rdb_sst_info *add_sst_info(rocksdb::DB &rdb,
+                                           const std::string &tablename,
+                                           const Rdb_key_def &kd,
+                                           rocksdb::DBOptions &db_option,
+                                           bool trace_sst_api,
+                                           bool compression_parallel_threads);
 
   Rdb_index_merge *find_key_merge(GL_INDEX_ID index_id) {
     const auto it = m_key_merge.find(index_id);

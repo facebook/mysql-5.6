@@ -45,7 +45,7 @@ bool Rdb_cf_manager::is_cf_name_reverse(std::string_view name) {
   return name.compare(0, 4, "rev:") == 0;
 }
 
-bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
+bool Rdb_cf_manager::init(rocksdb::DB &rdb,
                           std::unique_ptr<Rdb_cf_options> &&cf_options,
                           std::vector<rocksdb::ColumnFamilyHandle *> *handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
@@ -74,7 +74,7 @@ bool Rdb_cf_manager::init(rocksdb::DB *const rdb,
           "RocksDB: Dropping column family %s with id %u on RocksDB for temp "
           "table",
           cf_name.c_str(), cf_id);
-      auto status = rdb->DropColumnFamily(cfh_ptr);
+      const auto status = rdb.DropColumnFamily(cfh_ptr);
       if (status.ok()) {
         delete (cfh_ptr);
         continue;
@@ -149,8 +149,7 @@ void Rdb_cf_manager::cleanup() {
     See Rdb_cf_manager::get_cf
 */
 std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
-    rocksdb::DB *const rdb, const std::string &cf_name) {
-  assert(rdb != nullptr);
+    rocksdb::DB &rdb, const std::string &cf_name) {
   assert(!cf_name.empty());
   std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
@@ -187,8 +186,7 @@ std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
                     opts.target_file_size_base);
 
     rocksdb::ColumnFamilyHandle *cf_handle_ptr = nullptr;
-    const rocksdb::Status s =
-        rdb->CreateColumnFamily(opts, cf_name, &cf_handle_ptr);
+    const auto s = rdb.CreateColumnFamily(opts, cf_name, &cf_handle_ptr);
 
     if (s.ok()) {
       assert(cf_handle_ptr != nullptr);
@@ -280,8 +278,8 @@ Rdb_cf_manager::get_all_cf(void) const {
 }
 
 int Rdb_cf_manager::remove_dropped_cf(Rdb_dict_manager *const dict_manager,
-                                      rocksdb::TransactionDB *const rdb,
-                                      const uint32 &cf_id) {
+                                      rocksdb::TransactionDB &rdb,
+                                      uint32 cf_id) {
   dict_manager->assert_lock_held();
   RDB_MUTEX_LOCK_CHECK(m_mutex);
   auto batch = Rdb_dict_manager::begin();
@@ -314,7 +312,7 @@ int Rdb_cf_manager::remove_dropped_cf(Rdb_dict_manager *const dict_manager,
     return HA_EXIT_FAILURE;
   }
 
-  auto status = rdb->DropColumnFamily(cf_handle);
+  const auto status = rdb.DropColumnFamily(cf_handle);
 
   if (!status.ok()) {
     dict_manager->delete_dropped_cf(batch, cf_id);

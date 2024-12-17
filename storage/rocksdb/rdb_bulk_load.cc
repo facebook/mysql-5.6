@@ -276,7 +276,7 @@ uint Rdb_bulk_load_context::notify_ddl(std::string_view db_name,
 }
 
 Rdb_sst_info *Rdb_bulk_load_context::add_sst_info(
-    rocksdb::DB *rdb, const std::string &tablename, const Rdb_key_def &kd,
+    rocksdb::DB &rdb, const std::string &tablename, const Rdb_key_def &kd,
     rocksdb::DBOptions &db_option, bool trace_sst_api,
     bool compression_parallel_threads) {
   auto sst_info_ptr = std::make_unique<Rdb_sst_info>(

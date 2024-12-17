@@ -614,8 +614,8 @@ donor::donor(const myrocks::clone::locator &l, const uchar *&loc,
 
 donor::~donor() {
   if (m_rdb_file_deletes_disabled) {
-    auto *const rdb = myrocks::rdb_get_rocksdb_db();
-    const auto result = rdb->EnableFileDeletions();
+    auto &rdb = myrocks::rdb_get_rocksdb_db();
+    const auto result = rdb.EnableFileDeletions();
     if (!result.ok()) {
       myrocks::rdb_log_status_error(result,
                                     "RocksDB file deletion re-enable failed");
@@ -700,9 +700,9 @@ int donor::next_checkpoint_locked(bool final, std::size_t &total_new_size) {
   auto err = m_checkpoint.cleanup();
   if (err != 0) return save_and_return_error(err, "RocksDB checkpoint error");
 
-  auto *const rdb = final ? myrocks::rdb_get_rocksdb_db() : nullptr;
-  if (rdb != nullptr) {
-    const auto dfd_result = rdb->DisableFileDeletions();
+  if (final) {
+    const auto dfd_result =
+        myrocks::rdb_get_rocksdb_db().DisableFileDeletions();
     m_rdb_file_deletes_disabled = dfd_result.ok();
     if (!m_rdb_file_deletes_disabled) {
       myrocks::rdb_log_status_error(dfd_result,
@@ -714,7 +714,7 @@ int donor::next_checkpoint_locked(bool final, std::size_t &total_new_size) {
 
   err = m_checkpoint.init();
   if (err != 0) {
-    if (rdb) rdb->EnableFileDeletions();
+    if (final) myrocks::rdb_get_rocksdb_db().EnableFileDeletions();
     return save_and_return_error(err, "RocksDB checkpoint error");
   }
 
@@ -726,7 +726,7 @@ int donor::next_checkpoint_locked(bool final, std::size_t &total_new_size) {
   if (err != 0) {
     // Ignore the return value because we are already returning an error
     (void)m_checkpoint.cleanup();
-    if (rdb) rdb->EnableFileDeletions();
+    if (final) myrocks::rdb_get_rocksdb_db().EnableFileDeletions();
     return err;
   }
 

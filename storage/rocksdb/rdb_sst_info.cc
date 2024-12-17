@@ -43,7 +43,7 @@ namespace myrocks {
 // don't assign timestamp to bulk-loaded key. GetRootComparator() can return us
 // a non-timestamp aware one when UDT-IN-MEM is enabled or disabled.
 Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
-    rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
+    rocksdb::DB &db, rocksdb::ColumnFamilyHandle &cf,
     const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
     uint32_t compression_parallel_threads)
     : m_db(db),
@@ -53,9 +53,7 @@ Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
       m_name(name),
       m_tracing(tracing),
       m_comparator(cf.GetComparator()->GetRootComparator()),
-      m_compression_parallel_threads(compression_parallel_threads) {
-  assert(db != nullptr);
-}
+      m_compression_parallel_threads(compression_parallel_threads) {}
 
 rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
   assert(m_sst_file_writer == nullptr);
@@ -189,7 +187,7 @@ Rdb_sst_file_ordered::Rdb_sst_stack::top() {
 }
 
 Rdb_sst_file_ordered::Rdb_sst_file_ordered(
-    rocksdb::DB *db, rocksdb::ColumnFamilyHandle &cf,
+    rocksdb::DB &db, rocksdb::ColumnFamilyHandle &cf,
     const rocksdb::DBOptions &db_options, const std::string &name, bool tracing,
     size_t max_size, uint32_t compression_parallel_threads)
     : m_use_stack(false),
@@ -297,7 +295,7 @@ rocksdb::Status Rdb_sst_file_ordered::commit() {
   return m_file.commit();
 }
 
-Rdb_sst_info::Rdb_sst_info(rocksdb::DB *db, const std::string &tablename,
+Rdb_sst_info::Rdb_sst_info(rocksdb::DB &db, const std::string &tablename,
                            const std::string &indexname,
                            rocksdb::ColumnFamilyHandle &cf,
                            const rocksdb::DBOptions &db_options, bool tracing,
@@ -313,7 +311,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *db, const std::string &tablename,
       m_tracing(tracing),
       m_print_client_error(true),
       m_compression_parallel_threads(compression_parallel_threads) {
-  m_prefix = db->GetName() + '/';
+  m_prefix = db.GetName() + '/';
 
   std::string normalized_table;
   if (rdb_normalize_tablename(tablename.c_str(), &normalized_table)) {
@@ -521,9 +519,9 @@ void Rdb_sst_info::report_error_msg(const rocksdb::Status &s,
   }
 }
 
-void Rdb_sst_info::init(const rocksdb::DB *const db) {
-  const std::string dir = db->GetName();
-  const auto &fs = db->GetEnv()->GetFileSystem();
+void Rdb_sst_info::init(const rocksdb::DB &db) {
+  const auto &dir = db.GetName();
+  const auto &fs = db.GetEnv()->GetFileSystem();
   std::vector<std::string> files_in_dir;
 
   // Get the files in the specified directory

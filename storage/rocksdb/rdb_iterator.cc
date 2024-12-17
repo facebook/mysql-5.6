@@ -143,12 +143,7 @@ int Rdb_iterator_base::read_after_key(const rocksdb::Slice &key_slice) {
 
 void Rdb_iterator_base::release_scan_iterator() {
   m_scan_it.reset();
-
-  if (m_scan_it_snapshot) {
-    auto rdb = rdb_get_rocksdb_db();
-    rdb->ReleaseSnapshot(m_scan_it_snapshot);
-    m_scan_it_snapshot = nullptr;
-  }
+  m_scan_it_snapshot.reset();
 }
 
 void Rdb_iterator_base::setup_scan_iterator(
@@ -864,7 +859,7 @@ int Rdb_iterator_partial::materialize_prefix() {
     }
   }
 
-  s = rdb_get_rocksdb_db()->GetBaseDB()->Write(options, wb.get());
+  s = rdb_get_rocksdb_db().GetBaseDB()->Write(options, wb.get());
   if (!s.ok()) {
     rc = rdb_tx_set_status_error(*tx, s, m_kd, m_tbl_def);
     goto exit;
