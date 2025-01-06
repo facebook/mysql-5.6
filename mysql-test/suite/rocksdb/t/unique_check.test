@@ -206,7 +206,6 @@ set debug_sync='now SIGNAL trx_a_cont';
 
 
 connection default;
---error ER_LOCK_DEADLOCK
 reap;
 
 disconnect con1;

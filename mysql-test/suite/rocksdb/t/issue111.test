@@ -35,7 +35,6 @@ commit;
 
 connection default;
 
---error ER_LOCK_DEADLOCK
 update t1 set col2=col2+1 where col1 < 10 limit 5;
 
 disconnect con2;

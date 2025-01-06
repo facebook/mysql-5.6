@@ -64,36 +64,9 @@ select * from t1 where pk=1 for update;
 rollback;
 set autocommit=1;
 
---connection con1
-drop table t1;
---connection default
-
---echo #
---echo #  Now, test what happens if another transaction modified the record and committed
---echo #
-
-CREATE TABLE t1 (
-  id int primary key, 
-  value int
-) engine=rocksdb collate latin1_bin;
-insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
-
---connection con1
-BEGIN;
-SELECT * FROM t1 WHERE id=3;
-
---connection default
-BEGIN;
-UPDATE t1 SET value=30 WHERE id=3;
-COMMIT;
-
---connection con1
---error ER_LOCK_DEADLOCK
-SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-
-ROLLBACK;
 --disconnect con1
 --connection default
+
 drop table t1;
 
 --source include/wait_until_count_sessions.inc

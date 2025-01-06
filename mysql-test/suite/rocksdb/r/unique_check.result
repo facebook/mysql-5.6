@@ -106,7 +106,8 @@ Warnings:
 Warning	1287	'VALUES function' is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead
 commit;
 set debug_sync='now SIGNAL trx_a_cont';
-ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
+Warnings:
+Warning	1287	'VALUES function' is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead
 rollback;
 drop table t1;
 set debug_sync='RESET';

@@ -367,9 +367,9 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                            const rocksdb::Slice *value, bool *skip_row)
       MY_ATTRIBUTE((__warn_unused_result__));
 
-  rocksdb::Status get_for_update(Rdb_transaction *const tx,
-                                 const Rdb_key_def &kd,
-                                 const rocksdb::Slice &key) const;
+  [[nodiscard]] rocksdb::Status get_for_update(Rdb_transaction &tx,
+                                               const Rdb_key_def &kd,
+                                               const rocksdb::Slice &key) const;
 
   int fill_virtual_columns();
 
@@ -948,8 +948,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
    * required by the interface. */
   int extra(enum ha_extra_function operation) override;
 
-  int start_stmt(THD *const thd, thr_lock_type lock_type) override
-      MY_ATTRIBUTE((__warn_unused_result__));
+  [[nodiscard]] int start_stmt(THD *thd, thr_lock_type) override;
   int external_lock(THD *const thd, int lock_type) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int truncate(dd::Table *table_def MY_ATTRIBUTE((unused))) override
@@ -1227,12 +1226,10 @@ void rdb_tx_acquire_snapshot(Rdb_transaction &tx);
     const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
     TABLE_TYPE table_type);
 
-rocksdb::Status rdb_tx_get_for_update(Rdb_transaction *tx,
-                                      const Rdb_key_def &kd,
-                                      const rocksdb::Slice &key,
-                                      rocksdb::PinnableSlice *const value,
-                                      TABLE_TYPE table_type, bool exclusive,
-                                      bool skip_wait);
+[[nodiscard]] rocksdb::Status rdb_tx_get_for_update(
+    Rdb_transaction &tx, const Rdb_key_def &kd, const rocksdb::Slice &key,
+    rocksdb::PinnableSlice *value, TABLE_TYPE table_type, bool exclusive,
+    bool skip_wait);
 
 void rdb_tx_release_lock(Rdb_transaction *tx, const Rdb_key_def &kd,
                          const rocksdb::Slice &key, bool force);

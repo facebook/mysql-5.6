@@ -5,7 +5,6 @@
 -   a WHERE clause
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
 INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
@@ -27,7 +26,6 @@ DROP TABLE t0;
 -   a WHERE clause
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
 INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
@@ -49,7 +47,6 @@ DROP TABLE t0;
 -   columns in a WHERE clause
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
 INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
@@ -71,7 +68,6 @@ DROP TABLE t0;
 -   columns in a WHERE clause
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
 INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
@@ -93,7 +89,6 @@ DROP TABLE t0;
 -   using REPEATABLE READ transaction isolation level unless
 -   rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -131,7 +126,6 @@ DROP TABLE t0;
 -   using READ COMMITTED transaction isolation level unless
 -   rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -169,7 +163,6 @@ DROP TABLE t0;
 -   using REPEATABLE READ transaction isolation level unless
 -   rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -196,7 +189,6 @@ SET GLOBAL rocksdb_lock_scanned_rows=0;
 -   using READ COMMITTED transaction isolation level unless
 -   rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -222,14 +214,15 @@ SET GLOBAL rocksdb_lock_scanned_rows=0;
 -   After creating a snapshot, other clients updating rows
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 UPDATE t0 SET VALUE=VALUE+1 WHERE id=190000;
-ERROR: 1213
+id	value
+190000	1
+ERROR: 0
 DROP TABLE t0;
 
 -----------------------------------------------------------------------
@@ -237,7 +230,6 @@ DROP TABLE t0;
 -   After creating a snapshot, other clients updating rows
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
@@ -254,7 +246,6 @@ DROP TABLE t0;
 -   Phantom rows
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
@@ -269,7 +260,6 @@ DROP TABLE t0;
 -   Phantom rows
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
@@ -284,7 +274,6 @@ DROP TABLE t0;
 -   Deleting primary key
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 UPDATE t0 SET value=100 WHERE id=190000;
@@ -295,7 +284,8 @@ SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 BEGIN;
 DELETE FROM t0 WHERE id=190000;
 COMMIT;
-ERROR: 1213
+id	value
+ERROR: 0
 COMMIT;
 DROP TABLE t0;
 
@@ -304,7 +294,6 @@ DROP TABLE t0;
 -   Deleting primary key
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 UPDATE t0 SET value=100 WHERE id=190000;
@@ -325,7 +314,6 @@ DROP TABLE t0;
 -   Changing primary key
 -   using REPEATABLE READ transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 UPDATE t0 SET value=100 WHERE id=190000;
@@ -336,7 +324,8 @@ SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 BEGIN;
 UPDATE t0 SET id=200001 WHERE id=190000;
 COMMIT;
-ERROR: 1213
+id	value
+ERROR: 0
 COMMIT;
 DROP TABLE t0;
 
@@ -345,7 +334,6 @@ DROP TABLE t0;
 -   Changing primary key
 -   using READ COMMITTED transaction isolation level
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t0;
 CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
 Inserting 200,000 rows
 UPDATE t0 SET value=100 WHERE id=190000;
@@ -366,7 +354,6 @@ DROP TABLE t0;
 -   Rows that are scanned as part of a query but not in the table being
 -   updated should not be locked unless rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t1, t2;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -397,7 +384,6 @@ DROP TABLE t2;
 -   Rows that are scanned as part of a query but not in the table being
 -   updated should not be locked unless rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t1, t2;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -428,7 +414,6 @@ DROP TABLE t2;
 -   Rows that are scanned as part of a query but not in the table being
 -   updated should not be locked unless rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t1, t2;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0
@@ -463,7 +448,6 @@ SET GLOBAL rocksdb_lock_scanned_rows=0;
 -   Rows that are scanned as part of a query but not in the table being
 -   updated should not be locked unless rocksdb_lock_scanned_rows is on
 -----------------------------------------------------------------------
-DROP TABLE IF EXISTS t1, t2;
 SELECT @@global.rocksdb_lock_scanned_rows;
 @@global.rocksdb_lock_scanned_rows
 0

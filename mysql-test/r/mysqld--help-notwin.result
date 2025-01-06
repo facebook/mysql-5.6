@@ -2584,9 +2584,8 @@ The following options may be given as the first argument:
  --rocksdb-skip-locks-if-skip-unique-check 
  Skip row locking when unique checks are disabled.
  --rocksdb-skip-snapshot-validation 
- Skips snapshot validation on locking reads. This makes
- MyRocks Repeatable Read behavior close to InnoDB --
- forcing reading the newest data with locking reads.
+ Obsolete option name kept for compatibility before
+ removing
  --rocksdb-sst-mgr-rate-bytes-per-sec=# 
  DBOptions::sst_file_manager rate_bytes_per_sec for
  RocksDB

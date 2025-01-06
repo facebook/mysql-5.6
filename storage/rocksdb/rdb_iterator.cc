@@ -453,7 +453,7 @@ int Rdb_iterator_base::get(const rocksdb::Slice *key,
   if (type == RDB_LOCK_NONE) {
     s = rdb_tx_get(tx, m_kd.get_cf(), *key, value, m_table_type);
   } else {
-    s = rdb_tx_get_for_update(tx, m_kd, *key, value, m_table_type,
+    s = rdb_tx_get_for_update(*tx, m_kd, *key, value, m_table_type,
                               type == RDB_LOCK_WRITE, skip_wait);
   }
 
@@ -743,8 +743,8 @@ int Rdb_iterator_partial::materialize_prefix() {
   // It is possible that someone else has already materialized this group
   // before we locked. Double check by doing a locking read on the sentinel.
   rocksdb::PinnableSlice value;
-  auto s = rdb_tx_get_for_update(tx, m_kd, cur_prefix_key, &value, m_table_type,
-                                 true, false);
+  auto s = rdb_tx_get_for_update(*tx, m_kd, cur_prefix_key, &value,
+                                 m_table_type, true, false);
   if (s.ok()) {
     rdb_tx_release_lock(tx, m_kd, cur_prefix_key, true /* force */);
     thd_proc_info(m_thd, old_proc_info);

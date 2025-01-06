@@ -468,6 +468,7 @@ SNAPSHOTS
 ---------
 LIST OF SNAPSHOTS FOR EACH SESSION:
 ---SNAPSHOT, ACTIVE NUM sec
+---NO RR SNAPSHOT
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE ROCKSDB TRANSACTION STATUS
 earliest snapshot created NUM sec ago

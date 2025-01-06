@@ -23,22 +23,12 @@
 # read_range_first -> index_read_map_impl -> read_row_from_secondary_key
 # next row
 # index_next -> index_next_with_direction -> secondary_index_read
-#
-# In all cases, RR gets snapshot conflict errors if non-first rows get
-# deleted by another transaction after scanning.
 
 --source include/have_rocksdb.inc
 --source include/have_debug_sync.inc
 
 let $isolation_level = REPEATABLE READ;
-let $skip_snapshot_validation = 0;
---source rocksdb_concurrent_delete_main.inc
-
-let $isolation_level = REPEATABLE READ;
-let $skip_snapshot_validation = 1;
 --source rocksdb_concurrent_delete_main.inc
 
 let $isolation_level = READ COMMITTED;
-let $skip_snapshot_validation = 0;
 --source rocksdb_concurrent_delete_main.inc
-

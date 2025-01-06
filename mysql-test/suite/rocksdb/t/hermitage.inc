@@ -12,13 +12,10 @@ DROP TABLE IF EXISTS test;
 
 connect (con1,localhost,root,,);
 eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
-eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 connect (con2,localhost,root,,);
 eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
-eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 connect (con3,localhost,root,,);
 eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
-eval SET SESSION rocksdb_skip_snapshot_validation=$skip_snapshot_validation;
 
 connection con1;
 
@@ -120,26 +117,9 @@ send delete from test where value = 20;
 connection con1;
 commit;
 connection con2;
-if ($trx_isolation == "READ COMMITTED")
-{
-  reap;
-  # RC: Returns 2 => 30
-  select * from test;
-}
-if ($trx_isolation == "REPEATABLE READ")
-{
-  if ($skip_snapshot_validation == 0)
-  {
-    --error ER_LOCK_DEADLOCK
-    reap;
-    select variable_value-@a from performance_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
-  }
-  if ($skip_snapshot_validation == 1)
-  {
-    reap;
-    select * from test;
-  }
-}
+reap;
+# RC: Returns 2 => 30
+select * from test;
 commit;
 
 
@@ -157,25 +137,9 @@ send update test set value = 12 where id = 1;
 connection con1;
 commit;
 connection con2;
-if ($trx_isolation == "READ COMMITTED")
-{
-  reap;
-  # RC: Returns 1 => 12
-  select * from test;
-}
-if ($trx_isolation == "REPEATABLE READ")
-{
-  if ($skip_snapshot_validation == 0)
-  {
-    --error ER_LOCK_DEADLOCK
-    reap;
-  }
-  if ($skip_snapshot_validation == 1)
-  {
-    reap;
-    select * from test;
-  }
-}
+reap;
+# RC: Returns 1 => 12
+select * from test;
 commit;
 
 
@@ -218,24 +182,8 @@ update test set value = 12 where id = 1;
 update test set value = 18 where id = 2;
 commit;
 connection con1;
-if ($trx_isolation == "READ COMMITTED")
-{
-  delete from test where value = 20; # doesn't delete anything
-  select * from test where id = 2; # shows 2 => 18
-}
-if ($trx_isolation == "REPEATABLE READ")
-{
-  if ($skip_snapshot_validation == 0)
-  {
-    --error ER_LOCK_DEADLOCK
-    delete from test where value = 20;
-  }
-  if ($skip_snapshot_validation == 1)
-  {
-    delete from test where value = 20; # doesn't delete anything
-    select * from test where id = 2; # shows 2 => 18
-  }
-}
+delete from test where value = 20; # doesn't delete anything
+select * from test where id = 2; # shows 2 => 18
 commit;
 
 

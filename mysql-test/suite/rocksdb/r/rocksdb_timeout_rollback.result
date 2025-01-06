@@ -57,6 +57,8 @@ a
 6
 9
 10
+11
+12
 commit;
 select * from t1;
 a

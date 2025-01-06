@@ -18,10 +18,6 @@
 --echo -   rocksdb_lock_scanned_rows is on
 --echo -----------------------------------------------------------------------
 
---disable_warnings
-DROP TABLE IF EXISTS t0;
---enable_warnings
-
 SELECT @@global.rocksdb_lock_scanned_rows;
 
 if ($lock_scanned_rows)
