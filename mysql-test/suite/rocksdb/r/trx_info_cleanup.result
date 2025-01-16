@@ -13,3 +13,23 @@ a
 1
 2
 DROP TABLE t1;
+#
+# A crashing race between a rocksdb_trx query and a transaction commit
+# freeing the RocksDB transaction object due to too large write batch
+#
+CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=ROCKSDB;
+SET @saved_rdb_wb_mem_free_threshold = @@global.rocksdb_write_batch_mem_free_threshold;
+SET GLOBAL rocksdb_write_batch_mem_free_threshold = 1;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+SET DEBUG_SYNC = "myrocks_release_tx SIGNAL ready1 WAIT_FOR continue1";
+COMMIT;
+SET DEBUG_SYNC = "now WAIT_FOR ready1";
+SET DEBUG_SYNC = "myrocks_in_rocksdb_trx_before_trx SIGNAL ready2 WAIT_FOR continue2";
+SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_TRX;
+SET DEBUG_SYNC = "now WAIT_FOR ready2";
+SET DEBUG_SYNC = "now SIGNAL continue1";
+SET DEBUG_SYNC = "now SIGNAL continue2";
+TRANSACTION_ID	STATE	NAME	WRITE_COUNT	LOCK_COUNT	TIMEOUT_SEC	WAITING_KEY	WAITING_COLUMN_FAMILY_ID	IS_REPLICATION	SKIP_TRX_API	READ_ONLY	HAS_DEADLOCK_DETECTION	NUM_ONGOING_BULKLOAD	THREAD_ID	QUERY
+SET GLOBAL rocksdb_write_batch_mem_free_threshold = @saved_rdb_wb_mem_free_threshold;
+DROP TABLE t1;

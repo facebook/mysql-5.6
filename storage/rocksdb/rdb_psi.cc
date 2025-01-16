@@ -55,7 +55,7 @@ my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key, rdb_signal_bg_psi_mutex_key,
     rdb_sst_commit_key, rdb_block_cache_resize_mutex_key,
     rdb_bottom_pri_background_compactions_resize_mutex_key,
     clone_donor_file_metadata_mutex_key, clone_main_task_remaining_mutex_key,
-    clone_error_mutex_key;
+    clone_error_mutex_key, i_s_transaction_access_mutex_key;
 
 my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
     {&rdb_psi_open_tbls_mutex_key, "open tables", PSI_FLAG_SINGLETON, 0,
@@ -86,6 +86,8 @@ my_core::PSI_mutex_info all_rocksdb_mutexes[] = {
     {&clone_main_task_remaining_mutex_key, "clone main task remaining", 0, 0,
      PSI_DOCUMENT_ME},
     {&clone_error_mutex_key, "clone session error", 0, 0, PSI_DOCUMENT_ME},
+    {&i_s_transaction_access_mutex_key, "transaction access from I_S", 0, 0,
+     PSI_DOCUMENT_ME},
 };
 
 my_core::PSI_rwlock_key key_rwlock_collation_exception_list,

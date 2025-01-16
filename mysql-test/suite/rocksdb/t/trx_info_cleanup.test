@@ -29,4 +29,46 @@ set @@global.debug = '-d,rocksdb_trx_list_crash';
 SELECT a from t1;
 DROP TABLE t1;
 
+--echo #
+--echo # A crashing race between a rocksdb_trx query and a transaction commit
+--echo # freeing the RocksDB transaction object due to too large write batch
+--echo #
+
+CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=ROCKSDB;
+
+SET @saved_rdb_wb_mem_free_threshold = @@global.rocksdb_write_batch_mem_free_threshold;
+SET GLOBAL rocksdb_write_batch_mem_free_threshold = 1;
+
+BEGIN;
+INSERT INTO t1 VALUES (1);
+
+SET DEBUG_SYNC = "myrocks_release_tx SIGNAL ready1 WAIT_FOR continue1";
+send COMMIT;
+
+--connect(con1,localhost,root)
+SET DEBUG_SYNC = "now WAIT_FOR ready1";
+SET DEBUG_SYNC = "myrocks_in_rocksdb_trx_before_trx SIGNAL ready2 WAIT_FOR continue2";
+send SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_TRX;
+
+--connect(con2,localhost,root)
+
+SET DEBUG_SYNC = "now WAIT_FOR ready2";
+SET DEBUG_SYNC = "now SIGNAL continue1";
+
+--disconnect con2
+
+--connection default
+reap;
+
+SET DEBUG_SYNC = "now SIGNAL continue2";
+
+--connection con1
+reap;
+
+--disconnect con1
+--connection default
+
+SET GLOBAL rocksdb_write_batch_mem_free_threshold = @saved_rdb_wb_mem_free_threshold;
+DROP TABLE t1;
+
 --source include/wait_until_count_sessions.inc

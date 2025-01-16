@@ -49,7 +49,7 @@ extern my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
     rdb_block_cache_resize_mutex_key,
     rdb_bottom_pri_background_compactions_resize_mutex_key,
     clone_donor_file_metadata_mutex_key, clone_main_task_remaining_mutex_key,
-    clone_error_mutex_key;
+    clone_error_mutex_key, i_s_transaction_access_mutex_key;
 
 extern my_core::PSI_rwlock_key key_rwlock_collation_exception_list,
     key_rwlock_read_free_rpl_tables, key_rwlock_clone_task_id_set,
