@@ -231,6 +231,10 @@ static Rdb_binlog_manager binlog_manager;
 static std::unique_ptr<Rdb_io_watchdog> io_watchdog;
 #endif
 
+// The prepared transactions found during crash recovery. Populated in
+// rocksdb_recover and cleared in rocskdb_post_recover.
+static std::vector<rocksdb::Transaction *> recovered_transactions;
+
 /**
   MyRocks background thread control
   N.B. This is besides RocksDB's own background threads
@@ -3977,6 +3981,8 @@ class Rdb_transaction {
     }
   }
 
+  virtual void restart_if_committed_by_xid() {}
+
   void set_params(THD *thd, TABLE_TYPE table_type) {
     if (thd_tx_is_dd_trx(thd)) {
       assert(is_autocommit(*thd));
@@ -5350,6 +5356,25 @@ class Rdb_transaction_impl : public Rdb_transaction {
       nullptr, nullptr};
 
  public:
+  // Restart the owned RocksDB transaction if it was committed outside the
+  // owning Rdb_transaction_impl object. Currently this happens with XA
+  // transactions followed by DDL when DDSE is MyRocks.
+  void restart_if_committed_by_xid() override {
+    if (default_dd_system_storage_engine != DEFAULT_DD_ROCKSDB) return;
+
+    auto *const rdb_tx = m_rocksdb_tx[TABLE_TYPE::USER_TABLE].get();
+
+    if (rdb_tx == nullptr ||
+        likely(rdb_tx->GetState() ==
+               rocksdb::Transaction::TransactionState::STARTED)) {
+      return;
+    }
+
+    release_snapshot(TABLE_TYPE::USER_TABLE);
+    release_tx(rdb_tx->GetWriteBatch()->GetDataSize());
+    start_tx(TABLE_TYPE::USER_TABLE);
+  }
+
   void set_lock_timeout(int timeout_sec_arg, TABLE_TYPE table_type) override {
     assert(!is_ac_nl_ro_rc_transaction());
 
@@ -7186,8 +7211,6 @@ static xa_status_code rocksdb_commit_by_xid(
     DBUG_RETURN(XAER_RMERR);
   }
 
-  delete trx;
-
   // `Add()` is implemented in a thread-safe manner.
   commit_latency_stats->Add(timer.ElapsedNanos() / 1000);
 
@@ -7218,8 +7241,6 @@ static xa_status_code rocksdb_rollback_by_xid(
     rdb_log_status_error(s);
     DBUG_RETURN(XAER_RMERR);
   }
-
-  delete trx;
 
   DBUG_RETURN(XA_OK);
 }
@@ -7357,11 +7378,10 @@ static int rocksdb_recover(handlerton *const hton [[maybe_unused]],
     return HA_EXIT_SUCCESS;
   }
 
-  std::vector<rocksdb::Transaction *> trans_list;
-  rdb->GetAllPreparedTransactions(&trans_list);
+  rdb->GetAllPreparedTransactions(&recovered_transactions);
 
   uint count = 0;
-  for (auto &trans : trans_list) {
+  for (const auto &trans : recovered_transactions) {
     if (count >= len) {
       break;
     }
@@ -7370,6 +7390,13 @@ static int rocksdb_recover(handlerton *const hton [[maybe_unused]],
     count++;
   }
   return count;
+}
+
+static void rocksdb_post_recover() {
+  for (auto &trans : recovered_transactions) {
+    delete trans;
+  }
+  recovered_transactions.clear();
 }
 
 static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
@@ -8214,6 +8241,8 @@ static inline void rocksdb_register_tx(
     Rdb_transaction *const tx) {
   assert(tx != nullptr);
 
+  tx->restart_if_committed_by_xid();
+
   trans_register_ha(thd, false, rocksdb_hton, NULL);
   if (rocksdb_write_policy == rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
     // Some internal operations will call trans_register_ha, but they do not
@@ -8964,6 +8993,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->recover_binlog_pos = rocksdb_recover_binlog_pos;
   rocksdb_hton->update_binlog_pos = rocksdb_update_binlog_pos;
   rocksdb_hton->recover = rocksdb_recover;
+  rocksdb_hton->post_recover = rocksdb_post_recover;
   rocksdb_hton->commit = rocksdb_commit;
   rocksdb_hton->rollback = rocksdb_rollback;
   rocksdb_hton->db_type = DB_TYPE_ROCKSDB;
