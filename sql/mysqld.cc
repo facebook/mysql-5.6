@@ -5011,7 +5011,7 @@ SHOW_VAR com_status_vars[] = {
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_FIND_GTID_POSITION]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
-    {"find_gtid_position",
+    {"find_raft_log_position",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_FIND_RAFT_LOG_POSITION]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
